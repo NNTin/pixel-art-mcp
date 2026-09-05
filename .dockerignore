@@ -1,0 +1,10 @@
+.git
+.venv
+.agents
+.codex
+__pycache__
+.*cache
+.env
+data
+dist
+build

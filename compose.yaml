@@ -1,0 +1,36 @@
+services:
+  pixel-art-mcp:
+    build: .
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      PIXEL_DATA_DIR: /data
+      PIXEL_BASE_URL: ${PIXEL_BASE_URL:-http://localhost:8000}
+      PIXEL_SCRIPT_TIMEOUT: ${PIXEL_SCRIPT_TIMEOUT:-120}
+      PIXEL_RENDER_TIMEOUT: ${PIXEL_RENDER_TIMEOUT:-600}
+      PIXEL_BLENDER_THREADS: ${PIXEL_BLENDER_THREADS:-2}
+      PIXEL_MAX_UPLOAD_BYTES: ${PIXEL_MAX_UPLOAD_BYTES:-20971520}
+      PIXEL_MAX_IMAGE_PIXELS: ${PIXEL_MAX_IMAGE_PIXELS:-40000000}
+      PIXEL_MAX_RENDER_FRAMES: ${PIXEL_MAX_RENDER_FRAMES:-256}
+      PIXEL_MAX_SHEET_PIXELS: ${PIXEL_MAX_SHEET_PIXELS:-16777216}
+      PIXEL_ALLOWED_HOSTS: '${PIXEL_ALLOWED_HOSTS:-["localhost","127.0.0.1","[::1]"]}'
+      PIXEL_ALLOWED_ORIGINS: '${PIXEL_ALLOWED_ORIGINS:-["http://localhost:8000","http://127.0.0.1:8000"]}'
+    volumes:
+      - pixel-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    cpus: 2.0
+    mem_limit: 4g
+    pids_limit: 256
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+volumes:
+  pixel-data:

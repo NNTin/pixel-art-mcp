@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.28,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pixel-art-mcp"
+version = "0.1.0"
+description = "A local MCP service for Blender modeling and pixel-art sprite export"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.115.6,<1",
+  "httpx>=0.28.1,<1",
+  "mcp==1.29.1",
+  "pillow==12.1.1",
+  "pydantic>=2.12.5,<3",
+  "pydantic-settings>=2.12,<3",
+  "python-multipart>=0.0.22,<1",
+  "uvicorn>=0.40,<1",
+]
+
+[project.scripts]
+pixel-art-mcp = "pixel_art_mcp.app:main"
+
+[dependency-groups]
+dev = ["pytest>=9,<10", "pytest-asyncio>=1,<2", "ruff>=0.15,<1", "mypy>=2,<3"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pixel_art_mcp"]
+
+[tool.uv]
+environments = ["sys_platform == 'linux'"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+asyncio_mode = "auto"
+markers = ["blender: requires a real Blender executable", "e2e: requires a running Docker service"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/pixel_art_mcp/blender/runner.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+exclude = ["src/pixel_art_mcp/blender/runner.py", "examples/"]
+
+[[tool.mypy.overrides]]
+module = ["pixel_art_mcp.blender.runner"]
+ignore_errors = true
