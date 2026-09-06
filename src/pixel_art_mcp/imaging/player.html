@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sprite preview</title>
+<style>
+  :root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #161b22; color: #e9edf2; }
+  body { max-width: 1200px; margin: 0 auto; padding: 28px; }
+  h1 { font-size: 24px; margin: 0 0 8px; }
+  p { color: #aeb9c6; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 24px 0; }
+  button, select { font: inherit; padding: 8px 12px; border: 1px solid #526073; border-radius: 6px; }
+  label { display: flex; align-items: center; gap: 8px; }
+  #views { display: flex; flex-wrap: wrap; align-items: start; gap: 16px; }
+  figure { margin: 0; max-width: 100%; border: 1px solid #3a4656; border-radius: 8px; overflow: hidden; }
+  figcaption { padding: 10px 14px; background: #222b36; }
+  canvas { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+  canvas.checker { background: conic-gradient(#29313d 25%, #202732 0 50%, #29313d 0 75%, #202732 0) 0 0 / 24px 24px; }
+  canvas.dark { background: #10141b; }
+  canvas.light { background: #f4eee3; }
+</style>
+<h1>Sprite preview</h1>
+<p id="summary">Loading sprites…</p>
+<div class="controls">
+  <button id="play" type="button" disabled>Play</button>
+  <label>Frame <input id="frame" type="range" min="0" value="0" step="1" disabled></label>
+  <output id="position" for="frame"></output>
+  <label>Zoom <select id="zoom"><option>1</option><option>2</option><option selected>4</option><option>8</option></select>×</label>
+  <label>Background <select id="background"><option value="checker">Checkerboard</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
+</div>
+<div id="views"></div>
+<noscript>Enable JavaScript to play the sprites, or open spritesheet.png from the ZIP.</noscript>
+<script>
+  "use strict";
+  const data = __PLAYER_DATA__;
+  const play = document.getElementById("play");
+  const frame = document.getElementById("frame");
+  const zoom = document.getElementById("zoom");
+  const background = document.getElementById("background");
+  const position = document.getElementById("position");
+  const summary = document.getElementById("summary");
+  const views = document.getElementById("views");
+  const canvases = data.angles.map(angle => {
+    const figure = document.createElement("figure");
+    const canvas = document.createElement("canvas");
+    canvas.width = data.width;
+    canvas.height = data.height;
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", `Sprite viewed from ${angle} degrees`);
+    const caption = document.createElement("figcaption");
+    caption.textContent = `${angle}°`;
+    figure.append(canvas, caption);
+    views.append(figure);
+    return canvas;
+  });
+  frame.max = data.frames.length - 1;
+  let column = 0;
+  let playing = false;
+  let previous = null;
+  let elapsed = 0;
+  const sheet = new Image();
+  function draw() {
+    canvases.forEach((canvas, row) => {
+      const context = canvas.getContext("2d");
+      context.imageSmoothingEnabled = false;
+      context.clearRect(0, 0, data.width, data.height);
+      context.drawImage(sheet, column * data.width, row * data.height,
+        data.width, data.height, 0, 0, data.width, data.height);
+      canvas.style.width = `${data.width * Number(zoom.value)}px`;
+      canvas.className = background.value;
+    });
+    frame.value = column;
+    position.textContent = `${column + 1} / ${data.frames.length} (source ${data.frames[column]})`;
+  }
+  function setPlaying(value) {
+    playing = value;
+    previous = null;
+    elapsed = 0;
+    play.textContent = playing ? "Pause" : "Play";
+  }
+  function tick(time) {
+    if (playing && !document.hidden) {
+      if (previous !== null) elapsed += time - previous;
+      const steps = Math.floor(elapsed * data.fps / 1000);
+      if (steps) {
+        column = (column + steps) % data.frames.length;
+        elapsed -= steps * 1000 / data.fps;
+        draw();
+      }
+      previous = time;
+    } else previous = null;
+    requestAnimationFrame(tick);
+  }
+  play.addEventListener("click", () => setPlaying(!playing));
+  frame.addEventListener("input", () => { setPlaying(false); column = Number(frame.value); draw(); });
+  zoom.addEventListener("change", draw);
+  background.addEventListener("change", draw);
+  sheet.onload = () => {
+    const animated = data.frames.length > 1;
+    play.disabled = frame.disabled = !animated;
+    summary.textContent = `${data.angles.length} directions · ${data.frames.length} frames · ${data.width} × ${data.height} px · ${data.fps} fps`;
+    setPlaying(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches);
+    draw();
+    requestAnimationFrame(tick);
+  };
+  sheet.onerror = () => { summary.textContent = "The sprite sheet could not be loaded."; };
+  sheet.src = `data:image/png;base64,${data.image}`;
+</script>
+</html>

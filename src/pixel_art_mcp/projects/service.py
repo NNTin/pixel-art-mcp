@@ -46,6 +46,12 @@ class Service:
             "authentication": "none",
             "modeling": "full Blender Python (trusted scripts)",
             "render_defaults": RenderOptions().model_dump(),
+            "export_features": {
+                "preview_options": "same as render_sprites; angle/frame override options",
+                "animation_format": "image/apng",
+                "animation_layout": "one transparent loop per direction, at export resolution",
+                "offline_player": "preview.html; play/pause, scrub, zoom, background",
+            },
             "limits": {
                 key: value
                 for key, value in self.settings.model_dump().items()
@@ -91,7 +97,11 @@ class Service:
             "kind": kind,
             "filename": path.name,
             "relative_path": relative,
-            "media_type": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+            "media_type": (
+                "image/apng"
+                if path.suffix == ".apng"
+                else mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            ),
             "size_bytes": checked.stat().st_size,
             "width": width,
             "height": height,

@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from PIL import Image
 
+from pixel_art_mcp.imaging.player import export_player
 from pixel_art_mcp.models import DomainError, RenderOptions
 
 
@@ -90,7 +91,25 @@ def export_sheet(
                 yield source
 
     frames, palette = pixelate(source_images(), options)
+    pack_sprites(frames, palette, output_dir, manifest, options, project_id, revision_id)
+
+
+def pack_sprites(
+    frames: list[Image.Image],
+    palette: list[str],
+    output_dir: Path,
+    manifest: dict[str, Any],
+    options: RenderOptions,
+    project_id: str,
+    revision_id: str,
+) -> None:
+    """Package already converted sprites without changing their colors or placement."""
+    entries = manifest["frames"]
     columns, rows = len(options.frames()), len(options.angles)
+    if len(frames) != rows * columns or len(entries) != len(frames):
+        raise DomainError("Cannot pack an incomplete frame sequence")
+    if any(im.mode != "RGBA" or im.size != (options.width, options.height) for im in frames):
+        raise DomainError("Cannot pack sprites with unexpected dimensions or color mode")
     sheet = Image.new("RGBA", (columns * options.width, rows * options.height))
     output_dir.mkdir(parents=True, exist_ok=True)
     frame_dir = output_dir / "frames"
@@ -120,6 +139,31 @@ def export_sheet(
     if max(preview.size) > 1024:
         preview.thumbnail((1024, 1024), Image.Resampling.NEAREST)
     preview.save(output_dir / "preview.png")
+    directions = []
+    for row, angle in enumerate(options.angles):
+        indices = list(range(row * columns, (row + 1) * columns))
+        animation = None
+        if columns > 1:
+            animation = f"animations/direction_{row:02d}.apng"
+            path = output_dir / animation
+            path.parent.mkdir(exist_ok=True)
+            sequence = [frames[i] for i in indices]
+            # SOURCE replaces changed pixels, including newly transparent pixels. OVER would
+            # leave trails when a flame shrinks or an object moves. Keep the exported palette.
+            sequence[0].save(
+                path,
+                format="PNG",
+                save_all=True,
+                append_images=sequence[1:],
+                duration=1000 / options.fps,
+                loop=0,
+                disposal=0,
+                blend=0,
+            )
+        directions.append(
+            {"angle": angle, "row": row, "frame_indices": indices, "animation": animation}
+        )
+    export_player(output_dir, options)
     metadata = {
         "schema_version": 1,
         "project_id": project_id,
@@ -132,6 +176,8 @@ def export_sheet(
         "transparent": True,
         "settings": options.model_dump(),
         "frames": frame_metadata,
+        "directions": directions,
+        "player": "preview.html",
         "camera": manifest["camera"],
         "blender_version": manifest["blender_version"],
     }

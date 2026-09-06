@@ -23,6 +23,7 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert len(tools) == 13
         assert tools["execute_blender_python"]["annotations"]["readOnlyHint"] is False
         assert tools["inspect_scene"]["annotations"]["readOnlyHint"] is True
+        assert "options" in tools["render_preview"]["inputSchema"]["properties"]
         upload_schema = tools["add_reference_image"]["inputSchema"]
         file_schema = upload_schema["$defs"]["OpenAIFile"]
         assert file_schema["required"] == ["download_url", "file_id"]
@@ -54,6 +55,84 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert artifact.text == "print('chair')"
         bad = await client.call("get_project", {"project_id": "not-a-uuid"}, allow_error=True)
         assert bad["isError"]
+
+
+async def test_preview_options_and_legacy_overrides(settings, fake_blender, monkeypatch):
+    settings.blender_binary = fake_blender
+    app = create_app(settings)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost"
+        ) as http,
+    ):
+        client = MCPClient(http)
+        await client.initialize()
+        project = await client.data("create_project", {"name": "Preview settings"})
+        job = await client.data(
+            "execute_blender_python",
+            {
+                "project_id": project["id"],
+                "script": "print('model')",
+                "expected_revision_id": None,
+            },
+        )
+        await client.wait(job["id"])
+        service = app.state.service
+        # Leave render jobs queued: this fixture tests the wire contract, not Blender rendering.
+        monkeypatch.setattr(service.store, "claim_job", lambda: None)
+        defaults = await client.data("render_preview", {"project_id": project["id"]})
+        values = service.store.job(defaults["id"])["params"]["options"]
+        assert values["angles"] == [45] and values["frame_start"] == values["frame_end"] == 1
+        assert values["width"] == 64 and values["samples"] == 16
+        options = {
+            "angles": [0, 90],
+            "width": 96,
+            "height": 64,
+            "elevation": 20,
+            "frame_start": 2,
+            "frame_end": 8,
+            "frame_step": 2,
+            "lighting": "scene",
+            "palette": ["#000000", "#ffffff"],
+            "samples": 4,
+        }
+        preview = await client.data(
+            "render_preview", {"project_id": project["id"], "options": options}
+        )
+        values = service.store.job(preview["id"])["params"]["options"]
+        assert all(values[key] == value for key, value in options.items())
+        assert service.store.job(preview["id"])["operation"] == "preview"
+        override = await client.data(
+            "render_preview",
+            {
+                "project_id": project["id"],
+                "options": options,
+                "angle": 0,
+                "frame": 0,
+            },
+        )
+        values = service.store.job(override["id"])["params"]["options"]
+        assert values["angles"] == [0] and values["frame_start"] == values["frame_end"] == 0
+        assert values["width"] == 96 and values["lighting"] == "scene"
+        invalid = await client.call(
+            "render_preview",
+            {
+                "project_id": project["id"],
+                "frame": -1,
+            },
+            allow_error=True,
+        )
+        assert invalid["isError"]
+        excessive = await client.call(
+            "render_preview",
+            {
+                "project_id": project["id"],
+                "options": {"frame_end": 1000},
+            },
+            allow_error=True,
+        )
+        assert excessive["isError"]
 
 
 async def test_http_upload_validation_and_local_boundary(settings, png):

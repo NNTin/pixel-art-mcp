@@ -195,10 +195,14 @@ class Worker:
                 if not path.is_file():
                     continue
                 width = height = None
-                if path.suffix == ".png":
+                if path.suffix in {".png", ".apng"}:
                     with Image.open(path) as im:
                         width, height = im.size
                 kind = "frame" if path.parent.name == "frames" else path.stem
+                if path.parent.name == "animations":
+                    kind = "animation"
+                elif path.name == "preview.html":
+                    kind = "player"
                 artifacts.append(
                     service.artifact_record(project_id, path, kind, job_id, width, height)
                 )

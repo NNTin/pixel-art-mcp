@@ -60,13 +60,37 @@ def camera_basis(angle, elevation):
 def evaluated_corners():
     graph = bpy.context.evaluated_depsgraph_get()
     points = []
+    local_bounds = {}
     for instance in graph.object_instances:
         obj = instance.object
         if obj.type not in {"MESH", "CURVE", "SURFACE", "FONT", "META", "VOLUME"}:
             continue
         if obj.original.hide_render:
             continue
-        points.extend(instance.matrix_world @ Vector(p) for p in obj.bound_box)
+        key = obj.as_pointer()
+        if key not in local_bounds:
+            if obj.type in {"CURVE", "SURFACE", "FONT", "META"}:
+                # Blender can expose both a legacy curve and its generated mesh instance.
+                # The curve's evaluated bound_box may include non-rendered control geometry
+                # and a unit-sized fallback, dwarfing a small bevel. Bound its visible mesh.
+                mesh = obj.to_mesh()
+                try:
+                    if mesh is None or not mesh.vertices:
+                        local_bounds[key] = []
+                    else:
+                        low = [min(v.co[axis] for v in mesh.vertices) for axis in range(3)]
+                        high = [max(v.co[axis] for v in mesh.vertices) for axis in range(3)]
+                        local_bounds[key] = [
+                            Vector((x, y, z))
+                            for x in (low[0], high[0])
+                            for y in (low[1], high[1])
+                            for z in (low[2], high[2])
+                        ]
+                finally:
+                    obj.to_mesh_clear()
+            else:
+                local_bounds[key] = [Vector(p) for p in obj.bound_box]
+        points.extend(instance.matrix_world @ point for point in local_bounds[key])
     return points
 
 

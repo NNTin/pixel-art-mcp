@@ -7,6 +7,9 @@ Describe an object, ask for changes, and export consistent views of the same mod
 a chair viewed at 0°, 45°, and 90°, or an animated object rendered from eight directions. Blender
 provides the editable 3D geometry, materials, and animation; the pixel-art converter turns its
 renders into transparent sprites and packs them into a sheet with playback metadata.
+Animated exports include transparent APNG loops for each direction and a self-contained browser
+player for checking playback, individual frames, and backgrounds. See the
+[animated oil lamp example](docs/tools.md#animated-oil-lamp-example) for a complete modeling recipe.
 
 The AI lives in your MCP client. It interprets reference images, writes Blender Python, and calls
 `execute_blender_python`. This service executes the code, saves `.blend` revisions, and renders
@@ -28,7 +31,7 @@ targets Linux x86-64 and pins Blender 4.5.13 LTS with CPU Cycles; no GPU or disp
 
 See [client setup](docs/client-setup.md), [tool usage](docs/tools.md), and
 [architecture](docs/architecture.md) for the workflow and operating constraints.
-See [validation status](docs/validation.md) for checks completed and the remaining Docker render check.
+See [validation status](docs/validation.md) for the completed Docker rendering and playback checks.
 
 ## Development
 

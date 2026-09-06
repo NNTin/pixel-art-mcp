@@ -97,3 +97,80 @@ async def test_docker_reference_model_edit_preview_and_sheet(png, example_dir):
         metadata = (await http.get(f"/artifacts/{metadata_id}")).json()
         assert len(metadata["frames"]) == 6
         assert len({tuple(frame["pivot"]) for frame in metadata["frames"]}) == 1
+        animations = [a for a in exported["artifacts"] if a["kind"] == "animation"]
+        assert len(animations) == 2
+        assert all(a["media_type"] == "image/apng" for a in animations)
+        assert all(a["width"] == a["height"] == 64 for a in animations)
+        for row, artifact in enumerate(animations):
+            downloaded = await http.get(f"/artifacts/{artifact['id']}")
+            assert downloaded.headers["content-type"] == "image/apng"
+            with Image.open(io.BytesIO(downloaded.content)) as apng:
+                assert apng.n_frames == 3 and apng.info["loop"] == 0
+                for column in range(3):
+                    apng.seek(column)
+                    frame = metadata["frames"][row * 3 + column]
+                    frame_artifact = next(
+                        a
+                        for a in exported["artifacts"]
+                        if a["filename"] == frame["filename"].split("/")[-1]
+                    )
+                    png = await http.get(f"/artifacts/{frame_artifact['id']}")
+                    with Image.open(io.BytesIO(png.content)) as original:
+                        assert apng.convert("RGBA").tobytes() == original.tobytes()
+        player = next(a for a in exported["artifacts"] if a["filename"] == "preview.html")
+        assert player["kind"] == "player"
+        html = (await http.get(f"/artifacts/{player['id']}")).text
+        assert "data:image/png;base64," in html and "__PLAYER_DATA__" not in html
+        preview_job = await client.data(
+            "render_preview",
+            {
+                "project_id": animation["id"],
+                "options": {"angles": [0, 90], "frame_end": 3, "samples": 8},
+            },
+        )
+        preview = await client.wait(preview_job["id"], timeout=300)
+        sheet = next(a for a in exported["artifacts"] if a["filename"] == "spritesheet.png")
+        preview_sheet = next(a for a in preview["artifacts"] if a["filename"] == "spritesheet.png")
+        assert (await http.get(f"/artifacts/{sheet['id']}")).content == (
+            await http.get(f"/artifacts/{preview_sheet['id']}")
+        ).content
+
+
+async def test_docker_curve_framing_uses_visible_geometry():
+    url = os.environ.get("PIXEL_E2E_URL")
+    if not url:
+        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
+    async with httpx.AsyncClient(base_url=url, timeout=30) as http:
+        client = MCPClient(http)
+        await client.initialize()
+        project = await client.data("create_project", {"name": "Curve framing regression"})
+        creation = await client.data(
+            "execute_blender_python",
+            {
+                "project_id": project["id"],
+                "expected_revision_id": None,
+                "script": """import bpy
+bpy.ops.curve.primitive_bezier_circle_add(radius=0.4, location=(0, 0, 0.5))
+ring = bpy.context.object
+ring.name = "Small beveled ring"
+ring.data.bevel_depth = 0.03
+ring.data.bevel_resolution = 2
+""",
+            },
+        )
+        await client.wait(creation["id"])
+        job = await client.data("render_preview", {"project_id": project["id"], "angle": 0})
+        completed = await client.wait(job["id"])
+        metadata_artifact = next(
+            a for a in completed["artifacts"] if a["filename"] == "spritesheet.json"
+        )
+        metadata = (await http.get(f"/artifacts/{metadata_artifact['id']}")).json()
+        # Diameter including bevel is 0.86, with 10% padding per side. The legacy
+        # curve's fallback bounds incorrectly produce an ortho scale above 3.
+        assert metadata["camera"]["ortho_scale"] == pytest.approx(0.86 * 1.2, abs=0.015)
+        sprite = next(a for a in completed["artifacts"] if a["kind"] == "frame")
+        png = await http.get(f"/artifacts/{sprite['id']}")
+        with Image.open(io.BytesIO(png.content)) as im:
+            bounds = im.getbbox()
+            assert bounds is not None
+            assert 50 <= bounds[2] - bounds[0] <= 55

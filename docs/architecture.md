@@ -40,12 +40,25 @@ around +Z. Bounds are collected from evaluated geometry and instances over every
 and view, then combined in camera coordinates. One scale and pivot are used for the entire job.
 An object that bobs retains its screen-space movement. Studio lighting follows the export camera;
 `lighting="scene"` uses saved scene lights and world instead.
+Legacy curves, text, surfaces, and metaballs are bounded from their evaluated meshes. Blender can
+expose both a curve object and its generated mesh instance; the curve's own evaluated bounding box
+may include control geometry and inflate framing. Per-object mesh bounds are cached within each
+frame and transformed separately for every instance.
 
 CPU Cycles renders RGBA PNGs at 4x target size by default. Pillow downsamples with BOX filtering,
 thresholds alpha, computes one palette from visible pixels sampled across every frame, and applies
 it without dithering. Transparent pixels have zero RGB. A custom palette bypasses palette fitting.
 The export preview uses nearest-neighbor scaling. Image-to-3D reconstruction and artistic quality
 assessment belong to the agent workflow, not to the converter.
+
+Preview jobs accept the full render options and run the same pipeline as final exports, so matching
+options preserve framing, palette, and lighting. Pixel conversion and artifact packing are separate:
+`pack_sprites` can package already converted RGBA frames without quantizing them again. Every export
+includes a self-contained HTML player with an embedded sheet. Animated exports also include one
+lossless APNG loop per direction. APNG frames replace changed pixels (including transparency) to
+avoid trails, and use the same floating-point frame duration as the JSON metadata. The encoder may
+combine identical consecutive frames while preserving their total hold time. The player uses source
+frame indices from the sheet, so every sampled frame remains individually inspectable.
 
 The sheet uses rows for view directions in requested order and columns for sampled animation
 frames in ascending order. `fps` is the playback rate of exported frames; `frame_step` selects
