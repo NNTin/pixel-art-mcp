@@ -55,6 +55,8 @@ class Service:
                 "pixel_agents": "Optional furniture manifest + PNG package; cardinal views, 5 fps, "
                 "off/on states. Animation only runs near an active agent, as supported by the app.",
                 "comparison": "Source render beside highlighted game-resolution PNGs",
+                "states": "Named states share framing/palette; one generated HTML comparison "
+                "player and one pixel-agents ZIP containing separate selectable variants.",
             },
             "limits": {
                 key: value
@@ -220,12 +222,16 @@ class Service:
         frame_count = len(options.render_frames()) * len(options.angles)
         if frame_count > self.settings.max_render_frames:
             raise DomainError("Render exceeds the configured total frame limit")
-        if frame_count * options.width * options.height > self.settings.max_sheet_pixels:
+        output_count = (
+            sum(len(state.frames()) + (state.off_frame is not None) for state in options.states)
+            * len(options.angles)
+            if options.states
+            else frame_count
+        )
+        pixel_count = max(frame_count, output_count) * options.width * options.height
+        if pixel_count > self.settings.max_sheet_pixels:
             raise DomainError("Sprite sheet exceeds the configured pixel limit")
-        if (
-            frame_count * options.width * options.height * options.supersampling**2
-            > self.settings.max_sheet_pixels
-        ):
+        if pixel_count * options.supersampling**2 > self.settings.max_sheet_pixels:
             raise DomainError(
                 "High-resolution comparison exceeds the configured pixel limit; "
                 "reduce dimensions, frames, angles, or supersampling"

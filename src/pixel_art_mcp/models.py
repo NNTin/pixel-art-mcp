@@ -123,7 +123,33 @@ class PixelAgentsOptions(Model):
     )
 
 
+class RenderState(Model):
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,23}$")
+    name: str = Field(min_length=1, max_length=48)
+    frame_start: int = Field(ge=0, le=100_000)
+    frame_end: int = Field(ge=0, le=100_000)
+    frame_step: int = Field(default=1, ge=1)
+    off_frame: int | None = Field(default=None, ge=0, le=100_000)
+
+    @model_validator(mode="after")
+    def ordered_range(self) -> "RenderState":
+        if self.frame_end < self.frame_start:
+            raise ValueError("State frame_end must be >= frame_start")
+        return self
+
+    def frames(self) -> list[int]:
+        return list(range(self.frame_start, self.frame_end + 1, self.frame_step))
+
+
 class RenderOptions(Model):
+    states: list[RenderState] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=16,
+        description="Named fill/appearance states with their own animation and idle frames. "
+        "Overrides the top-level frame range. Uses one camera/palette, generates a comparison "
+        "player and separate pixel-agents variants with asset IDs suffixed by state ID.",
+    )
     tile_width: int = Field(
         default=1,
         strict=True,
@@ -224,12 +250,31 @@ class RenderOptions(Model):
     def frame_range(self) -> "RenderOptions":
         if self.frame_end < self.frame_start:
             raise ValueError("frame_end must be >= frame_start")
+        if self.states:
+            if len({state.id for state in self.states}) != len(self.states):
+                raise ValueError("State IDs must be distinct")
+            if len({len(state.frames()) for state in self.states}) != 1:
+                raise ValueError("States must have the same number of animation frames")
         if self.pixel_agents:
             if self.fps != 5:
                 raise ValueError("pixel-agents furniture playback is fixed at 5 fps")
             if any(angle not in (0, 90, 180, 270) for angle in self.angles):
                 raise ValueError("pixel-agents supports only 0/front, 90/right, 180/back, 270/left")
-            if len(self.frames()) > 1 and self.pixel_agents.off_frame is None:
+            if self.states:
+                if self.pixel_agents.off_frame is not None:
+                    raise ValueError("Use each state's off_frame for named-state exports")
+                for state in self.states:
+                    if len(state.frames()) > 1 and state.off_frame is None:
+                        raise ValueError("Each animated pixel-agents state requires off_frame")
+                    if len(f"{self.pixel_agents.asset_id}_{state.id}") > 64:
+                        raise ValueError(
+                            "Combined pixel-agents asset and state ID exceeds 64 chars"
+                        )
+                    if len(f"{self.pixel_agents.name} — {state.name}") > 120:
+                        raise ValueError(
+                            "Combined pixel-agents asset and state name exceeds 120 chars"
+                        )
+            elif len(self.frames()) > 1 and self.pixel_agents.off_frame is None:
                 raise ValueError("pixel-agents animation requires off_frame for the idle/off state")
             footprint_h = self.pixel_agents.footprint_h or ((self.height + 15) // 16)
             if self.pixel_agents.background_tiles >= footprint_h:
@@ -239,6 +284,8 @@ class RenderOptions(Model):
         return self
 
     def frames(self) -> list[int]:
+        if self.states:
+            return list(dict.fromkeys(frame for state in self.states for frame in state.frames()))
         return list(range(self.frame_start, self.frame_end + 1, self.frame_step))
 
     def render_frames(self) -> list[int]:
@@ -246,6 +293,9 @@ class RenderOptions(Model):
         off = self.pixel_agents.off_frame if self.pixel_agents else None
         if off is not None and off not in frames:
             frames.append(off)
+        for state in self.states or []:
+            if state.off_frame is not None and state.off_frame not in frames:
+                frames.append(state.off_frame)
         return frames
 
 

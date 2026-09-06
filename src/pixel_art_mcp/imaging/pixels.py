@@ -71,6 +71,11 @@ def export_sheet(
     project_id: str,
     revision_id: str,
 ) -> None:
+    if options.states:
+        from pixel_art_mcp.imaging.states import export_states
+
+        export_states(raw_dir, output_dir, manifest, options, project_id, revision_id)
+        return
     entries = manifest["frames"]
     rendered_frames = options.render_frames()
     expected = len(options.angles) * len(rendered_frames)

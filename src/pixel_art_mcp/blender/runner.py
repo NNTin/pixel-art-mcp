@@ -67,7 +67,10 @@ def evaluated_corners():
             continue
         if obj.original.hide_render:
             continue
-        key = obj.as_pointer()
+        # Generated curve mesh objects are temporary: Blender reuses their pointers while
+        # iterating. Key by the stable original object and evaluated type, or one curve's
+        # bounds can be applied to another curve (and shift/resize the whole export).
+        key = (obj.original.as_pointer(), obj.type)
         if key not in local_bounds:
             if obj.type in {"CURVE", "SURFACE", "FONT", "META"}:
                 # Blender can expose both a legacy curve and its generated mesh instance.
@@ -133,11 +136,23 @@ def render(request, output):
     base_width = max(p.x for p in corners) - min(p.x for p in corners)
     base_height = max(p.y for p in corners) - min(p.y for p in corners)
 
-    frames = list(range(options["frame_start"], options["frame_end"] + 1, options["frame_step"]))
+    states = options.get("states")
+    ranges = states or [options]
+    frames = list(
+        dict.fromkeys(
+            frame
+            for state in ranges
+            for frame in range(state["frame_start"], state["frame_end"] + 1, state["frame_step"])
+        )
+    )
     target = options.get("pixel_agents")
     off_frame = target.get("off_frame") if target else None
     if off_frame is not None and off_frame not in frames:
         frames.append(off_frame)
+    for state in states or []:
+        off = state.get("off_frame")
+        if off is not None and off not in frames:
+            frames.append(off)
     bases = [camera_basis(angle, options["elevation"]) for angle in options["angles"]]
     xmin = ymin = math.inf
     xmax = ymax = -math.inf

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sprite states</title>
+<style>
+:root{color-scheme:dark;font:15px system-ui,sans-serif;color:#deebe7;background:#15222a}
+*{box-sizing:border-box}body{padding:32px 20px;max-width:1200px;margin:auto}
+h1{font-size:30px;margin:0 0 10px;color:#f2d9a0}p{color:#a7c0c3;line-height:1.6}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin:24px 0}
+button,select{padding:9px 13px;color:#e3eeec;background:#253c45;border:1px solid #507078;
+border-radius:6px;font:inherit}button{cursor:pointer;min-width:86px}
+label{display:flex;align-items:center;gap:8px}input{accent-color:#70d7d6}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+article{padding:18px 8px;border:1px solid #3b5259;border-radius:12px;text-align:center;background:#1c2e36}
+h2{margin:0 0 14px;font-size:17px;font-weight:600}.comparison{display:flex;justify-content:center;gap:10px;
+flex-wrap:wrap}.stage{display:grid;place-items:center;border-radius:6px;overflow:auto;padding:8px;
+background:repeating-conic-gradient(#273d45 0 25%,#2c434c 0 50%) 0/24px 24px}
+canvas{image-rendering:pixelated;display:block}.target{border:2px solid #e3bc6e}
+.caption{font-size:12px;margin:8px 0;color:#e3bc6e}.foot{font-size:13px}a{color:#8ddcdb}
+output{font-variant-numeric:tabular-nums;min-width:70px}button:disabled{opacity:.5}
+</style>
+<h1 id="title"></h1><p id="description"></p>
+<div class="controls">
+<label>Direction <select id="direction"></select></label>
+<label>Pose <select id="pose"><option value="on">Animated</option><option value="off">Idle</option></select></label>
+<button id="play" type="button">Pause</button>
+<label>Frame <input id="frame" type="range" min="0" value="0"></label><output id="counter"></output>
+<label>Zoom <select id="zoom"><option>1</option><option>2</option><option selected>4</option><option>6</option><option>8</option></select></label>
+<label>Background <select id="background"><option value="">Checkerboard</option><option value="#e3e9e4">Light</option><option value="#15222a">Dark</option></select></label>
+<label><input id="reference" type="checkbox">Show source renders</label>
+</div>
+<main class="cards" id="cards"></main><p id="activation" class="foot"></p>
+<p class="foot"><a href="sprites.zip">Complete sprite export</a> <a id="package" href="pixel-agents.zip">Pixel Agents package</a></p>
+<script>
+const data=__PLAYER_DATA__;
+const byId=id=>document.getElementById(id);
+document.title=data.name+' · Sprite states'; byId('title').textContent=data.name;
+byId('description').textContent=`${data.states.length} states · ${data.width} × ${data.height} transparent sprites · ${data.angles.length} directions · ${data.columns} frames at ${data.fps} fps`;
+byId('activation').textContent=data.pixelAgents ? 'Fill states are separate furniture variants. Pixel Agents plays on frames near a working agent and otherwise shows the idle pose. This preview loops independently.' : 'All states share one camera and palette. Each state also includes a detailed source comparison player.';
+byId('package').hidden=!data.pixelAgents;
+byId('reference').disabled=data.supersampling===1;
+const direction=byId('direction'),pose=byId('pose'),play=byId('play'),slider=byId('frame'),counter=byId('counter');
+data.angles.forEach((angle,i)=>{const option=document.createElement('option'); option.value=i;
+option.textContent=({0:'Front',90:'Right',180:'Back',270:'Left'})[angle]??`${angle}°`;direction.append(option)});
+slider.max=data.columns-1;
+let frame=0,running=data.columns>1&&!matchMedia('(prefers-reduced-motion: reduce)').matches;
+const images=[];
+const load=value=>{if(!value)return null;const im=new Image();im.src='data:image/png;base64,'+value;images.push(im);return im};
+const cards=data.states.map(state=>{
+const article=document.createElement('article'), title=document.createElement('h2'); title.textContent=state.name;
+const comparison=document.createElement('div');comparison.className='comparison';
+const panels=[false,true].map(high=>{const panel=document.createElement('div'),caption=document.createElement('div');
+caption.className='caption';caption.textContent=high ? `SOURCE · ${data.width*data.supersampling} × ${data.height*data.supersampling}` : `${data.pixelAgents?'USED BY PIXEL-AGENTS':'EXPORTED PNG'} · ${data.width} × ${data.height}`;
+const stage=document.createElement('div');stage.className='stage'+(high?'':' target');
+const canvas=document.createElement('canvas');const scale=high?data.supersampling:1;
+canvas.width=data.width*scale;canvas.height=data.height*scale;canvas.setAttribute('role','img');
+canvas.setAttribute('aria-label',state.name+(high?' source render':' sprite'));stage.append(canvas);panel.append(caption,stage);
+comparison.append(panel);return {panel,stage,canvas,ctx:canvas.getContext('2d'),scale}});
+article.append(title,comparison);byId('cards').append(article);
+return {panels,image:load(state.image),off:load(state.offImage),high:load(state.highImage),highOff:load(state.highOffImage)};
+});
+const hasIdle=cards.every(c=>c.off);pose.querySelector('[value="off"]').disabled=!hasIdle;
+function draw(){
+for(const card of cards){card.panels.forEach(({panel,stage,canvas,ctx,scale},index)=>{
+panel.hidden=index===1&&!byId('reference').checked;
+canvas.style.width=data.width*Number(byId('zoom').value)+'px';canvas.style.height=data.height*Number(byId('zoom').value)+'px';
+stage.style.background=byId('background').value;
+ctx.clearRect(0,0,canvas.width,canvas.height);ctx.imageSmoothingEnabled=false;
+const off=pose.value==='off';const im=index===1?(off?card.highOff:card.high):(off?card.off:card.image);
+if(im)ctx.drawImage(im,off?0:frame*data.width*scale,Number(direction.value)*data.height*scale,
+data.width*scale,data.height*scale,0,0,canvas.width,canvas.height);
+});}
+slider.value=frame;counter.textContent=pose.value==='off'?'Idle':`${frame+1} / ${data.columns}`;
+play.textContent=running?'Pause':'Play';play.disabled=slider.disabled=pose.value==='off'||data.columns===1;
+}
+Promise.all(images.map(im=>im.decode())).then(()=>{draw();
+[direction,pose,byId('zoom'),byId('background'),byId('reference')].forEach(el=>el.addEventListener('change',draw));
+play.addEventListener('click',()=>{running=!running;draw()});
+slider.addEventListener('input',()=>{frame=Number(slider.value);running=false;draw()});
+setInterval(()=>{if(running&&pose.value==='on'){frame=(frame+1)%data.columns;draw()}},1000/data.fps);
+}).catch(()=>{byId('activation').textContent='Could not decode embedded sprites.'});
+</script></html>

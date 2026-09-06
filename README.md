@@ -16,6 +16,8 @@ tall, and wide objects; explicit pixel dimensions can override them. An optional
 [pixel-agents package](docs/tools.md#pixel-agents-furniture-package) provides ready-to-install
 furniture manifests and PNGs for its fixed-rate, agent-activated animations. The preview compares
 the final sprites with genuine higher-resolution renders and highlights the game's resolution.
+[Named appearance states](docs/tools.md#named-appearance-states), such as empty/partial/full rain
+barrels, share one camera and palette and automatically get a combined HTML player and furniture ZIP.
 
 The AI lives in your MCP client. It interprets reference images, writes Blender Python, and calls
 `execute_blender_python`. This service executes the code, saves `.blend` revisions, and renders

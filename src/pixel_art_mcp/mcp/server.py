@@ -153,6 +153,8 @@ def create_mcp(service: Service) -> FastMCP:
         if angle is not None:
             values["angles"] = [angle]
         if frame is not None:
+            if values.get("states"):
+                raise ValueError("Set the frame range of each named state instead of frame")
             values.update(frame_start=frame, frame_end=frame)
         options = RenderOptions.model_validate(values)
         return service.submit_render(
@@ -173,6 +175,9 @@ def create_mcp(service: Service) -> FastMCP:
         Higher-resolution source renders and target-resolution sprites are compared in the player.
         Set frame_start/frame_end for animation. Outputs: PNGs, sheet, metadata, preview, ZIP,
         offline preview.html player, and transparent APNG loops per direction for animation.
+        Use states=[{id,name,frame_start,frame_end,off_frame},...] for appearance variants
+        rendered with one camera/palette, an automatically generated state comparison player,
+        and one combined pixel-agents package. Each state requires equal animation length.
         """
         return service.submit_render(
             str(project_id), options or RenderOptions(), str(revision_id) if revision_id else None
