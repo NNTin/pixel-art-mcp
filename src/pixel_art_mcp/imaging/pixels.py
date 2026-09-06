@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from PIL import Image
 
+from pixel_art_mcp.imaging.pixel_agents import export_pixel_agents
 from pixel_art_mcp.imaging.player import export_player
 from pixel_art_mcp.models import DomainError, RenderOptions
 
@@ -71,13 +72,24 @@ def export_sheet(
     revision_id: str,
 ) -> None:
     entries = manifest["frames"]
-    expected = len(options.angles) * len(options.frames())
+    rendered_frames = options.render_frames()
+    expected = len(options.angles) * len(rendered_frames)
     if len(entries) != expected:
         raise DomainError("Blender returned an incomplete frame sequence")
 
+    columns, rows = len(options.frames()), len(options.angles)
+    high_width = options.width * options.supersampling
+    high_height = options.height * options.supersampling
+    high_sheet = Image.new("RGBA", (columns * high_width, rows * high_height))
+    off = options.pixel_agents.off_frame if options.pixel_agents else None
+    high_off = Image.new("RGBA", (high_width, rows * high_height)) if off is not None else None
+
     def source_images() -> Iterator[Image.Image]:
         # Decode and downsize one supersampled image at a time, bounding peak memory.
-        for entry in entries:
+        for index, entry in enumerate(entries):
+            row, column = divmod(index, len(rendered_frames))
+            if entry["angle"] != options.angles[row] or entry["frame"] != rendered_frames[column]:
+                raise DomainError("Blender returned frames in an unexpected order")
             path = (raw_dir / entry["filename"]).resolve()
             if not path.is_relative_to(raw_dir.resolve()) or path.suffix != ".png":
                 raise DomainError("Invalid render output path")
@@ -88,10 +100,48 @@ def export_sheet(
                 )
                 if source.size != expected_size:
                     raise DomainError("Blender returned unexpected image dimensions")
+                if column < columns:
+                    high_sheet.paste(
+                        source.convert("RGBA"), (column * high_width, row * high_height)
+                    )
+                if high_off is not None and entry["frame"] == off:
+                    high_off.paste(source.convert("RGBA"), (0, row * high_height))
                 yield source
 
-    frames, palette = pixelate(source_images(), options)
-    pack_sprites(frames, palette, output_dir, manifest, options, project_id, revision_id)
+    rendered, palette = pixelate(source_images(), options)
+    indices = [
+        row * len(rendered_frames) + column for row in range(rows) for column in range(columns)
+    ]
+    frames = [rendered[i] for i in indices]
+    off_frames = (
+        [rendered[row * len(rendered_frames) + rendered_frames.index(off)] for row in range(rows)]
+        if off is not None
+        else None
+    )
+    directory = output_dir / "comparison"
+    directory.mkdir(parents=True, exist_ok=True)
+    high_sheet.save(directory / "high-resolution.png")
+    if high_off is not None:
+        high_off.save(directory / "off-high-resolution.png")
+    comparison = {
+        "image": "comparison/high-resolution.png",
+        "width": high_width,
+        "height": high_height,
+        "off_image": "comparison/off-high-resolution.png" if high_off is not None else None,
+        "usage": "comparison_only",
+        "higher_resolution": options.supersampling > 1,
+    }
+    pack_sprites(
+        frames,
+        palette,
+        output_dir,
+        {**manifest, "frames": [entries[i] for i in indices]},
+        options,
+        project_id,
+        revision_id,
+        off_frames=off_frames,
+        comparison=comparison,
+    )
 
 
 def pack_sprites(
@@ -102,6 +152,9 @@ def pack_sprites(
     options: RenderOptions,
     project_id: str,
     revision_id: str,
+    *,
+    off_frames: list[Image.Image] | None = None,
+    comparison: dict[str, Any] | None = None,
 ) -> None:
     """Package already converted sprites without changing their colors or placement."""
     entries = manifest["frames"]
@@ -163,7 +216,15 @@ def pack_sprites(
         directions.append(
             {"angle": angle, "row": row, "frame_indices": indices, "animation": animation}
         )
-    export_player(output_dir, options)
+    off_image = None
+    if off_frames is not None:
+        off_sheet = Image.new("RGBA", (options.width, rows * options.height))
+        for row, im in enumerate(off_frames):
+            off_sheet.paste(im, (0, row * options.height))
+        off_image = "off-spritesheet.png"
+        off_sheet.save(output_dir / off_image)
+    target = export_pixel_agents(output_dir, options, frames, off_frames)
+    export_player(output_dir, options, comparison=comparison, target=target, off_image=off_image)
     metadata = {
         "schema_version": 1,
         "project_id": project_id,
@@ -178,11 +239,14 @@ def pack_sprites(
         "frames": frame_metadata,
         "directions": directions,
         "player": "preview.html",
+        "pixel_agents": target,
+        "comparison": comparison,
+        "off_image": off_image,
         "camera": manifest["camera"],
         "blender_version": manifest["blender_version"],
     }
     (output_dir / "spritesheet.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     with zipfile.ZipFile(output_dir / "sprites.zip", "w", zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(output_dir.rglob("*")):
-            if path.is_file() and path.suffix != ".zip":
+            if path.is_file() and path.name != "sprites.zip":
                 archive.write(path, path.relative_to(output_dir))

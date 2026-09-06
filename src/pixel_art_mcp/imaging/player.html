@@ -2,80 +2,108 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sprite preview</title>
+<title>Sprite export comparison</title>
 <style>
   :root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #161b22; color: #e9edf2; }
   body { max-width: 1200px; margin: 0 auto; padding: 28px; }
   h1 { font-size: 24px; margin: 0 0 8px; }
-  p { color: #aeb9c6; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  p { color: #aeb9c6; line-height: 1.5; }
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 24px 0; }
   button, select { font: inherit; padding: 8px 12px; border: 1px solid #526073; border-radius: 6px; }
   label { display: flex; align-items: center; gap: 8px; }
-  #views { display: flex; flex-wrap: wrap; align-items: start; gap: 16px; }
-  figure { margin: 0; max-width: 100%; border: 1px solid #3a4656; border-radius: 8px; overflow: hidden; }
-  figcaption { padding: 10px 14px; background: #222b36; }
+  [hidden] { display: none; }
+  #views { display: flex; flex-wrap: wrap; align-items: start; gap: 24px; }
+  article { max-width: 100%; }
+  .comparison { display: flex; flex-wrap: wrap; gap: 12px; align-items: start; }
+  figure { margin: 0; max-width: 100%; border: 2px solid #3a4656; border-radius: 8px; overflow: hidden; }
+  figure.target { border-color: #e6b85c; }
+  figcaption { padding: 10px 12px; background: #222b36; font-size: 13px; }
+  .target figcaption { color: #ffe4a5; background: #3a3020; }
+  figcaption span { display: block; margin-top: 4px; font-size: 11px; letter-spacing: 0.04em; }
   canvas { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
   canvas.checker { background: conic-gradient(#29313d 25%, #202732 0 50%, #29313d 0 75%, #202732 0) 0 0 / 24px 24px; }
   canvas.dark { background: #10141b; }
   canvas.light { background: #f4eee3; }
 </style>
-<h1>Sprite preview</h1>
+<h1>Sprite export comparison</h1>
 <p id="summary">Loading sprites…</p>
+<p id="usage"></p>
 <div class="controls">
   <button id="play" type="button" disabled>Play</button>
+  <label id="state-control" hidden>State <select id="state"><option value="on">On / animated</option><option value="off">Off / idle</option></select></label>
   <label>Frame <input id="frame" type="range" min="0" value="0" step="1" disabled></label>
   <output id="position" for="frame"></output>
-  <label>Zoom <select id="zoom"><option>1</option><option>2</option><option selected>4</option><option>8</option></select>×</label>
+  <label>Zoom <select id="zoom"><option>1</option><option>2</option><option>4</option><option selected>8</option><option>16</option></select>×</label>
   <label>Background <select id="background"><option value="checker">Checkerboard</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
 </div>
 <div id="views"></div>
-<noscript>Enable JavaScript to play the sprites, or open spritesheet.png from the ZIP.</noscript>
+<noscript>Enable JavaScript to compare sprites, or open spritesheet.png from the ZIP.</noscript>
 <script>
   "use strict";
   const data = __PLAYER_DATA__;
-  const play = document.getElementById("play");
-  const frame = document.getElementById("frame");
-  const zoom = document.getElementById("zoom");
-  const background = document.getElementById("background");
-  const position = document.getElementById("position");
-  const summary = document.getElementById("summary");
-  const views = document.getElementById("views");
-  const canvases = data.angles.map(angle => {
-    const figure = document.createElement("figure");
-    const canvas = document.createElement("canvas");
-    canvas.width = data.width;
-    canvas.height = data.height;
-    canvas.setAttribute("role", "img");
-    canvas.setAttribute("aria-label", `Sprite viewed from ${angle} degrees`);
-    const caption = document.createElement("figcaption");
-    caption.textContent = `${angle}°`;
-    figure.append(canvas, caption);
-    views.append(figure);
-    return canvas;
-  });
+  const play = document.getElementById("play"), frame = document.getElementById("frame");
+  const zoom = document.getElementById("zoom"), background = document.getElementById("background");
+  const state = document.getElementById("state"), position = document.getElementById("position");
+  const summary = document.getElementById("summary"), views = document.getElementById("views");
+  document.getElementById("usage").textContent = data.target
+    ? `Gold panels are the ${data.width} × ${data.height} PNGs used by pixel-agents. ${data.target.activation}`
+    : "Gold panels show the exported PNGs. Reference panels show the source render at higher resolution.";
+  document.getElementById("state-control").hidden = !data.offImage;
+  if (Math.max(data.width, data.height) > 32) zoom.value = "4";
   frame.max = data.frames.length - 1;
-  let column = 0;
-  let playing = false;
-  let previous = null;
-  let elapsed = 0;
-  const sheet = new Image();
+  let column = 0, playing = false, previous = null, elapsed = 0, ready = false;
+  const panels = [], loads = [];
+  function loadImage(encoded) {
+    if (!encoded) return null;
+    const image = new Image();
+    loads.push(new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; }));
+    image.src = `data:image/png;base64,${encoded}`;
+    return image;
+  }
+  const low = {width: data.width, height: data.height, sheet: loadImage(data.image), off: loadImage(data.offImage)};
+  const high = data.comparison && data.comparison.higher_resolution
+    ? {width: data.comparison.width, height: data.comparison.height,
+       sheet: loadImage(data.comparison.image), off: loadImage(data.comparison.offImage)} : null;
+  data.angles.forEach((angle, row) => {
+    const article = document.createElement("article"), title = document.createElement("h2");
+    title.textContent = `${angle}°`;
+    const comparison = document.createElement("div");
+    comparison.className = "comparison";
+    for (const [source, target] of [[low, true], [high, false]]) {
+      if (!source) continue;
+      const figure = document.createElement("figure"), canvas = document.createElement("canvas");
+      figure.className = target ? "target" : "reference";
+      canvas.width = source.width; canvas.height = source.height;
+      canvas.setAttribute("role", "img");
+      canvas.setAttribute("aria-label", `${target ? "Export" : "Reference"} sprite at ${angle} degrees`);
+      const caption = document.createElement("figcaption"), badge = document.createElement("span");
+      caption.textContent = `${source.width} × ${source.height} px`;
+      badge.textContent = target ? (data.target ? "USED BY PIXEL-AGENTS" : "EXPORTED SPRITE") : "REFERENCE RENDER";
+      caption.append(badge); figure.append(canvas, caption); comparison.append(figure);
+      panels.push({canvas, source, row});
+    }
+    article.append(title, comparison); views.append(article);
+  });
   function draw() {
-    canvases.forEach((canvas, row) => {
+    if (!ready) return;
+    const off = state.value === "off" && data.offImage;
+    panels.forEach(({canvas, source, row}) => {
       const context = canvas.getContext("2d");
       context.imageSmoothingEnabled = false;
-      context.clearRect(0, 0, data.width, data.height);
-      context.drawImage(sheet, column * data.width, row * data.height,
-        data.width, data.height, 0, 0, data.width, data.height);
+      context.clearRect(0, 0, source.width, source.height);
+      context.drawImage(off ? source.off : source.sheet,
+        (off ? 0 : column) * source.width, row * source.height,
+        source.width, source.height, 0, 0, source.width, source.height);
+      // Equal display areas expose the difference in pixel density.
       canvas.style.width = `${data.width * Number(zoom.value)}px`;
       canvas.className = background.value;
     });
     frame.value = column;
-    position.textContent = `${column + 1} / ${data.frames.length} (source ${data.frames[column]})`;
+    position.textContent = off ? "Off / idle" : `${column + 1} / ${data.frames.length} (source ${data.frames[column]})`;
   }
   function setPlaying(value) {
-    playing = value;
-    previous = null;
-    elapsed = 0;
+    playing = value; previous = null; elapsed = 0;
     play.textContent = playing ? "Pause" : "Play";
   }
   function tick(time) {
@@ -84,8 +112,7 @@
       const steps = Math.floor(elapsed * data.fps / 1000);
       if (steps) {
         column = (column + steps) % data.frames.length;
-        elapsed -= steps * 1000 / data.fps;
-        draw();
+        elapsed -= steps * 1000 / data.fps; draw();
       }
       previous = time;
     } else previous = null;
@@ -93,17 +120,18 @@
   }
   play.addEventListener("click", () => setPlaying(!playing));
   frame.addEventListener("input", () => { setPlaying(false); column = Number(frame.value); draw(); });
-  zoom.addEventListener("change", draw);
-  background.addEventListener("change", draw);
-  sheet.onload = () => {
+  zoom.addEventListener("change", draw); background.addEventListener("change", draw);
+  state.addEventListener("change", () => {
+    setPlaying(false);
+    play.disabled = frame.disabled = state.value === "off" || data.frames.length < 2; draw();
+  });
+  Promise.all(loads).then(() => {
+    ready = true;
     const animated = data.frames.length > 1;
     play.disabled = frame.disabled = !animated;
-    summary.textContent = `${data.angles.length} directions · ${data.frames.length} frames · ${data.width} × ${data.height} px · ${data.fps} fps`;
+    summary.textContent = `${data.angles.length} directions · ${data.frames.length} frames · ${data.fps} fps`;
     setPlaying(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches);
-    draw();
-    requestAnimationFrame(tick);
-  };
-  sheet.onerror = () => { summary.textContent = "The sprite sheet could not be loaded."; };
-  sheet.src = `data:image/png;base64,${data.image}`;
+    draw(); requestAnimationFrame(tick);
+  }).catch(() => { summary.textContent = "The sprite sheets could not be loaded."; });
 </script>
 </html>

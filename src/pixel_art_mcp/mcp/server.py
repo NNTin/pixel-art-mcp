@@ -23,6 +23,12 @@ Rendering creates an orthographic export camera without changing the saved scene
 near the origin. Configure frame ranges for transform animations. Rows are views; columns are time.
 render_preview accepts render_sprites options for matching framing, palette and lighting.
 Animated exports include transparent APNG loops per direction and an offline preview.html player.
+Choose canvas size deliberately: tile_width=1,tile_height=1 is small (16x16); 1x2 is tall (16x32),
+1x3 is 16x48, 2x1 is wide (32x16). Omit width/height for tile sizing; explicit pixels override it.
+Default export is 16x16, four cardinal views, 5 fps. Set pixel_agents with asset_id and name for an
+installable furniture manifest + PNG package. Animation requires an off_frame, cardinal views,
+and 5 fps. pixel-agents only animates on-state furniture near an active agent; no always-on mode.
+preview.html compares the actual supersampled render with highlighted target-resolution sprites.
 Long operations return job IDs. Poll with a delay, not a tight loop. Read get_job logs after errors.
 Use get_artifact for image previews and local file downloads. No cloud image-generation API is used.
 """
@@ -136,14 +142,14 @@ def create_mcp(service: Service) -> FastMCP:
     ) -> Job:
         """Preview static views or animation using the same settings as the final export.
 
-        Without options: one 64px view at 45 degrees, frame 1, 16 samples. With options:
+        Without options: one 16px view at 0 degrees, frame 1, 16 samples. With options:
         use the supplied export settings, including multiple angles and animation frames.
         Explicit angle/frame arguments override the options' directions/frame range.
         Keep all export angles/frames to match final framing and automatic palette fitting;
         lower samples for faster feedback. Once succeeded, get_artifact returns preview.png.
         Download the ZIP and open preview.html to play or scrub the animation offline.
         """
-        values = (options or RenderOptions(angles=[45], samples=16)).model_dump()
+        values = (options or RenderOptions(angles=[0], samples=16)).model_dump()
         if angle is not None:
             values["angles"] = [angle]
         if frame is not None:
@@ -159,7 +165,12 @@ def create_mcp(service: Service) -> FastMCP:
     ) -> Job:
         """Export directional or animated pixel-art sprites from a saved scene. Returns a job ID.
 
-        Defaults: eight views, 64x64, transparent, shared 32-color palette.
+        Defaults: four cardinal views, 16x16, 5 fps, transparent, shared 32-color palette.
+        Small object: tile_width=1,tile_height=1. Tall: 1x2 or 1x3. Wide: 2x1. Large: 2x2.
+        Explicit width/height in pixels override tile sizing, including non-multiples of 16.
+        Set pixel_agents={asset_id,name,...} for its manifest/PNG package. Animated furniture
+        requires an off_frame and plays only near active agents in the unmodified target app.
+        Higher-resolution source renders and target-resolution sprites are compared in the player.
         Set frame_start/frame_end for animation. Outputs: PNGs, sheet, metadata, preview, ZIP,
         offline preview.html player, and transparent APNG loops per direction for animation.
         """

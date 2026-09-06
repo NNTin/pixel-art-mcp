@@ -51,6 +51,10 @@ class Service:
                 "animation_format": "image/apng",
                 "animation_layout": "one transparent loop per direction, at export resolution",
                 "offline_player": "preview.html; play/pause, scrub, zoom, background",
+                "sizing": "16px tiles: 1x1 small, 1x2 tall, 2x1 wide. width/height override tiles.",
+                "pixel_agents": "Optional furniture manifest + PNG package; cardinal views, 5 fps, "
+                "off/on states. Animation only runs near an active agent, as supported by the app.",
+                "comparison": "Source render beside highlighted game-resolution PNGs",
             },
             "limits": {
                 key: value
@@ -213,11 +217,19 @@ class Service:
         preview: bool = False,
     ) -> Job:
         revision = self.revision(project_id, revision_id)
-        frame_count = len(options.frames()) * len(options.angles)
+        frame_count = len(options.render_frames()) * len(options.angles)
         if frame_count > self.settings.max_render_frames:
             raise DomainError("Render exceeds the configured total frame limit")
         if frame_count * options.width * options.height > self.settings.max_sheet_pixels:
             raise DomainError("Sprite sheet exceeds the configured pixel limit")
+        if (
+            frame_count * options.width * options.height * options.supersampling**2
+            > self.settings.max_sheet_pixels
+        ):
+            raise DomainError(
+                "High-resolution comparison exceeds the configured pixel limit; "
+                "reduce dimensions, frames, angles, or supersampling"
+            )
         return self._submit(
             project_id,
             "preview" if preview else "sprites",

@@ -134,6 +134,10 @@ def render(request, output):
     base_height = max(p.y for p in corners) - min(p.y for p in corners)
 
     frames = list(range(options["frame_start"], options["frame_end"] + 1, options["frame_step"]))
+    target = options.get("pixel_agents")
+    off_frame = target.get("off_frame") if target else None
+    if off_frame is not None and off_frame not in frames:
+        frames.append(off_frame)
     bases = [camera_basis(angle, options["elevation"]) for angle in options["angles"]]
     xmin = ymin = math.inf
     xmax = ymax = -math.inf

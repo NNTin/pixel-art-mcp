@@ -11,6 +11,12 @@ Animated exports include transparent APNG loops for each direction and a self-co
 player for checking playback, individual frames, and backgrounds. See the
 [animated oil lamp example](docs/tools.md#animated-oil-lamp-example) for a complete modeling recipe.
 
+Exports default to 16×16 pixels and four cardinal views at 5 fps. Tile dimensions express small,
+tall, and wide objects; explicit pixel dimensions can override them. An optional
+[pixel-agents package](docs/tools.md#pixel-agents-furniture-package) provides ready-to-install
+furniture manifests and PNGs for its fixed-rate, agent-activated animations. The preview compares
+the final sprites with genuine higher-resolution renders and highlights the game's resolution.
+
 The AI lives in your MCP client. It interprets reference images, writes Blender Python, and calls
 `execute_blender_python`. This service executes the code, saves `.blend` revisions, and renders
 consistent views. No AI API key or image-to-3D service is required.

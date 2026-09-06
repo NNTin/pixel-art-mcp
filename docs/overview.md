@@ -90,10 +90,18 @@ flowchart TD
     Pack --> Bundle["Enlarged preview<br/>ZIP bundle"]
 ```
 
-By default, the service renders at four times the target resolution, downsamples to 64x64 pixels,
-uses transparency and a shared 32-color palette, and exports eight directions spaced 45° apart.
+By default, the service renders at four times the target resolution, downsamples to 16×16 pixels,
+uses transparency and a shared 32-color palette, and exports four cardinal directions at 5 fps.
+Tile counts select small (16×16), tall (16×32, 16×48), wide (32×16), or larger canvases; explicit
+pixel dimensions override tile sizing, including non-multiples of 16.
 Animation is opt-in through a frame range; a static export uses one time sample. A supplied custom
 palette can replace automatic palette fitting.
+
+The optional pixel-agents package exports the application's existing furniture manifest and PNG
+structure without changing its code. Its fixed 5 fps and agent-activated off/on animation rules
+are reflected in the tool schema and validation. The offline HTML preview compares the actual
+low-resolution sprites with higher-resolution source renders and highlights the resolution used
+by pixel-agents. Floor footprints remain separate from sprite canvas dimensions.
 
 Rotation and animation are independent dimensions. Three directions and eight animation frames
 produce 24 sprites: a sheet with three rows and eight columns. At 64x64 pixels per sprite, that

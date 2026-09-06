@@ -1,6 +1,7 @@
 """Bronze oil lamp with an eight-frame flame loop; submit via execute_blender_python.
 
-Export frames 1..8 at 12 fps. Frame 9 repeats frame 1 for a seamless cycle.
+Export frames 1..8 at 5 fps. Frame 9 repeats frame 1 for a seamless cycle.
+Frame 0 is the extinguished pose for pixel-agents off/on furniture states.
 The spout points toward -Y (the exporter's 0 degree view).
 """
 
@@ -130,7 +131,13 @@ light.location = flame.location + Vector((0, 0, 0.24))
 
 scene = bpy.context.scene
 scene.frame_start, scene.frame_end = 1, 8
-scene.render.fps = 12
+scene.render.fps = 5
+flame.hide_render = True
+flame.keyframe_insert(data_path="hide_render", frame=0)
+flame.hide_render = False
+flame.keyframe_insert(data_path="hide_render", frame=1)
+light_data.energy = 0
+light_data.keyframe_insert(data_path="energy", frame=0)
 for frame in range(1, 10):
     phase = (frame - 1) * math.tau / 8
     flame.scale = (

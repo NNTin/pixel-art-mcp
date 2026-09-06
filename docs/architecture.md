@@ -45,6 +45,9 @@ expose both a curve object and its generated mesh instance; the curve's own eval
 may include control geometry and inflate framing. Per-object mesh bounds are cached within each
 frame and transformed separately for every instance.
 
+Canvas dimensions default to one 16×16 tile; integer tile counts describe taller/wider objects.
+Explicit width/height override the corresponding tile dimensions, even for non-multiples of 16.
+The default directions are front/right/back/left (0/90/180/270°), and playback defaults to 5 fps.
 CPU Cycles renders RGBA PNGs at 4x target size by default. Pillow downsamples with BOX filtering,
 thresholds alpha, computes one palette from visible pixels sampled across every frame, and applies
 it without dithering. Transparent pixels have zero RGB. A custom palette bypasses palette fitting.
@@ -54,11 +57,24 @@ assessment belong to the agent workflow, not to the converter.
 Preview jobs accept the full render options and run the same pipeline as final exports, so matching
 options preserve framing, palette, and lighting. Pixel conversion and artifact packing are separate:
 `pack_sprites` can package already converted RGBA frames without quantizing them again. Every export
-includes a self-contained HTML player with an embedded sheet. Animated exports also include one
+includes a self-contained HTML player with embedded final and original supersampled sheets.
+They are shown at equal display sizes with the export/game resolution highlighted. Raw high-res
+comparisons are saved separately, not manufactured by enlarging the low-res sprites. With
+supersampling=1 the player omits the higher-resolution panel. Animated exports also include one
 lossless APNG loop per direction. APNG frames replace changed pixels (including transparency) to
 avoid trails, and use the same floating-point frame duration as the JSON metadata. The encoder may
 combine identical consecutive frames while preserving their total hold time. The player uses source
 frame indices from the sheet, so every sampled frame remains individually inspectable.
+
+`imaging/pixel_agents.py` optionally packages the existing pixel-agents furniture contract:
+rotation groups containing static assets, or state groups containing an off PNG and an on animation
+group. Leaf dimensions describe native PNG pixels; footprint metadata describes occupied floor
+tiles independently. An explicit off source frame is rendered with the same camera and shared
+palette as the on sequence, but kept outside the animation sheet/APNGs. pixel-agents hardcodes
+0.2 seconds per furniture frame and only advances on-state animation near working agents; the
+schema, validator, and player disclose these constraints. The target ZIP contains only its
+manifest/PNG files under `assets/furniture/<ID>/`; the full ZIP includes this package plus previews
+and generic sprite outputs. No target application changes or per-asset timing fields are needed.
 
 The sheet uses rows for view directions in requested order and columns for sampled animation
 frames in ascending order. `fps` is the playback rate of exported frames; `frame_step` selects
@@ -80,6 +96,9 @@ HTTP request sizes, decoded image pixels, script size, queue length, total rende
 pixels, Blender threads, logs, and timeouts are bounded. Liveness is `/health/live`; readiness also
 requires an available Blender executable and worker. Logs identify jobs without printing uploaded
 content or signed reference URLs. Model and renderer versions are exposed by `get_capabilities`.
+The render frame limit includes any additional off pose. The sheet pixel limit also applies to
+the total supersampled comparison pixels (including the off pose), bounding in-memory sheet size;
+large jobs can reduce supersampling, dimensions, directions, or frames.
 
 The implementation pins MCP SDK 1.29.1 instead of the planned v2 because v2 could not be installed
 in the offline implementation environment. MCP-specific code lives in `mcp/server.py`; domain,

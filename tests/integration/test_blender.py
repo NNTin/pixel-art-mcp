@@ -41,7 +41,7 @@ async def test_real_chair_edit_and_animated_sprite_export(service, example_dir, 
         pixels = []
         for artifact in frame_artifacts:
             with Image.open(service.artifact_path(str(artifact.id))) as im:
-                assert im.size == (64, 64)
+                assert im.size == (16, 16)
                 assert im.getbbox() is not None
                 assert set(im.getchannel("A").get_flattened_data()) <= {0, 255}
                 pixels.append(im.tobytes())
@@ -60,6 +60,6 @@ async def test_real_chair_edit_and_animated_sprite_export(service, example_dir, 
         metadata_artifact = next(a for a in completed.artifacts if a.filename == "spritesheet.json")
         metadata = json.loads(service.artifact_path(str(metadata_artifact.id)).read_text())
         assert len({tuple(f["pivot"]) for f in metadata["frames"]}) == 1
-        assert metadata["size"] == [192, 64]
+        assert metadata["size"] == [48, 16]
     finally:
         await worker.stop()

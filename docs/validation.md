@@ -5,7 +5,36 @@ and modification, reference uploads, saved revisions, asynchronous jobs, multi-a
 transform animation, and PNG/JSON/ZIP sprite exports. No server-side AI provider is required.
 Remote ChatGPT connectivity, authentication, and automatic image-to-3D reconstruction are deferred.
 
-## Oil lamp workflow validation (2026-09-06)
+## Tile sizing and pixel-agents validation (2026-09-06)
+
+- The rebuilt Docker service advertises 16px tile dimensions, explicit width/height overrides,
+  four cardinal directions, 5 fps, and the optional pixel-agents furniture schema through MCP.
+  Schema/validation tests cover small, tall, wide, large, and non-tile-aligned overrides, invalid
+  target settings, and render limits including the extra off pose and supersampled comparisons.
+- 55 unit/integration tests and three Docker end-to-end tests passed. The new Docker test models
+  the lamp and exports a 16×32 canvas with a separate 1×1 floor footprint, four directions,
+  off/on states, 200 ms frame durations, high-resolution references, and the nested installable ZIP.
+  Ruff lint/formatting and strict mypy passed.
+- The oil lamp was regenerated through the rebuilt MCP service: 16×16 game sprites, 64×64 source
+  references, four directions, eight on-state samples at 5 fps, and one extinguished pose per
+  direction. The installable package contains 36 PNGs and its furniture manifest. At this smaller
+  resolution, some flame samples become identical (8/6/7/8 distinct frames by direction); APNG
+  hold times still reproduce all eight samples correctly at 5 fps.
+- `tmp/oil-lamp/` contains only the downloaded `sprites.zip` and its extracted contents, including
+  `pixel-agents.zip`. Every extracted file was checked byte-for-byte against the server ZIP, with
+  no extra files. The previous 64px export is preserved in `tmp/oil-lamp-64px-20260906/`.
+- Read-only compatibility checks imported the existing pixel-agents `buildFurnitureCatalog`,
+  `decodeAllFurniture`, and frontend catalog helpers. All 36 PNGs decoded; the manifest produced
+  one editor item, four orientations, off/on state pairs, and eight ordered on frames per direction.
+  Both on/off rotation cycles work. No files in pixel-agents were changed or installed.
+- The target's `FURNITURE_ANIM_INTERVAL_SEC` is 0.2 seconds (fixed 5 fps). Its engine only selects
+  animation frames when a placed off-state item overlaps a working agent's auto-on area. The
+  export schema, docs, and preview disclose that this is not always-on animation.
+- Headless Chromium verified the downloaded offline player: native 16×16 and 64×64 canvases at
+  equal display sizes, gold game-resolution highlights, off/on switching, scrubbing, zoom,
+  backgrounds, reduced-motion behavior, and play/pause without JavaScript errors.
+
+## Earlier 64px oil lamp workflow validation (2026-09-06)
 
 - The Docker service was rebuilt and is healthy with the preview, animation, and framing changes.
   The connected MCP modeled `examples/oil_lamp.py` in Blender 4.5.13 LTS and rendered 64 transparent

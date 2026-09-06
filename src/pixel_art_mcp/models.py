@@ -91,24 +91,110 @@ class OpenAIFile(BaseModel):
     file_name: str = ""
 
 
+class PixelAgentsOptions(Model):
+    """An installable furniture folder for the unmodified pixel-agents application."""
+
+    asset_id: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,63}$", description="Stable ID, e.g. OIL_LAMP")
+    name: str = Field(min_length=1, max_length=120, description="Furniture label in the editor")
+    category: Literal["desks", "chairs", "storage", "decor", "electronics", "wall", "misc"] = (
+        "decor"
+    )
+    footprint_w: int | None = Field(
+        default=None,
+        ge=1,
+        le=32,
+        description="Occupied grid columns; defaults to ceil(sprite width / 16), not a resize",
+    )
+    footprint_h: int | None = Field(
+        default=None,
+        ge=1,
+        le=32,
+        description="Occupied grid rows; defaults to ceil(sprite height / 16), not a resize",
+    )
+    can_place_on_surfaces: bool = False
+    can_place_on_walls: bool = False
+    background_tiles: int = Field(default=0, ge=0, le=31)
+    off_frame: int | None = Field(
+        default=None,
+        ge=0,
+        le=100_000,
+        description="Required for animation: source pose for the idle/off PNG. On frames use the "
+        "normal frame range. pixel-agents only cycles on-state frames near an active agent.",
+    )
+
+
 class RenderOptions(Model):
-    width: int = Field(default=64, ge=8, le=512)
-    height: int = Field(default=64, ge=8, le=512)
+    tile_width: int = Field(
+        default=1,
+        strict=True,
+        ge=1,
+        le=32,
+        description="Sprite canvas width in 16px tiles: 1=small/tall (16px), 2=wide (32px).",
+    )
+    tile_height: int = Field(
+        default=1,
+        strict=True,
+        ge=1,
+        le=32,
+        description="Sprite canvas height in 16px tiles: 1=small (16px), 2=tall (32px), 3=48px.",
+    )
+    width: int = Field(
+        default=16,
+        ge=8,
+        le=512,
+        description="Explicit pixel width overrides tile_width; non-multiples of 16 are allowed.",
+    )
+    height: int = Field(
+        default=16,
+        ge=8,
+        le=512,
+        description="Explicit pixel height overrides tile_height; non-multiples of 16 are allowed.",
+    )
     angles: list[float] = Field(
-        default=[0, 45, 90, 135, 180, 225, 270, 315], min_length=1, max_length=32
+        default=[0, 90, 180, 270],
+        min_length=1,
+        max_length=32,
+        description="Camera views in degrees. pixel-agents: 0=front, 90=right, 180=back, 270=left.",
     )
     elevation: float = Field(default=35.264, ge=-85, le=85)
     frame_start: int = Field(default=1, ge=0, le=100_000)
     frame_end: int = Field(default=1, ge=0, le=100_000)
     frame_step: int = Field(default=1, ge=1)
-    fps: int = Field(default=12, ge=1, le=120)
+    fps: int = Field(
+        default=5,
+        ge=1,
+        le=120,
+        description="Playback rate. pixel-agents exports require exactly 5 fps (fixed in the app).",
+    )
     colors: int = Field(default=32, ge=2, le=255)
     palette: list[str] | None = Field(default=None, min_length=2, max_length=255)
-    supersampling: int = Field(default=4, ge=1, le=4)
+    supersampling: int = Field(
+        default=4,
+        ge=1,
+        le=4,
+        description="Render at this multiple of the export dimensions. Values 2–4 also supply a "
+        "genuine higher-resolution reference in preview.html; 1 disables that comparison.",
+    )
     alpha_threshold: int = Field(default=128, ge=1, le=255)
     samples: int = Field(default=32, ge=1, le=256)
     lighting: Literal["studio", "scene"] = "studio"
     padding: float = Field(default=0.1, ge=0, le=0.5)
+    pixel_agents: PixelAgentsOptions | None = Field(
+        default=None,
+        description="Enable an installable pixel-agents furniture manifest + PNG package. "
+        "Requires cardinal angles and 5 fps; animations require an off_frame.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def tile_dimensions(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            values = dict(values)
+            for axis in ("width", "height"):
+                tile = values.get(f"tile_{axis}", 1)
+                if axis not in values and isinstance(tile, int) and not isinstance(tile, bool):
+                    values[axis] = tile * 16
+        return values
 
     @field_validator("angles")
     @classmethod
@@ -138,10 +224,29 @@ class RenderOptions(Model):
     def frame_range(self) -> "RenderOptions":
         if self.frame_end < self.frame_start:
             raise ValueError("frame_end must be >= frame_start")
+        if self.pixel_agents:
+            if self.fps != 5:
+                raise ValueError("pixel-agents furniture playback is fixed at 5 fps")
+            if any(angle not in (0, 90, 180, 270) for angle in self.angles):
+                raise ValueError("pixel-agents supports only 0/front, 90/right, 180/back, 270/left")
+            if len(self.frames()) > 1 and self.pixel_agents.off_frame is None:
+                raise ValueError("pixel-agents animation requires off_frame for the idle/off state")
+            footprint_h = self.pixel_agents.footprint_h or ((self.height + 15) // 16)
+            if self.pixel_agents.background_tiles >= footprint_h:
+                raise ValueError(
+                    "background_tiles must be smaller than the furniture footprint height"
+                )
         return self
 
     def frames(self) -> list[int]:
         return list(range(self.frame_start, self.frame_end + 1, self.frame_step))
+
+    def render_frames(self) -> list[int]:
+        frames = self.frames()
+        off = self.pixel_agents.off_frame if self.pixel_agents else None
+        if off is not None and off not in frames:
+            frames.append(off)
+        return frames
 
 
 ProjectName = Annotated[str, Field(min_length=1, max_length=120)]

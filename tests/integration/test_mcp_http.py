@@ -24,6 +24,12 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert tools["execute_blender_python"]["annotations"]["readOnlyHint"] is False
         assert tools["inspect_scene"]["annotations"]["readOnlyHint"] is True
         assert "options" in tools["render_preview"]["inputSchema"]["properties"]
+        render_schema = tools["render_sprites"]["inputSchema"]["$defs"]["RenderOptions"]
+        assert render_schema["properties"]["tile_width"]["default"] == 1
+        assert "tall" in render_schema["properties"]["tile_height"]["description"]
+        assert "override" in render_schema["properties"]["width"]["description"]
+        assert render_schema["properties"]["fps"]["default"] == 5
+        assert "pixel_agents" in render_schema["properties"]
         upload_schema = tools["add_reference_image"]["inputSchema"]
         file_schema = upload_schema["$defs"]["OpenAIFile"]
         assert file_schema["required"] == ["download_url", "file_id"]
@@ -83,8 +89,8 @@ async def test_preview_options_and_legacy_overrides(settings, fake_blender, monk
         monkeypatch.setattr(service.store, "claim_job", lambda: None)
         defaults = await client.data("render_preview", {"project_id": project["id"]})
         values = service.store.job(defaults["id"])["params"]["options"]
-        assert values["angles"] == [45] and values["frame_start"] == values["frame_end"] == 1
-        assert values["width"] == 64 and values["samples"] == 16
+        assert values["angles"] == [0] and values["frame_start"] == values["frame_end"] == 1
+        assert values["width"] == 16 and values["samples"] == 16
         options = {
             "angles": [0, 90],
             "width": 96,
