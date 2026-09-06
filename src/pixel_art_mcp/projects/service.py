@@ -11,6 +11,7 @@ from uuid import UUID
 from pixel_art_mcp import __version__
 from pixel_art_mcp.async_utils import finish_thread
 from pixel_art_mcp.config import Settings
+from pixel_art_mcp.jobs.log_condense import condense_log
 from pixel_art_mcp.models import (
     Artifact,
     DomainError,
@@ -266,6 +267,7 @@ class Service:
         record = self.store.job(job_id)
         record.pop("params")
         record["artifacts"] = [self.artifact(i) for i in record.pop("artifact_ids")]
+        record["logs"] = condense_log(record.get("logs") or "")
         return Job.model_validate(record)
 
     def cancel_job(self, job_id: str) -> Job:
