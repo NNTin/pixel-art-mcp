@@ -240,10 +240,14 @@ has a keyframed point light for use with your own scene lighting and `lighting="
 
 Use `options.states` to export related appearances in one job. Each state supplies `id`, `name`,
 `frame_start`, `frame_end`, optional `frame_step` (default 1), and a Pixel Agents `off_frame`.
-State IDs are lowercase letters, digits and underscores, starting with a letter. States must
-have equal animation lengths; they override the top-level frame range. All states and idle poses
-share a camera, pivot and palette. With named states, set preview ranges on each state instead of
-using the top-level `render_preview.frame` override.
+State IDs are lowercase letters, digits and underscores, starting with a letter. States override
+the top-level frame range and may use different animation lengths — for example a single-frame
+static state (an empty vessel) alongside multi-frame animated states (partially filled, full).
+Shorter states loop within the longest state's frame count in the combined `spritesheet.png`,
+`preview.gif` and `preview.html`, while each state's own export under `states/<id>/` stays exactly
+as long as that state's own frame range. All states and idle poses share a camera, pivot and
+palette. With named states, set preview ranges on each state instead of using the top-level
+`render_preview.frame` override.
 
 The server automatically generates `preview.html` with state comparisons, direction selection,
 playback, scrubbing, idle poses, zoom, backgrounds and source-render comparison. It also produces

@@ -67,7 +67,7 @@ def export_states(
     if len(palette) == 1:
         palette.append("#ffffff" if palette[0] == "#000000" else "#000000")
     del samples
-    columns = len(options.states[0].frames())
+    columns = max(len(state.frames()) for state in options.states)
     direction_count = len(options.angles)
     sheet = Image.new(
         "RGBA", (columns * options.width, len(options.states) * direction_count * options.height)
@@ -110,8 +110,23 @@ def export_states(
         )
         metadata = json.loads((state_dir / "spritesheet.json").read_text())
         prefix = f"states/{state.id}"
+        state_columns = len(child.frames())
         with Image.open(state_dir / "spritesheet.png") as im:
-            sheet.paste(im, (0, state_index * direction_count * options.height))
+            # Shorter (e.g. static) states loop within the longest state's frame count so the
+            # combined sheet and preview.gif stay fully populated for every column.
+            for column in range(columns):
+                source_column = column % state_columns
+                cell = im.crop(
+                    (
+                        source_column * options.width,
+                        0,
+                        (source_column + 1) * options.width,
+                        direction_count * options.height,
+                    )
+                )
+                sheet.paste(
+                    cell, (column * options.width, state_index * direction_count * options.height)
+                )
             for direction in range(direction_count):
                 cell = im.crop(
                     (0, direction * options.height, options.width, (direction + 1) * options.height)
@@ -159,6 +174,7 @@ def export_states(
         embedded.append(
             {
                 "name": state.name,
+                "columns": state_columns,
                 "image": encode("spritesheet.png"),
                 "offImage": encode(metadata["off_image"]),
                 "highImage": encode("comparison/high-resolution.png"),

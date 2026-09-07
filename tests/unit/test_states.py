@@ -116,7 +116,6 @@ def test_state_export_shared_palette_layout_idle_player_and_combined_package(tmp
         {"id": "../escape"},
         {"id": "empty"},
         {"off_frame": None},
-        {"frame_end": 13},
         {"frame_end": 8},
     ],
 )
@@ -172,3 +171,62 @@ def test_generic_static_monochrome_states(tmp_path):
     assert meta["states"][0]["directions"][0]["animation"] is None
     assert not (tmp_path / "out/pixel-agents.zip").exists()
     assert not (tmp_path / "out/preview.gif").exists()
+
+
+def test_states_mix_a_static_state_with_animated_states(tmp_path):
+    """e.g. an empty tea cup is static while partially-filled/full cups animate."""
+    options = RenderOptions.model_validate(
+        {
+            "width": 8,
+            "height": 8,
+            "angles": [0, 90],
+            "supersampling": 1,
+            "states": [
+                {"id": "empty", "name": "Empty", "frame_start": 1, "frame_end": 1},
+                {"id": "full", "name": "Full", "frame_start": 2, "frame_end": 3},
+            ],
+        }
+    )
+    assert options.frames() == [1, 2, 3]
+    assert options.render_frames() == [1, 2, 3]
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    entries = []
+    for angle in options.angles:
+        for frame in options.render_frames():
+            name = f"{angle}-{frame}.png"
+            Image.new("RGBA", (8, 8), (frame * 20, int(angle), 128, 255)).save(raw / name)
+            entries.append({"angle": angle, "filename": name, "frame": frame, "pivot": [4, 7]})
+    out = tmp_path / "out"
+    manifest = {"frames": entries, "camera": {"pivot": [4, 7]}, "blender_version": "fixture"}
+    export_sheet(raw, out, manifest, options, "p", "r")
+
+    meta = json.loads((out / "spritesheet.json").read_text())
+    assert meta["columns"] == 2
+    assert meta["states"][0]["frames"] == [1]
+    assert meta["states"][1]["frames"] == [2, 3]
+
+    html = (out / "preview.html").read_text()
+    data = json.loads(html.split("const data=", 1)[1].split(";", 1)[0])
+    assert data["states"][0]["columns"] == 1
+    assert data["states"][1]["columns"] == 2
+
+    w, h = options.width, options.height
+    with Image.open(out / "spritesheet.png") as sheet:
+        empty_col0 = sheet.crop((0, 0, w, 2 * h)).tobytes()
+        empty_col1 = sheet.crop((w, 0, 2 * w, 2 * h)).tobytes()
+        assert empty_col0 == empty_col1
+
+    with Image.open(out / "preview.gif") as gif:
+        assert gif.n_frames == 2
+        scale = gif.width // (2 * w)
+        frames_rgba = []
+        for index in range(gif.n_frames):
+            gif.seek(index)
+            frames_rgba.append(gif.convert("RGBA").copy())
+    empty_region = [im.crop((0, 0, w * scale, 2 * h * scale)).tobytes() for im in frames_rgba]
+    full_region = [
+        im.crop((w * scale, 0, 2 * w * scale, 2 * h * scale)).tobytes() for im in frames_rgba
+    ]
+    assert empty_region[0] == empty_region[1]
+    assert full_region[0] != full_region[1]
