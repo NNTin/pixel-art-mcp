@@ -14,7 +14,8 @@ from pixel_art_mcp.projects.service import Service
 
 INSTRUCTIONS = """Create pixel art by modeling in Blender, then inspecting and refining renders.
 Create a project, upload/read reference images, execute_blender_python, poll get_job until terminal,
-inspect_scene, render_preview, inspect its image or text grid, refine with Python, then render_sprites.
+inspect_scene, render_preview, inspect its image or text grid, refine with Python, then
+render_sprites.
 The AI client writes the modeling code; the server does not generate geometry from prose.
 Use named objects for precise edits. Each successful script saves a new .blend revision.
 Pass expected_revision_id=null for the first script, then the current ID from get_project.
