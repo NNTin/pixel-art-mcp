@@ -99,6 +99,13 @@ def test_state_export_shared_palette_layout_idle_player_and_combined_package(tmp
         assert "preview.html" in archive.namelist()
         assert "pixel-agents.zip" in archive.namelist()
         assert "states/full/preview.html" in archive.namelist()
+        assert "preview.gif" in archive.namelist()
+        assert "states/full/preview.gif" in archive.namelist()
+    with Image.open(out / "preview.gif") as gif:
+        assert gif.n_frames == len(options.states[0].frames())
+        assert gif.info["loop"] == 0
+    with Image.open(out / "states/full/preview.gif") as gif:
+        assert gif.n_frames == len(options.states[1].frames())
     with pytest.raises(DomainError, match="incomplete or unordered"):
         export_sheet(raw, tmp_path / "bad", {**manifest, "frames": entries[:-1]}, options, "p", "r")
 
@@ -164,3 +171,4 @@ def test_generic_static_monochrome_states(tmp_path):
     assert meta["columns"] == 1
     assert meta["states"][0]["directions"][0]["animation"] is None
     assert not (tmp_path / "out/pixel-agents.zip").exists()
+    assert not (tmp_path / "out/preview.gif").exists()

@@ -9,6 +9,7 @@ from typing import Any
 
 from PIL import Image
 
+from pixel_art_mcp.imaging.gif import save_animated_gif
 from pixel_art_mcp.imaging.pixel_agents import ACTIVATION
 from pixel_art_mcp.imaging.pixels import export_sheet, shared_palette
 from pixel_art_mcp.models import DomainError, RenderOptions
@@ -164,6 +165,31 @@ def export_states(
     if max(preview.size) > 1024:
         preview.thumbnail((1024, 1024), Image.Resampling.NEAREST)
     preview.save(output_dir / "preview.png")
+    if columns > 1:
+        gif_scale = min(4, max(1, 1024 // max(overview.size)))
+        gif_frames = []
+        for column in range(columns):
+            composite = Image.new("RGBA", overview.size)
+            for state_index in range(len(options.states)):
+                for direction in range(direction_count):
+                    row = state_index * direction_count + direction
+                    cell = sheet.crop(
+                        (
+                            column * options.width,
+                            row * options.height,
+                            (column + 1) * options.width,
+                            (row + 1) * options.height,
+                        )
+                    )
+                    composite.paste(cell, (state_index * options.width, direction * options.height))
+            composite = composite.resize(
+                (composite.width * gif_scale, composite.height * gif_scale),
+                Image.Resampling.NEAREST,
+            )
+            if max(composite.size) > 1024:
+                composite.thumbnail((1024, 1024), Image.Resampling.NEAREST)
+            gif_frames.append(composite)
+        save_animated_gif(gif_frames, palette, options.fps, output_dir / "preview.gif")
     if target:
         package_root = output_dir / "pixel-agents"
         with zipfile.ZipFile(output_dir / "pixel-agents.zip", "w", zipfile.ZIP_DEFLATED) as archive:

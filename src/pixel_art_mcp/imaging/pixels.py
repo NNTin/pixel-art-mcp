@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from PIL import Image
 
+from pixel_art_mcp.imaging.gif import save_animated_gif
 from pixel_art_mcp.imaging.pixel_agents import export_pixel_agents
 from pixel_art_mcp.imaging.player import export_player
 from pixel_art_mcp.models import DomainError, RenderOptions
@@ -197,6 +198,22 @@ def pack_sprites(
     if max(preview.size) > 1024:
         preview.thumbnail((1024, 1024), Image.Resampling.NEAREST)
     preview.save(output_dir / "preview.png")
+    if columns > 1:
+        gif_size = (options.width, rows * options.height)
+        gif_scale = min(4, max(1, 1024 // max(gif_size)))
+        gif_frames = []
+        for column in range(columns):
+            composite = Image.new("RGBA", gif_size)
+            for row in range(rows):
+                composite.paste(frames[row * columns + column], (0, row * options.height))
+            composite = composite.resize(
+                (composite.width * gif_scale, composite.height * gif_scale),
+                Image.Resampling.NEAREST,
+            )
+            if max(composite.size) > 1024:
+                composite.thumbnail((1024, 1024), Image.Resampling.NEAREST)
+            gif_frames.append(composite)
+        save_animated_gif(gif_frames, palette, options.fps, output_dir / "preview.gif")
     directions = []
     for row, angle in enumerate(options.angles):
         indices = list(range(row * columns, (row + 1) * columns))
