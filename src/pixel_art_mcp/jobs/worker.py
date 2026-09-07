@@ -195,7 +195,7 @@ class Worker:
                 if not path.is_file():
                     continue
                 width = height = None
-                if path.suffix in {".png", ".apng"}:
+                if path.suffix in {".png", ".apng", ".gif"}:
                     with Image.open(path) as im:
                         width, height = im.size
                 kind = "frame" if path.parent.name == "frames" else path.stem

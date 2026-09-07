@@ -22,7 +22,8 @@ Rendering creates an orthographic export camera without changing the saved scene
 0 degrees views the origin from negative Y, positive angles orbit around +Z. Geometry should be
 near the origin. Configure frame ranges for transform animations. Rows are views; columns are time.
 render_preview accepts render_sprites options for matching framing, palette and lighting.
-Animated exports include transparent APNG loops per direction and an offline preview.html player.
+Animated exports include transparent APNG loops per direction, an animated preview.gif overview,
+and an offline preview.html player.
 Choose canvas size deliberately: tile_width=1,tile_height=1 is small (16x16); 1x2 is tall (16x32),
 1x3 is 16x48, 2x1 is wide (32x16). Omit width/height for tile sizing; explicit pixels override it.
 Default export is 16x16, four cardinal views, 5 fps. Set pixel_agents with asset_id and name for an
@@ -148,7 +149,8 @@ def create_mcp(service: Service) -> FastMCP:
         use the supplied export settings, including multiple angles and animation frames.
         Explicit angle/frame arguments override the options' directions/frame range.
         Keep all export angles/frames to match final framing and automatic palette fitting;
-        lower samples for faster feedback. Once succeeded, get_artifact returns preview.png.
+        lower samples for faster feedback. Once succeeded, get_artifact returns preview.png (static)
+        and, for multi-frame animation, preview.gif (animated).
         Download the ZIP and open preview.html to play or scrub the animation offline.
         """
         values = (options or RenderOptions(angles=[0], samples=16)).model_dump()
@@ -176,7 +178,8 @@ def create_mcp(service: Service) -> FastMCP:
         requires an off_frame and plays only near active agents in the unmodified target app.
         Higher-resolution source renders and target-resolution sprites are compared in the player.
         Set frame_start/frame_end for animation. Outputs: PNGs, sheet, metadata, preview, ZIP,
-        offline preview.html player, and transparent APNG loops per direction for animation.
+        offline preview.html player, transparent APNG loops per direction, and an animated
+        preview.gif overview for animation.
         Use states=[{id,name,frame_start,frame_end,off_frame},...] for appearance variants
         rendered with one camera/palette, an automatically generated state comparison player,
         and one combined pixel-agents package. Each state requires equal animation length.

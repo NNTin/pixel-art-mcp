@@ -151,6 +151,17 @@ def test_animation_pixels_timing_transparency_and_offline_player(tmp_path, frame
     assert embedded["frames"] == options.frames()
     assert embedded["width"] == 16 and embedded["height"] == 8
     assert "__PLAYER_DATA__" not in html
+    if len(options.frames()) == 1:
+        assert not (out / "preview.gif").exists()
+    else:
+        with Image.open(out / "preview.gif") as gif:
+            assert gif.n_frames == len(options.frames())
+            assert gif.info["loop"] == 0
+            gif.seek(0)
+            # GIF stores duration in centiseconds, so it rounds to the nearest 10ms.
+            assert gif.info["duration"] == round(1000 / options.fps / 10) * 10
+        with zipfile.ZipFile(out / "sprites.zip") as archive:
+            assert "preview.gif" in archive.namelist()
 
 
 @pytest.mark.parametrize(
