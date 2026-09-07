@@ -196,9 +196,7 @@ async def test_wait_for_job_collapses_polling_into_one_call(settings, fake_blend
             "execute_blender_python",
             {"project_id": project["id"], "script": "print('chair')", "expected_revision_id": None},
         )
-        result = await client.data(
-            "wait_for_job", {"job_id": job["id"], "timeout_seconds": 10}
-        )
+        result = await client.data("wait_for_job", {"job_id": job["id"], "timeout_seconds": 10})
         assert result["status"] == "succeeded"
 
 
