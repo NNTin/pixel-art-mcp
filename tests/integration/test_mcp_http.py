@@ -20,9 +20,10 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert "execute_blender_python" in initialized["instructions"]
         listing = await client.request("tools/list", {})
         tools = {tool["name"]: tool for tool in listing["tools"]}
-        assert len(tools) == 13
+        assert len(tools) == 14
         assert tools["execute_blender_python"]["annotations"]["readOnlyHint"] is False
         assert tools["inspect_scene"]["annotations"]["readOnlyHint"] is True
+        assert tools["wait_for_job"]["annotations"]["readOnlyHint"] is True
         assert "options" in tools["render_preview"]["inputSchema"]["properties"]
         render_schema = tools["render_sprites"]["inputSchema"]["$defs"]["RenderOptions"]
         assert render_schema["properties"]["tile_width"]["default"] == 1
@@ -177,6 +178,52 @@ async def test_http_upload_validation_and_local_boundary(settings, png):
             allow_error=True,
         )
         assert unavailable["isError"]
+
+
+async def test_wait_for_job_collapses_polling_into_one_call(settings, fake_blender):
+    settings.blender_binary = fake_blender
+    app = create_app(settings)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost"
+        ) as http,
+    ):
+        client = MCPClient(http)
+        await client.initialize()
+        project = await client.data("create_project", {"name": "Wait target"})
+        job = await client.data(
+            "execute_blender_python",
+            {"project_id": project["id"], "script": "print('chair')", "expected_revision_id": None},
+        )
+        result = await client.data(
+            "wait_for_job", {"job_id": job["id"], "timeout_seconds": 10}
+        )
+        assert result["status"] == "succeeded"
+
+
+async def test_wait_for_job_returns_non_terminal_when_timeout_elapses_first(settings, fake_blender):
+    settings.blender_binary = fake_blender
+    app = create_app(settings)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost"
+        ) as http,
+    ):
+        client = MCPClient(http)
+        await client.initialize()
+        project = await client.data("create_project", {"name": "Slow wait target"})
+        job = await client.data(
+            "execute_blender_python",
+            {
+                "project_id": project["id"],
+                "script": "# slow\nprint('create')",
+                "expected_revision_id": None,
+            },
+        )
+        result = await client.data("wait_for_job", {"job_id": job["id"], "timeout_seconds": 0.1})
+        assert result["status"] in ("queued", "running")
 
 
 async def test_http_body_limit_before_parsing(settings):
