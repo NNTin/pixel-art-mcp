@@ -14,3 +14,7 @@ data/
 *.blend
 *.blend1
 tmp/
+
+# AO/Claude scaffolding
+.ao/
+.claude/
