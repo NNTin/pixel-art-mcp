@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import time
 
 import pytest
 from conftest import wait_job
@@ -121,6 +122,49 @@ async def test_worker_lock_prevents_two_owners(service, fake_blender):
             await second.start()
     finally:
         await first.stop()
+
+
+async def test_wait_for_job_clamps_a_client_requested_timeout_to_the_server_max(
+    service, fake_blender
+):
+    service.settings.blender_binary = fake_blender
+    service.settings.wait_for_job_max_timeout = 0.1
+    worker = Worker(service)
+    await worker.start()
+    try:
+        project_id = str(service.create_project("Chair").id)
+        # "# slow" sleeps 60s in fake_blender -- long enough that this job
+        # is reliably still non-terminal when the (much shorter) clamp
+        # elapses, regardless of how long submitting/claiming took.
+        job = service.submit_script(project_id, "# slow\nprint('create')", None)
+
+        started = time.monotonic()
+        result = await service.wait_for_job(str(job.id), 999)
+        elapsed = time.monotonic() - started
+
+        assert elapsed < 1
+        assert result.status in ("queued", "running")
+    finally:
+        await worker.stop()
+
+
+async def test_wait_for_job_with_no_timeout_given_uses_the_server_max(service, fake_blender):
+    service.settings.blender_binary = fake_blender
+    service.settings.wait_for_job_max_timeout = 0.1
+    worker = Worker(service)
+    await worker.start()
+    try:
+        project_id = str(service.create_project("Chair").id)
+        job = service.submit_script(project_id, "# slow\nprint('create')", None)
+
+        started = time.monotonic()
+        result = await service.wait_for_job(str(job.id), None)
+        elapsed = time.monotonic() - started
+
+        assert elapsed < 1
+        assert result.status in ("queued", "running")
+    finally:
+        await worker.stop()
 
 
 async def test_empty_version_output_is_not_a_ready_renderer(service):

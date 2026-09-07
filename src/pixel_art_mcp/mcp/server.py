@@ -29,7 +29,9 @@ Default export is 16x16, four cardinal views, 5 fps. Set pixel_agents with asset
 installable furniture manifest + PNG package. Animation requires an off_frame, cardinal views,
 and 5 fps. pixel-agents only animates on-state furniture near an active agent; no always-on mode.
 preview.html compares the actual supersampled render with highlighted target-resolution sprites.
-Long operations return job IDs. Poll with a delay, not a tight loop. Read get_job logs after errors.
+Long operations return job IDs. Call wait_for_job to block until one finishes instead of
+polling get_job in a loop; if it returns before the job is done, call it again. Read get_job
+logs after errors.
 Use get_artifact for image previews and local file downloads. No cloud image-generation API is used.
 """
 
@@ -187,9 +189,23 @@ def create_mcp(service: Service) -> FastMCP:
     async def get_job(job_id: UUID) -> Job:
         """Poll progress, bounded logs, errors, resulting revision, and output artifact IDs.
 
-        Terminal states are succeeded, failed, cancelled. Wait at least one second between polls.
+        Terminal states are succeeded, failed, cancelled. Prefer wait_for_job over polling
+        this in a tight loop; if you do poll it directly, wait at least one second between calls.
         """
         return service.job(str(job_id))
+
+    @server.tool(annotations=READ)
+    async def wait_for_job(job_id: UUID, timeout_seconds: float | None = None) -> Job:
+        """Blocks until job_id reaches succeeded/failed/cancelled, or timeout_seconds elapses,
+        then returns the same shape as get_job -- one call in place of many get_job polls for
+        a single long-running operation.
+
+        timeout_seconds is capped server-side (see get_capabilities'
+        limits.wait_for_job_max_timeout); omit it to wait up to that cap. A non-terminal status
+        in the response means the timeout elapsed before the job finished -- call wait_for_job
+        (or get_job) again to keep waiting.
+        """
+        return await service.wait_for_job(str(job_id), timeout_seconds)
 
     @server.tool(
         annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=False)

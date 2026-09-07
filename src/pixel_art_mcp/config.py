@@ -21,5 +21,7 @@ class Settings(BaseSettings):
     max_sheet_pixels: int = Field(default=16_777_216, ge=1)
     max_pending_jobs: int = Field(default=32, ge=1)
     max_log_bytes: int = Field(default=64 * 1024, ge=1024)
+    wait_for_job_max_timeout: float = Field(default=120, gt=0, le=3600)
+    wait_for_job_poll_interval: float = Field(default=1.0, gt=0, le=60)
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "[::1]"]
     allowed_origins: list[str] = ["http://localhost:8000", "http://127.0.0.1:8000"]

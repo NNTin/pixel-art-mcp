@@ -4,6 +4,7 @@ import binascii
 import importlib.metadata
 import mimetypes
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -269,6 +270,36 @@ class Service:
         record["artifacts"] = [self.artifact(i) for i in record.pop("artifact_ids")]
         record["logs"] = condense_log(record.get("logs") or "")
         return Job.model_validate(record)
+
+    async def wait_for_job(self, job_id: str, timeout_seconds: float | None) -> Job:
+        """Blocks (yielding to the event loop between checks) until `job_id`
+        reaches a terminal status or the timeout elapses, then returns the
+        same shape `job()` does -- one server-side wait in place of however
+        many client-side `get_job` polls a long operation would otherwise
+        need. `timeout_seconds` is clamped to `settings.wait_for_job_max_timeout`
+        (`None` uses that same cap) so one client can never hold this
+        coroutine -- and the HTTP request waiting on it -- open longer than
+        the deployment's own configured ceiling, no matter what it asks for.
+
+        There is no per-job completion signal in `Store` to await instead
+        (`jobs/worker.py`'s `wake` event only wakes the *worker* to claim
+        its next queued job, not a per-job subscriber) -- this just calls
+        `job()` on a short interval. Unlike a client-side poll, each of
+        these costs no MCP round trip or LLM context; it's plain server-side
+        CPU/IO.
+        """
+        cap = self.settings.wait_for_job_max_timeout
+        effective = cap if timeout_seconds is None else min(max(timeout_seconds, 0), cap)
+        deadline = time.monotonic() + effective
+        poll_interval = self.settings.wait_for_job_poll_interval
+        while True:
+            result = self.job(job_id)
+            if result.status in ("succeeded", "failed", "cancelled"):
+                return result
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return result
+            await asyncio.sleep(min(poll_interval, remaining))
 
     def cancel_job(self, job_id: str) -> Job:
         job = self.store.job(job_id)
