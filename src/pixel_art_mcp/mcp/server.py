@@ -1,17 +1,20 @@
 import base64
 import json
+from pathlib import Path
 from uuid import UUID
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
 
+from pixel_art_mcp.imaging.inspection import compare_inspections
+from pixel_art_mcp.imaging.inspection import inspect_sprite as inspect_export
 from pixel_art_mcp.models import Job, OpenAIFile, Project, ProjectDetail, Reference, RenderOptions
 from pixel_art_mcp.projects.service import Service
 
 INSTRUCTIONS = """Create pixel art by modeling in Blender, then inspecting and refining renders.
 Create a project, upload/read reference images, execute_blender_python, poll get_job until terminal,
-inspect_scene, render_preview, inspect the image, refine with Python, then render_sprites.
+inspect_scene, render_preview, inspect its image or text grid, refine with Python, then render_sprites.
 The AI client writes the modeling code; the server does not generate geometry from prose.
 Use named objects for precise edits. Each successful script saves a new .blend revision.
 Pass expected_revision_id=null for the first script, then the current ID from get_project.
@@ -34,6 +37,10 @@ Long operations return job IDs. Call wait_for_job to block until one finishes in
 polling get_job in a loop; if it returns before the job is done, call it again. Read get_job
 logs after errors.
 Use get_artifact for image previews and local file downloads. No cloud image-generation API is used.
+If the client cannot view images, call inspect_sprite on a completed preview or sprite job. It
+returns a palette-index grid, plain-language color descriptions, cluster metrics, bounds and runs.
+Use the default crisp downscale to avoid palette colors created only by averaging supersampled
+pixels; average mode remains available for comparison. inspect_sprite can compare both render jobs.
 """
 
 READ = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
@@ -209,6 +216,61 @@ def create_mcp(service: Service) -> FastMCP:
         (or get_job) again to keep waiting.
         """
         return await service.wait_for_job(str(job_id), timeout_seconds)
+
+    @server.tool(annotations=READ)
+    async def inspect_sprite(
+        job_id: UUID,
+        state_id: str | None = None,
+        angle: float | None = None,
+        frame: int | None = None,
+        compare_job_id: UUID | None = None,
+    ) -> dict[str, object]:
+        """Inspect an exported sprite as text; no image or vision capability is required.
+
+        The job must be a succeeded render_preview or render_sprites job. Select a named state,
+        direction and source frame; omitted selectors use the first available values. The result
+        includes an exact palette-index grid (two-character tokens), human-readable color names,
+        occupied bounds, connected/singleton clusters, longest color runs, and low-contrast color
+        boundaries. A text-only agent can use these details to find thin gauges, outlines, noise,
+        and lost features, then adjust Blender geometry/materials or render options and rerender.
+
+        Set compare_job_id to inspect the matching sprite from another completed render too and
+        receive pixel/occupancy differences. This is useful for comparing downscale_mode=average
+        with the default downscale_mode=crisp without viewing either PNG.
+        """
+
+        def output_root(identifier: UUID) -> Path:
+            job = service.job(str(identifier))
+            if job.status != "succeeded" or job.operation not in ("preview", "sprites"):
+                raise ValueError("inspect_sprite requires a succeeded preview or sprites job")
+            archives = [
+                artifact for artifact in job.artifacts if artifact.filename == "sprites.zip"
+            ]
+            if not archives:
+                raise ValueError("Completed render job has no sprites.zip artifact")
+            paths = [service.artifact_path(str(artifact.id)) for artifact in archives]
+            top_level = min(paths, key=lambda path: len(path.parts))
+            if sum(len(path.parts) == len(top_level.parts) for path in paths) != 1:
+                raise ValueError("Completed render job has no unambiguous top-level sprites.zip")
+            return top_level.parent
+
+        inspected = inspect_export(output_root(job_id), state_id, angle, frame)
+        result: dict[str, object] = {"job_id": str(job_id), **inspected}
+        if compare_job_id is not None:
+            selected_state = inspected["state"]
+            resolved_state = selected_state["id"] if selected_state else None
+            compared = inspect_export(
+                output_root(compare_job_id),
+                resolved_state,
+                float(inspected["angle"]),
+                int(inspected["frame"]),
+            )
+            result["comparison"] = {
+                "job_id": str(compare_job_id),
+                "metrics": compare_inspections(inspected, compared),
+                "sprite": compared,
+            }
+        return result
 
     @server.tool(
         annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=False)

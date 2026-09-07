@@ -26,6 +26,14 @@ def shared_palette(frames: list[Image.Image], options: RenderOptions) -> list[tu
             for i in range(0, len(raw_pixels), stride * 4)
             if raw_pixels[i + 3] != 0
         )
+    return palette_from_samples(samples, options)
+
+
+def palette_from_samples(
+    samples: list[tuple[int, int, int]], options: RenderOptions
+) -> list[tuple[int, int, int]]:
+    if options.palette:
+        return [tuple(bytes.fromhex(color[1:])) for color in options.palette]  # type: ignore[misc]
     if not samples:
         return [(0, 0, 0)]
     strip = Image.new("RGB", (len(samples), 1))
@@ -39,16 +47,40 @@ def shared_palette(frames: list[Image.Image], options: RenderOptions) -> list[tu
     return [(raw[i * 3], raw[i * 3 + 1], raw[i * 3 + 2]) for i in indices]
 
 
+def sample_source_colors(
+    image: Image.Image, budget: int, alpha_threshold: int
+) -> list[tuple[int, int, int]]:
+    raw_pixels = image.tobytes()
+    stride = max(1, math.ceil(image.width * image.height / max(1, budget)))
+    return [
+        (raw_pixels[i], raw_pixels[i + 1], raw_pixels[i + 2])
+        for i in range(0, len(raw_pixels), stride * 4)
+        if raw_pixels[i + 3] >= alpha_threshold
+    ]
+
+
 def pixelate(
     frames: Iterable[Image.Image], options: RenderOptions
 ) -> tuple[list[Image.Image], list[str]]:
     resized = []
+    source_samples: list[tuple[int, int, int]] = []
+    expected_frames = max(1, len(options.angles) * len(options.render_frames()))
+    sample_budget = max(1, 262_144 // expected_frames)
     for original in frames:
-        im = original.convert("RGBA").resize((options.width, options.height), Image.Resampling.BOX)
+        source = original.convert("RGBA")
+        if options.downscale_mode == "crisp" and options.palette is None:
+            source_samples.extend(
+                sample_source_colors(source, sample_budget, options.alpha_threshold)
+            )
+        im = source.resize((options.width, options.height), Image.Resampling.BOX)
         alpha = im.getchannel("A").point(lambda a: 255 if a >= options.alpha_threshold else 0)
         im.putalpha(alpha)
         resized.append(im)
-    colors = shared_palette(resized, options)
+    colors = (
+        palette_from_samples(source_samples, options)
+        if options.downscale_mode == "crisp" and options.palette is None
+        else shared_palette(resized, options)
+    )
     palette = Image.new("P", (1, 1))
     padded = colors + [colors[0]] * (256 - len(colors))
     palette.putpalette([channel for color in padded for channel in color])

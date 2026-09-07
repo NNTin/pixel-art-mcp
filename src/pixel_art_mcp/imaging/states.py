@@ -11,7 +11,12 @@ from PIL import Image
 
 from pixel_art_mcp.imaging.gif import save_animated_gif
 from pixel_art_mcp.imaging.pixel_agents import ACTIVATION
-from pixel_art_mcp.imaging.pixels import export_sheet, shared_palette
+from pixel_art_mcp.imaging.pixels import (
+    export_sheet,
+    palette_from_samples,
+    sample_source_colors,
+    shared_palette,
+)
 from pixel_art_mcp.models import DomainError, RenderOptions
 
 
@@ -31,6 +36,8 @@ def export_states(
         raise DomainError("Blender returned an incomplete or unordered state sequence")
     by_key = {(e["angle"], e["frame"]): e for e in entries}
     samples = []
+    source_samples: list[tuple[int, int, int]] = []
+    sample_budget = max(1, 262_144 // max(1, len(entries)))
     for entry in entries:
         path = (raw_dir / entry["filename"]).resolve()
         if not path.is_relative_to(raw_dir.resolve()) or path.suffix != ".png":
@@ -41,14 +48,22 @@ def export_states(
                 options.height * options.supersampling,
             ):
                 raise DomainError("Blender returned unexpected image dimensions")
-            im = source.convert("RGBA").resize(
-                (options.width, options.height), Image.Resampling.BOX
-            )
+            converted = source.convert("RGBA")
+            if options.downscale_mode == "crisp" and options.palette is None:
+                source_samples.extend(
+                    sample_source_colors(converted, sample_budget, options.alpha_threshold)
+                )
+            im = converted.resize((options.width, options.height), Image.Resampling.BOX)
             im.putalpha(
                 im.getchannel("A").point(lambda a: 255 if a >= options.alpha_threshold else 0)
             )
             samples.append(im)
-    palette = ["#{:02x}{:02x}{:02x}".format(*c) for c in shared_palette(samples, options)]
+    colors = (
+        palette_from_samples(source_samples, options)
+        if options.downscale_mode == "crisp" and options.palette is None
+        else shared_palette(samples, options)
+    )
+    palette = ["#{:02x}{:02x}{:02x}".format(*color) for color in colors]
     if len(palette) == 1:
         palette.append("#ffffff" if palette[0] == "#000000" else "#000000")
     del samples

@@ -20,16 +20,18 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert "execute_blender_python" in initialized["instructions"]
         listing = await client.request("tools/list", {})
         tools = {tool["name"]: tool for tool in listing["tools"]}
-        assert len(tools) == 14
+        assert len(tools) == 15
         assert tools["execute_blender_python"]["annotations"]["readOnlyHint"] is False
         assert tools["inspect_scene"]["annotations"]["readOnlyHint"] is True
         assert tools["wait_for_job"]["annotations"]["readOnlyHint"] is True
+        assert tools["inspect_sprite"]["annotations"]["readOnlyHint"] is True
         assert "options" in tools["render_preview"]["inputSchema"]["properties"]
         render_schema = tools["render_sprites"]["inputSchema"]["$defs"]["RenderOptions"]
         assert render_schema["properties"]["tile_width"]["default"] == 1
         assert "tall" in render_schema["properties"]["tile_height"]["description"]
         assert "override" in render_schema["properties"]["width"]["description"]
         assert render_schema["properties"]["fps"]["default"] == 5
+        assert render_schema["properties"]["downscale_mode"]["default"] == "crisp"
         assert "pixel_agents" in render_schema["properties"]
         upload_schema = tools["add_reference_image"]["inputSchema"]
         file_schema = upload_schema["$defs"]["OpenAIFile"]

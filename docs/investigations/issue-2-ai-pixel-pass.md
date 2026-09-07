@@ -21,6 +21,31 @@ prompted for exact logical dimensions, a fixed palette, hard alpha, and invarian
 model returned large RGBA illustrations with many colors and soft/chroma edges. Exact resizing,
 alpha cleanup, palette reduction, cell validation, and temporal validation remain mandatory.
 
+## Text-only implementation follow-up
+
+The implemented deterministic path addresses the specific mixed-color failure without requiring an
+image model. `downscale_mode="crisp"` fits the shared palette from supersampled source colors before
+mapping BOX-downscaled pixels. The legacy `"average"` mode fits its palette after downscaling. An
+`inspect_sprite` MCP tool exposes the exact result as text so an agent with completion and MCP tools,
+but no vision, can inspect or compare selected state/direction/frame cells.
+
+The rain-barrel scene was rerendered through the source MCP JSON-RPC endpoint in crisp mode, then
+`inspect_sprite` compared `full / 0° / frame 21` with the earlier average export. Both results kept
+the same 291 occupied pixels, `[1, 4, 14, 25]` bounds, and alpha mask. The textual evidence showed:
+
+- average mode represented the relevant light colors as `#a6ddc4` (light green) and `#b5bd98`
+  (medium green), visually merging water and the pale gauge case;
+- crisp mode retained `#7fcec4` (medium cyan) and `#ddd4a4` (light yellow), giving the gauge fill and
+  case separate source-derived color families;
+- crisp mode reduced same-color connected components from 106 to 98 and singleton components from
+  68 to 45 while leaving occupancy unchanged.
+
+The tool also returned the full 16x32 palette-token grid, palette bounds, component counts, and
+longest runs. A text-only agent can locate the gauge as adjacent vertical yellow/cyan runs, modify a
+named Blender object or its material, rerender, and compare the new job through the same tool. The
+real tool response and crisp export are in the git-ignored paths
+`tmp/issue-2/mcp-inspect-comparison.json` and `tmp/rain-barrel-crisp/`.
+
 ## Setup and generated examples
 
 All examples were generated without Docker and without registering the MCP server. The application

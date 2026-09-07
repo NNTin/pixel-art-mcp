@@ -57,6 +57,10 @@ class Service:
                 "pixel_agents": "Optional furniture manifest + PNG package; cardinal views, 5 fps, "
                 "off/on states. Animation only runs near an active agent, as supported by the app.",
                 "comparison": "Source render beside highlighted game-resolution PNGs",
+                "text_inspection": "Palette-index grid, color/cluster metrics, and comparison for "
+                "agents without image or vision support",
+                "downscaling": "crisp source-derived palette by default; legacy average palette "
+                "remains selectable",
                 "states": "Named states share framing/palette; one generated HTML comparison "
                 "player and one pixel-agents ZIP containing separate selectable variants.",
             },
