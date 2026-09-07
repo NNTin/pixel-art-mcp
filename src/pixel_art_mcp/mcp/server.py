@@ -200,9 +200,10 @@ def create_mcp(service: Service) -> FastMCP:
         then returns the same shape as get_job -- one call in place of many get_job polls for
         a single long-running operation.
 
-        timeout_seconds is capped server-side (see get_capabilities' limits.wait_for_job_max_timeout);
-        omit it to wait up to that cap. A non-terminal status in the response means the timeout
-        elapsed before the job finished -- call wait_for_job (or get_job) again to keep waiting.
+        timeout_seconds is capped server-side (see get_capabilities'
+        limits.wait_for_job_max_timeout); omit it to wait up to that cap. A non-terminal status
+        in the response means the timeout elapsed before the job finished -- call wait_for_job
+        (or get_job) again to keep waiting.
         """
         return await service.wait_for_job(str(job_id), timeout_seconds)
 
