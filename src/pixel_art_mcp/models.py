@@ -194,6 +194,12 @@ class RenderOptions(Model):
     )
     colors: int = Field(default=32, ge=2, le=255)
     palette: list[str] | None = Field(default=None, min_length=2, max_length=255)
+    downscale_mode: Literal["crisp", "average"] = Field(
+        default="crisp",
+        description="crisp derives the shared palette from supersampled source colors before "
+        "mapping averaged target pixels, avoiding muddy colors invented by downscaling. average "
+        "retains the legacy behavior of deriving the palette after BOX downscaling.",
+    )
     supersampling: int = Field(
         default=4,
         ge=1,

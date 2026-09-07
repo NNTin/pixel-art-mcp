@@ -40,6 +40,34 @@ def test_custom_palette_and_transparent_frames():
     assert images[0].getbbox() is None
 
 
+def test_crisp_downscale_uses_source_colors_instead_of_inventing_average_colors():
+    source = Image.new("RGBA", (16, 16), (255, 0, 0, 255))
+    for x in range(1, 16, 2):
+        ImageDraw.Draw(source).line((x, 0, x, 15), fill=(0, 0, 255, 255))
+    average, average_palette = pixelate(
+        [source],
+        RenderOptions(
+            width=8,
+            height=8,
+            angles=[0],
+            supersampling=2,
+            colors=2,
+            downscale_mode="average",
+        ),
+    )
+    crisp, crisp_palette = pixelate(
+        [source],
+        RenderOptions(width=8, height=8, angles=[0], supersampling=2, colors=2),
+    )
+    source_colors = {"#ff0000", "#0000ff"}
+    assert not set(average_palette) <= source_colors
+    assert set(crisp_palette) == source_colors
+    assert {pixel[:3] for pixel in crisp[0].get_flattened_data()} <= {
+        (255, 0, 0),
+        (0, 0, 255),
+    }
+
+
 def test_pack_preserves_converted_pixels_and_rejects_incomplete_frames(tmp_path):
     options = RenderOptions(width=8, height=8, angles=[0])
     sprite = Image.new("RGBA", (8, 8), (100, 100, 100, 255))

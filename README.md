@@ -10,6 +10,9 @@ renders into transparent sprites and packs them into a sheet with playback metad
 Animated exports include transparent APNG loops for each direction and a self-contained browser
 player for checking playback, individual frames, and backgrounds. See the
 [animated oil lamp example](docs/tools.md#animated-oil-lamp-example) for a complete modeling recipe.
+Clients without vision can call `inspect_sprite` for a palette-index text grid, color descriptions,
+cluster metrics, and comparisons between render jobs. Source-derived palettes are used by default
+so supersampled colors remain distinct instead of turning into muddy downscale averages.
 
 Exports default to 16×16 pixels and four cardinal views at 5 fps. Tile dimensions express small,
 tall, and wide objects; explicit pixel dimensions can override them. An optional

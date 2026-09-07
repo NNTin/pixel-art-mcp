@@ -86,6 +86,13 @@ Set `frame_start` and `frame_end` to the same value for static views. `palette` 
 Unknown options, nonfinite numbers, duplicate directions, invalid palettes, and excessive jobs
 are rejected before execution.
 
+`downscale_mode` defaults to `"crisp"`. The renderer fits the shared palette from genuine
+supersampled source colors, BOX-downscales coverage, then maps each target pixel back to that
+source-derived palette. This keeps pale gauge frames, saturated water, brass, wood, and iron from
+being represented by new muddy colors created only by averaging. Use `"average"` to reproduce the
+legacy behavior and compare it with crisp mode. An explicit `palette` is authoritative in either
+mode.
+
 Each render produces individual frame PNGs, `spritesheet.png`, `spritesheet.json`, `preview.png`,
 `preview.html`, `comparison/high-resolution.png`, and `sprites.zip`. `preview.html` embeds both
 the final sprites and the supersampled source render: download it or extract
@@ -110,6 +117,49 @@ APNG artifacts have kind `animation`, MIME type `image/apng`, and width/height m
 `get_artifact` returns download URLs and inline PNG images up to 1 MiB; for large sheets, use the
 preview artifact. APNGs and the HTML player are downloads; MCP clients can use `preview.png` for
 static inspection. Artifacts are also available at `GET /artifacts/{artifact_id}`.
+
+## Text-only sprite inspection
+
+`inspect_sprite` lets a completion-only client inspect a succeeded `render_preview` or
+`render_sprites` job without image or vision support. Select a named state, angle, and source frame:
+
+```json
+{
+  "job_id": "RENDER_JOB_UUID",
+  "state_id": "full",
+  "angle": 0,
+  "frame": 21
+}
+```
+
+Omitted selectors use the first available state, direction, and frame. The response includes:
+
+- an exact 16x32 palette-index grid using two-character tokens (`..` is transparent);
+- hex colors with plain-language names, usage bounds, connected components, singleton counts, and
+  longest horizontal/vertical runs;
+- occupied bounds, pivot, and low-contrast adjacent palette pairs;
+- guidance for deciding whether to enlarge/recolor a named Blender object or change render options.
+
+For example, a text agent can locate a one-pixel-wide cyan gauge from its palette bounds and
+longest vertical run. It can then increase the gauge width or contrast using
+`execute_blender_python`, rerender, and verify that the run and occupied pixel count increased.
+This keeps visual feedback in tool text rather than assuming the client can consume `ImageContent`.
+
+To compare two render configurations, pass the second completed job as `compare_job_id`:
+
+```json
+{
+  "job_id": "CRISP_RENDER_JOB_UUID",
+  "compare_job_id": "AVERAGE_RENDER_JOB_UUID",
+  "state_id": "full",
+  "angle": 0,
+  "frame": 21
+}
+```
+
+The matching frame, palette legend, grid, pixel-change count, alpha changes, and occupancy delta are
+returned together. Palette symbols are local to each export, so the agent should compare their hex
+legends and feature runs rather than assuming the same symbol means the same color.
 
 ## pixel-agents furniture package
 

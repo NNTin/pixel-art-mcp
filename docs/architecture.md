@@ -48,11 +48,20 @@ frame and transformed separately for every instance.
 Canvas dimensions default to one 16×16 tile; integer tile counts describe taller/wider objects.
 Explicit width/height override the corresponding tile dimensions, even for non-multiples of 16.
 The default directions are front/right/back/left (0/90/180/270°), and playback defaults to 5 fps.
-CPU Cycles renders RGBA PNGs at 4x target size by default. Pillow downsamples with BOX filtering,
-thresholds alpha, computes one palette from visible pixels sampled across every frame, and applies
-it without dithering. Transparent pixels have zero RGB. A custom palette bypasses palette fitting.
-The export preview uses nearest-neighbor scaling. Image-to-3D reconstruction and artistic quality
-assessment belong to the agent workflow, not to the converter.
+CPU Cycles renders RGBA PNGs at 4x target size by default. Pillow downsamples coverage with BOX
+filtering and thresholds alpha. Crisp mode (the default) computes one palette from visible
+supersampled source colors across every frame, then maps the averaged target pixels back onto those
+colors without dithering. This prevents the fitted palette itself from containing muddy colors that
+exist only because two source colors were averaged. Average mode retains the earlier behavior of
+fitting after downscaling, and a custom palette bypasses fitting. Transparent pixels have zero RGB.
+The export preview uses nearest-neighbor scaling.
+
+`inspect_sprite` converts one exported frame back into text for clients without vision support. It
+reports the palette with approximate color names, a two-character palette-index grid, occupied
+bounds, color component and singleton counts, longest runs, and low-contrast adjacent colors. It can
+include the matching inspection and pixel deltas from a second render job. This keeps artistic
+decisions in the agent workflow while giving a completion-only agent exact evidence instead of an
+unusable image content block.
 
 Preview jobs accept the full render options and run the same pipeline as final exports, so matching
 options preserve framing, palette, and lighting. Pixel conversion and artifact packing are separate:
