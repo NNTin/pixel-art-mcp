@@ -9,6 +9,12 @@ class Model(BaseModel):
     schema_version: Literal[1] = 1
 
 
+# pixel-index's live POST /api/v1/assets?name=... query param caps at 60 chars
+# (confirmed against its openapi.json by contracts/pixel_index/checks.py) — every
+# pixel-agents asset-kind name field must stay within what the real upload accepts.
+PIXEL_AGENTS_NAME_MAX_LENGTH = 60
+
+
 class DomainError(Exception):
     def __init__(self, message: str, status: int = 400) -> None:
         super().__init__(message)
@@ -95,7 +101,11 @@ class PixelAgentsOptions(Model):
     """An installable furniture folder for the unmodified pixel-agents application."""
 
     asset_id: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,63}$", description="Stable ID, e.g. OIL_LAMP")
-    name: str = Field(min_length=1, max_length=120, description="Furniture label in the editor")
+    name: str = Field(
+        min_length=1,
+        max_length=PIXEL_AGENTS_NAME_MAX_LENGTH,
+        description="Furniture label in the editor",
+    )
     category: Literal["desks", "chairs", "storage", "decor", "electronics", "wall", "misc"] = (
         "decor"
     )
@@ -276,9 +286,11 @@ class RenderOptions(Model):
                         raise ValueError(
                             "Combined pixel-agents asset and state ID exceeds 64 chars"
                         )
-                    if len(f"{self.pixel_agents.name} — {state.name}") > 120:
+                    combined_name = f"{self.pixel_agents.name} — {state.name}"
+                    if len(combined_name) > PIXEL_AGENTS_NAME_MAX_LENGTH:
                         raise ValueError(
-                            "Combined pixel-agents asset and state name exceeds 120 chars"
+                            f"Combined pixel-agents asset and state name exceeds "
+                            f"{PIXEL_AGENTS_NAME_MAX_LENGTH} chars"
                         )
             elif len(self.frames()) > 1 and self.pixel_agents.off_frame is None:
                 raise ValueError("pixel-agents animation requires off_frame for the idle/off state")

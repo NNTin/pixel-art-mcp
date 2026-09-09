@@ -46,6 +46,10 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/pixel_art_mcp/blender/runner.py" = ["E402"]
+# A generated HTML/CSS template, same long-line shape as the pixel-agents-cogs script
+# this is adapted from (contracts/pixel_index/generate_status_site.py) — wrapping the
+# CSS block would just add noise, not readability.
+"contracts/pixel_index/generate_status_site.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

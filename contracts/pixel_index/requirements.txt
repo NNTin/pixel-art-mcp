@@ -1,0 +1,11 @@
+# Deliberately separate from the main project's uv-managed dependencies (pyproject.toml) —
+# this checker is a CI-only tool, not part of the shipped app. It imports
+# pixel_art_mcp.imaging.pixel_agents / pixel_art_mcp.models to build fixtures the same
+# way the real exporter does, which only needs pillow + pydantic transitively (checked:
+# neither src/pixel_art_mcp/__init__.py nor imaging/__init__.py has heavier imports).
+# Run with PYTHONPATH including this repo's src/ directory, e.g.:
+#   PYTHONPATH=src python -m contracts.pixel_index.verify --base-url ...
+requests>=2.32,<3
+jsonschema>=4.20,<5
+pillow==12.1.1
+pydantic>=2.12.5,<3
