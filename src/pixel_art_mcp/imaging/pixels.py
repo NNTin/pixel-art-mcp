@@ -2,6 +2,7 @@ import json
 import math
 import zipfile
 from collections.abc import Iterable, Iterator
+from itertools import repeat
 from pathlib import Path
 from typing import Any, cast
 
@@ -61,19 +62,26 @@ def sample_source_colors(
 
 
 def pixelate(
-    frames: Iterable[Image.Image], options: RenderOptions
+    frames: Iterable[Image.Image],
+    options: RenderOptions,
+    *,
+    sizes: Iterable[tuple[int, int]] | None = None,
 ) -> tuple[list[Image.Image], list[str]]:
+    """Downscale + quantize to one shared palette. `sizes`, one (width, height) pair
+    per frame, overrides the uniform (options.width, options.height) target -- used by
+    pet export, whose right-facing row renders at double width (see imaging/pet.py)."""
     resized = []
     source_samples: list[tuple[int, int, int]] = []
     expected_frames = max(1, len(options.angles) * len(options.render_frames()))
     sample_budget = max(1, 262_144 // expected_frames)
-    for original in frames:
+    target_sizes = sizes if sizes is not None else repeat((options.width, options.height))
+    for original, size in zip(frames, target_sizes, strict=False):
         source = original.convert("RGBA")
         if options.downscale_mode == "crisp" and options.palette is None:
             source_samples.extend(
                 sample_source_colors(source, sample_budget, options.alpha_threshold)
             )
-        im = source.resize((options.width, options.height), Image.Resampling.BOX)
+        im = source.resize(size, Image.Resampling.BOX)
         alpha = im.getchannel("A").point(lambda a: 255 if a >= options.alpha_threshold else 0)
         im.putalpha(alpha)
         resized.append(im)
@@ -105,6 +113,15 @@ def export_sheet(
     project_id: str,
     revision_id: str,
 ) -> None:
+    if options.pet:
+        # Checked before options.states: pet also configures its walk/idle frame
+        # roles through options.states, but its packaging (a single asymmetric-grid
+        # PNG, no per-state player/variants) has nothing in common with the general
+        # multi-state furniture machinery below.
+        from pixel_art_mcp.imaging.pet import export_pet_sheet
+
+        export_pet_sheet(raw_dir, output_dir, manifest, options, project_id, revision_id)
+        return
     if options.states:
         from pixel_art_mcp.imaging.states import export_states
 

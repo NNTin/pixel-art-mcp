@@ -251,3 +251,63 @@ async def test_docker_pixel_agents_tall_lamp_package(example_dir):
                             assert off_png.size == on_png.size == (16, 32)
                             assert off_png.getbbox() is not None
                             assert off_png.tobytes() != on_png.tobytes()
+
+
+async def test_docker_pixel_agents_pet_package(example_dir):
+    """The real verification for blender/runner.py's per-angle render width: pet's
+    right-facing (90deg) row must come back at double the down/up rows' width, all
+    from one Blender invocation. Nothing in this repo can check that without Blender."""
+    url = os.environ.get("PIXEL_E2E_URL")
+    if not url:
+        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
+    async with httpx.AsyncClient(base_url=url, timeout=30) as http:
+        client = MCPClient(http)
+        await client.initialize()
+        project = await client.data("create_project", {"name": "Pet export"})
+        creation = await client.data(
+            "execute_blender_python",
+            {
+                "project_id": project["id"],
+                "expected_revision_id": None,
+                "script": (example_dir / "oil_lamp.py").read_text(),
+            },
+        )
+        await client.wait(creation["id"])
+        job = await client.data(
+            "render_sprites",
+            {
+                "project_id": project["id"],
+                "options": {
+                    "tile_width": 1,
+                    "tile_height": 2,
+                    "angles": [0, 90, 180],
+                    "samples": 4,
+                    "supersampling": 1,
+                    "states": [
+                        {"id": "walk", "name": "Walk", "frame_start": 1, "frame_end": 3},
+                        {"id": "idle", "name": "Idle", "frame_start": 5, "frame_end": 7},
+                    ],
+                    "pet": {"asset_id": "TEST_PET", "name": "Test Pet"},
+                },
+            },
+        )
+        result = await client.wait(job["id"], timeout=300)
+        artifact = next(a for a in result["artifacts"] if a["filename"] == "sprites.zip")
+        downloaded = await http.get(f"/artifacts/{artifact['id']}")
+        with zipfile.ZipFile(io.BytesIO(downloaded.content)) as archive:
+            metadata = json.loads(archive.read("spritesheet.json"))
+            assert metadata["pet"]["walk_frames"] == [1, 2, 3]
+            assert metadata["pet"]["idle_frames"] == [5, 6, 7]
+            with zipfile.ZipFile(io.BytesIO(archive.read("pixel-agents-pet.zip"))) as target:
+                root = "TEST_PET/"
+                assert sorted(target.namelist()) == [root + "manifest.json", root + "pet.png"]
+                manifest = json.loads(target.read(root + "manifest.json"))
+                assert manifest == {"id": "TEST_PET", "name": "Test Pet"}
+                with Image.open(io.BytesIO(target.read(root + "pet.png"))) as pet:
+                    assert pet.size == (96, 96)
+                    pet = pet.convert("RGBA")
+                    # Down/up rows (y<64) are real content only in their left 16px per
+                    # frame; the right row (y>=64) fills the full 32px-wide frames --
+                    # the whole point of the per-angle width change under test.
+                    assert pet.crop((0, 0, 96, 64)).getbbox() is not None
+                    assert pet.crop((0, 64, 96, 96)).getbbox() is not None

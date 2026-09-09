@@ -145,6 +145,20 @@ class PixelAgentsCharacterOptions(Model):
     name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
 
 
+class PixelAgentsPetOptions(Model):
+    """A pixel-index custom-pet export: manifest.json + a 96x96 pet.png.
+
+    Requires options.states to be exactly a 3-frame 'walk' state and a 3-frame 'idle'
+    state: the down/up rows use both, the right row (rendered at double width by the
+    renderer -- see docs/custom-asset-zip-contract.md) uses only 'walk'.
+    """
+
+    asset_id: str = Field(
+        pattern=r"^[A-Z][A-Z0-9_]{0,63}$", description="Stable ID, e.g. TABBY_CAT"
+    )
+    name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
+
+
 class RenderState(Model):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,23}$")
     name: str = Field(min_length=1, max_length=48)
@@ -246,6 +260,12 @@ class RenderOptions(Model):
         "Requires angles={0,90,180} (down/up/right), width=16, height=32, and exactly 7 frames. "
         "Mutually exclusive with pixel_agents.",
     )
+    pet: PixelAgentsPetOptions | None = Field(
+        default=None,
+        description="Enable a pixel-index custom-pet export: manifest.json + a 96x96 pet.png. "
+        "Requires angles={0,90,180} (down/up/right), width=16, height=32, and states=[3-frame "
+        "'walk', 3-frame 'idle']. Mutually exclusive with pixel_agents/character.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -289,8 +309,9 @@ class RenderOptions(Model):
         if self.states:
             if len({state.id for state in self.states}) != len(self.states):
                 raise ValueError("State IDs must be distinct")
-        if sum(target is not None for target in (self.pixel_agents, self.character)) > 1:
-            raise ValueError("Only one of pixel_agents/character may be set per render")
+        targets = (self.pixel_agents, self.character, self.pet)
+        if sum(target is not None for target in targets) > 1:
+            raise ValueError("Only one of pixel_agents/character/pet may be set per render")
         if self.character:
             if self.states:
                 raise ValueError("character export does not support named states")
@@ -300,6 +321,22 @@ class RenderOptions(Model):
                 raise ValueError("character export requires width=16, height=32")
             if len(self.frames()) != 7:
                 raise ValueError("character export requires exactly 7 frames")
+        if self.pet:
+            if set(self.angles) != {0, 90, 180}:
+                raise ValueError("pet export requires angles={0,90,180} (down/up/right)")
+            if self.width != 16 or self.height != 32:
+                raise ValueError(
+                    "pet export requires width=16, height=32 (the down/up canvas; "
+                    "right is doubled automatically)"
+                )
+            state_ids = {state.id for state in self.states or []}
+            if state_ids != {"walk", "idle"}:
+                raise ValueError("pet export requires exactly two states: 'walk' and 'idle'")
+            for state in self.states or []:
+                if len(state.frames()) != 3:
+                    raise ValueError(f"pet '{state.id}' state requires exactly 3 frames")
+                if state.off_frame is not None:
+                    raise ValueError("pet states do not use off_frame")
         if self.pixel_agents:
             if self.fps != 5:
                 raise ValueError("pixel-agents furniture playback is fixed at 5 fps")

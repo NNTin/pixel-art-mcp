@@ -204,6 +204,26 @@ and exactly 7 frames, and adds `pixel-agents-character.zip` containing a single 
 of `right` and is never part of the export — do not model a fourth row for it. States and
 `pixel_agents` are not supported alongside `character`.
 
+## pixel-agents pet package
+
+Set `options.pet` to an object with `asset_id` (same pattern as furniture's) and `name`, plus
+`angles=[0, 90, 180]`, `width=16`, `height=32`, and exactly two named `options.states`: a 3-frame
+`walk` state and a 3-frame `idle` state (neither may set `off_frame`; that concept doesn't apply
+to pets). This adds `pixel-agents-pet.zip` containing `<ASSET_ID>/manifest.json` (`{id, name}`)
+and `<ASSET_ID>/pet.png`, a 96×96 sheet with an asymmetric grid: row 0 (`down`) and row 1 (`up`)
+are six 16×32 frames each — `walk[0..2]` then `idle[0..2]` — and row 2 (`right`) is three **32×32**
+frames — `walk[0..2]` only, at double the width of the other two rows. `walkLeft`/`idleLeft` are
+derived by the pixel-agents client from a horizontal flip and are never part of the export, and
+there is no idle-facing-right row in the format at all.
+
+The wider right row comes from a genuine per-angle render-width change: the renderer frames the
+`right` camera view at twice the pixel width of `down`/`up`, at the same real-world zoom, so a
+side profile that needs more horizontal room than a top-down view isn't squeezed or cropped. This
+means `idle`'s right-facing frames are still rendered (one render pass covers every state at every
+angle) but are not used in the final PNG — a small, expected amount of wasted render time. Keep
+generated `pet.png` files under 512 KiB for genuine end-to-end pixel-agents compatibility, beyond
+what pixel-index itself enforces; the export raises an error if a generated pet PNG exceeds that.
+
 ## Animated oil lamp example
 
 Create a project, submit [oil_lamp.py](../examples/oil_lamp.py) as the `script` argument to

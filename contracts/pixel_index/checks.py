@@ -33,8 +33,14 @@ import requests
 from jsonschema import Draft202012Validator
 from PIL import Image
 
+from pixel_art_mcp.imaging.pet import export_pet_sheet
 from pixel_art_mcp.imaging.pixel_agents import export_pixel_agents
-from pixel_art_mcp.models import PIXEL_AGENTS_NAME_MAX_LENGTH, PixelAgentsOptions, RenderOptions
+from pixel_art_mcp.models import (
+    PIXEL_AGENTS_NAME_MAX_LENGTH,
+    PixelAgentsOptions,
+    PixelAgentsPetOptions,
+    RenderOptions,
+)
 
 # The real repo is pixel-agents-hq/index (confirmed via `git remote -v` on a checkout).
 # A live environment's own `GET /`  "repository" field says pixel-agents-hq/pixel-index
@@ -150,6 +156,46 @@ def _build_furniture_manifest_fixture() -> dict[str, Any]:
         return manifest
 
 
+def _build_pet_manifest_fixture() -> dict[str, Any]:
+    """Builds one manifest the same way imaging/pet.py actually builds it (a full
+    round trip through export_pet_sheet with synthetic raw frames standing in for
+    Blender's renders), for the same reason as the furniture fixture above."""
+    options = RenderOptions(
+        tile_width=1,
+        tile_height=2,
+        angles=[0, 90, 180],
+        states=[
+            {"id": "walk", "name": "Walk", "frame_start": 0, "frame_end": 2},
+            {"id": "idle", "name": "Idle", "frame_start": 10, "frame_end": 12},
+        ],
+        pet=PixelAgentsPetOptions(asset_id="CONTRACT_CHECK_FIXTURE", name="Contract check fixture"),
+        supersampling=1,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        raw_dir, output_dir = Path(tmp) / "raw", Path(tmp) / "out"
+        raw_dir.mkdir()
+        entries = []
+        for row, angle in enumerate(options.angles):
+            width = 32 if angle == 90 else 16
+            for frame in options.render_frames():
+                image = Image.new("RGBA", (width, 32), (10, 20, 30, 255))
+                name = f"{row}_{frame}.png"
+                image.save(raw_dir / name)
+                entries.append({"filename": name, "angle": angle, "frame": frame, "pivot": [0, 0]})
+        export_pet_sheet(
+            raw_dir,
+            output_dir,
+            {"frames": entries, "camera": {}, "blender_version": "test"},
+            options,
+            "p",
+            "r",
+        )
+        assert options.pet is not None
+        manifest_path = output_dir / "pixel-agents-pet" / options.pet.asset_id / "manifest.json"
+        manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return manifest
+
+
 def _check_manifest_schema(
     name: str,
     kind: str,
@@ -200,6 +246,20 @@ def check_manifest_schema_furniture(
     )
 
 
+def check_manifest_schema_pet(
+    base_url: str, session: requests.Session, context: CheckContext, timeout: float
+) -> CheckResult:
+    return _check_manifest_schema(
+        "manifest-schema-pet",
+        "pet",
+        _build_pet_manifest_fixture,
+        base_url,
+        session,
+        context,
+        timeout,
+    )
+
+
 def check_assets_list(
     base_url: str, session: requests.Session, context: CheckContext, timeout: float
 ) -> CheckResult:
@@ -229,12 +289,12 @@ def check_assets_list(
     return _result("assets-list", "pass", f"{len(assets)} asset(s) checked, of {total} total")
 
 
-# Appended to as more asset kinds land (character has no manifest schema to check —
-# see docs/custom-asset-zip-contract.md; a pet check is added once imaging/pet.py
-# exists to build its fixture the same way).
+# character has no manifest schema to check at all -- see
+# docs/custom-asset-zip-contract.md, it's a manifest-less PNG.
 CHECKS = [
     check_root,
     check_openapi_query_shape,
     check_manifest_schema_furniture,
+    check_manifest_schema_pet,
     check_assets_list,
 ]

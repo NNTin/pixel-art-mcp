@@ -11,6 +11,7 @@ from PIL import Image
 
 from pixel_art_mcp.async_utils import finish_thread
 from pixel_art_mcp.blender import __file__ as blender_package_file
+from pixel_art_mcp.imaging.pet import angle_widths
 from pixel_art_mcp.imaging.pixels import export_sheet
 from pixel_art_mcp.jobs.process import ProcessFailure, run_process
 from pixel_art_mcp.models import DomainError, RenderOptions
@@ -119,6 +120,14 @@ class Worker:
             references = {
                 r["id"]: r["blender_path"] for r in store.records(project_id, "reference")
             }
+            render_options = job["params"].get("options")
+            if render_options and render_options.get("pet"):
+                # Pet's right-facing row renders at double width -- see
+                # imaging/pet.py's module docstring and angle_widths().
+                render_options = {
+                    **render_options,
+                    "angle_widths": angle_widths(render_options["width"], render_options["angles"]),
+                }
             request = {
                 "schema_version": 1,
                 "operation": job["operation"],
@@ -127,7 +136,7 @@ class Worker:
                 "script_path": str(script_path) if script_path else None,
                 "references": references,
                 "threads": service.settings.blender_threads,
-                "options": job["params"].get("options"),
+                "options": render_options,
             }
             request_path = scratch / "request.json"
             request_path.write_text(json.dumps(request), encoding="utf-8")
