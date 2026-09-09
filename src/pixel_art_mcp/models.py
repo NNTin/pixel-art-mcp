@@ -148,7 +148,9 @@ class RenderOptions(Model):
         max_length=16,
         description="Named fill/appearance states with their own animation and idle frames. "
         "Overrides the top-level frame range. Uses one camera/palette, generates a comparison "
-        "player and separate pixel-agents variants with asset IDs suffixed by state ID.",
+        "player and separate pixel-agents variants with asset IDs suffixed by state ID. States "
+        "may have different frame counts, e.g. a static empty state alongside animated fill "
+        "states; shorter animations loop within the longest state's cycle in combined previews.",
     )
     tile_width: int = Field(
         default=1,
@@ -259,8 +261,6 @@ class RenderOptions(Model):
         if self.states:
             if len({state.id for state in self.states}) != len(self.states):
                 raise ValueError("State IDs must be distinct")
-            if len({len(state.frames()) for state in self.states}) != 1:
-                raise ValueError("States must have the same number of animation frames")
         if self.pixel_agents:
             if self.fps != 5:
                 raise ValueError("pixel-agents furniture playback is fixed at 5 fps")

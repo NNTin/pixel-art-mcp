@@ -58,7 +58,7 @@ canvas.width=data.width*scale;canvas.height=data.height*scale;canvas.setAttribut
 canvas.setAttribute('aria-label',state.name+(high?' source render':' sprite'));stage.append(canvas);panel.append(caption,stage);
 comparison.append(panel);return {panel,stage,canvas,ctx:canvas.getContext('2d'),scale}});
 article.append(title,comparison);byId('cards').append(article);
-return {panels,image:load(state.image),off:load(state.offImage),high:load(state.highImage),highOff:load(state.highOffImage)};
+return {panels,columns:state.columns,image:load(state.image),off:load(state.offImage),high:load(state.highImage),highOff:load(state.highOffImage)};
 });
 const hasIdle=cards.every(c=>c.off);pose.querySelector('[value="off"]').disabled=!hasIdle;
 function draw(){
@@ -68,7 +68,7 @@ canvas.style.width=data.width*Number(byId('zoom').value)+'px';canvas.style.heigh
 stage.style.background=byId('background').value;
 ctx.clearRect(0,0,canvas.width,canvas.height);ctx.imageSmoothingEnabled=false;
 const off=pose.value==='off';const im=index===1?(off?card.highOff:card.high):(off?card.off:card.image);
-if(im)ctx.drawImage(im,off?0:frame*data.width*scale,Number(direction.value)*data.height*scale,
+if(im)ctx.drawImage(im,off?0:(frame%card.columns)*data.width*scale,Number(direction.value)*data.height*scale,
 data.width*scale,data.height*scale,0,0,canvas.width,canvas.height);
 });}
 slider.value=frame;counter.textContent=pose.value==='off'?'Idle':`${frame+1} / ${data.columns}`;

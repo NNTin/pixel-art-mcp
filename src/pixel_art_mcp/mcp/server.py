@@ -190,7 +190,9 @@ def create_mcp(service: Service) -> FastMCP:
         preview.gif overview for animation.
         Use states=[{id,name,frame_start,frame_end,off_frame},...] for appearance variants
         rendered with one camera/palette, an automatically generated state comparison player,
-        and one combined pixel-agents package. Each state requires equal animation length.
+        and one combined pixel-agents package. States may use different animation lengths, e.g.
+        a static single-frame state alongside animated multi-frame states; shorter states loop
+        within the longest state's frame count in the combined preview.
         """
         return service.submit_render(
             str(project_id), options or RenderOptions(), str(revision_id) if revision_id else None
