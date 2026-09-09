@@ -193,6 +193,17 @@ rounded up to 16px tiles. Override them for a tall sprite standing on a smaller 
 small object sitting on a desk; footprints do not resize the PNG. `background_tiles` must be less
 than the footprint height.
 
+## pixel-agents character package
+
+Set `options.character` to an object with just `name` (a label for this export's own summary —
+pixel-index's custom-character format carries no id or name at all; characters are identified
+purely positionally). This requires `angles=[0, 90, 180]` (any order), `width=16`, `height=32`,
+and exactly 7 frames, and adds `pixel-agents-character.zip` containing a single manifest-less
+`character.png`, 112×96: three direction rows top to bottom (`down`, `up`, `right`) of seven
+16×32 walk-cycle frames each. `left` is derived by the pixel-agents client from a horizontal flip
+of `right` and is never part of the export — do not model a fourth row for it. States and
+`pixel_agents` are not supported alongside `character`.
+
 ## Animated oil lamp example
 
 Create a project, submit [oil_lamp.py](../examples/oil_lamp.py) as the `script` argument to

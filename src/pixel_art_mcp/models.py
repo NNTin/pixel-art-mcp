@@ -133,6 +133,18 @@ class PixelAgentsOptions(Model):
     )
 
 
+class PixelAgentsCharacterOptions(Model):
+    """A pixel-index custom-character export: one manifest-less 112x96 PNG (3
+    direction rows -- down, up, right, top to bottom -- x 7 walk-cycle columns).
+
+    Characters carry no id or name in the zip itself -- pixel-index identifies them
+    purely positionally (see docs/custom-asset-zip-contract.md) -- so `name` here is
+    only a label for this export's own summary/docs, never uploaded.
+    """
+
+    name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
+
+
 class RenderState(Model):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,23}$")
     name: str = Field(min_length=1, max_length=48)
@@ -228,6 +240,12 @@ class RenderOptions(Model):
         description="Enable an installable pixel-agents furniture manifest + PNG package. "
         "Requires cardinal angles and 5 fps; animations require an off_frame.",
     )
+    character: PixelAgentsCharacterOptions | None = Field(
+        default=None,
+        description="Enable a pixel-index custom-character export: one manifest-less 112x96 PNG. "
+        "Requires angles={0,90,180} (down/up/right), width=16, height=32, and exactly 7 frames. "
+        "Mutually exclusive with pixel_agents.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -271,6 +289,17 @@ class RenderOptions(Model):
         if self.states:
             if len({state.id for state in self.states}) != len(self.states):
                 raise ValueError("State IDs must be distinct")
+        if sum(target is not None for target in (self.pixel_agents, self.character)) > 1:
+            raise ValueError("Only one of pixel_agents/character may be set per render")
+        if self.character:
+            if self.states:
+                raise ValueError("character export does not support named states")
+            if set(self.angles) != {0, 90, 180}:
+                raise ValueError("character export requires angles={0,90,180} (down/up/right)")
+            if self.width != 16 or self.height != 32:
+                raise ValueError("character export requires width=16, height=32")
+            if len(self.frames()) != 7:
+                raise ValueError("character export requires exactly 7 frames")
         if self.pixel_agents:
             if self.fps != 5:
                 raise ValueError("pixel-agents furniture playback is fixed at 5 fps")

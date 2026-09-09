@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from PIL import Image
 
+from pixel_art_mcp.imaging.character import export_character
 from pixel_art_mcp.imaging.gif import save_animated_gif
 from pixel_art_mcp.imaging.pixel_agents import export_pixel_agents
 from pixel_art_mcp.imaging.player import export_player
@@ -278,6 +279,7 @@ def pack_sprites(
         off_image = "off-spritesheet.png"
         off_sheet.save(output_dir / off_image)
     target = export_pixel_agents(output_dir, options, frames, off_frames)
+    character = export_character(output_dir, options, frames)
     export_player(output_dir, options, comparison=comparison, target=target, off_image=off_image)
     metadata = {
         "schema_version": 1,
@@ -294,6 +296,7 @@ def pack_sprites(
         "directions": directions,
         "player": "preview.html",
         "pixel_agents": target,
+        "character": character,
         "comparison": comparison,
         "off_image": off_image,
         "camera": manifest["camera"],

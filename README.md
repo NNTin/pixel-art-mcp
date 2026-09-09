@@ -17,7 +17,9 @@ so supersampled colors remain distinct instead of turning into muddy downscale a
 Exports default to 16×16 pixels and four cardinal views at 5 fps. Tile dimensions express small,
 tall, and wide objects; explicit pixel dimensions can override them. An optional
 [pixel-agents package](docs/tools.md#pixel-agents-furniture-package) provides ready-to-install
-furniture manifests and PNGs for its fixed-rate, agent-activated animations. The preview compares
+furniture manifests and PNGs for its fixed-rate, agent-activated animations, alongside
+[character](docs/tools.md#pixel-agents-character-package) exports for pixel-index's custom-asset
+API. The preview compares
 the final sprites with genuine higher-resolution renders and highlights the game's resolution.
 [Named appearance states](docs/tools.md#named-appearance-states), such as empty/partial/full rain
 barrels, share one camera and palette and automatically get a combined HTML player and furniture ZIP.
