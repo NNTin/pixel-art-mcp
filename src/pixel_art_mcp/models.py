@@ -9,6 +9,12 @@ class Model(BaseModel):
     schema_version: Literal[1] = 1
 
 
+# pixel-index's live POST /api/v1/assets?name=... query param caps at 60 chars
+# (confirmed against its openapi.json by contracts/pixel_index/checks.py) — every
+# pixel-agents asset-kind name field must stay within what the real upload accepts.
+PIXEL_AGENTS_NAME_MAX_LENGTH = 60
+
+
 class DomainError(Exception):
     def __init__(self, message: str, status: int = 400) -> None:
         super().__init__(message)
@@ -95,7 +101,11 @@ class PixelAgentsOptions(Model):
     """An installable furniture folder for the unmodified pixel-agents application."""
 
     asset_id: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,63}$", description="Stable ID, e.g. OIL_LAMP")
-    name: str = Field(min_length=1, max_length=120, description="Furniture label in the editor")
+    name: str = Field(
+        min_length=1,
+        max_length=PIXEL_AGENTS_NAME_MAX_LENGTH,
+        description="Furniture label in the editor",
+    )
     category: Literal["desks", "chairs", "storage", "decor", "electronics", "wall", "misc"] = (
         "decor"
     )
@@ -121,6 +131,32 @@ class PixelAgentsOptions(Model):
         description="Required for animation: source pose for the idle/off PNG. On frames use the "
         "normal frame range. pixel-agents only cycles on-state frames near an active agent.",
     )
+
+
+class PixelAgentsCharacterOptions(Model):
+    """A pixel-index custom-character export: one manifest-less 112x96 PNG (3
+    direction rows -- down, up, right, top to bottom -- x 7 walk-cycle columns).
+
+    Characters carry no id or name in the zip itself -- pixel-index identifies them
+    purely positionally (see docs/custom-asset-zip-contract.md) -- so `name` here is
+    only a label for this export's own summary/docs, never uploaded.
+    """
+
+    name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
+
+
+class PixelAgentsPetOptions(Model):
+    """A pixel-index custom-pet export: manifest.json + a 96x96 pet.png.
+
+    Requires options.states to be exactly a 3-frame 'walk' state and a 3-frame 'idle'
+    state: the down/up rows use both, the right row (rendered at double width by the
+    renderer -- see docs/custom-asset-zip-contract.md) uses only 'walk'.
+    """
+
+    asset_id: str = Field(
+        pattern=r"^[A-Z][A-Z0-9_]{0,63}$", description="Stable ID, e.g. TABBY_CAT"
+    )
+    name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
 
 
 class RenderState(Model):
@@ -218,6 +254,18 @@ class RenderOptions(Model):
         description="Enable an installable pixel-agents furniture manifest + PNG package. "
         "Requires cardinal angles and 5 fps; animations require an off_frame.",
     )
+    character: PixelAgentsCharacterOptions | None = Field(
+        default=None,
+        description="Enable a pixel-index custom-character export: one manifest-less 112x96 PNG. "
+        "Requires angles={0,90,180} (down/up/right), width=16, height=32, and exactly 7 frames. "
+        "Mutually exclusive with pixel_agents.",
+    )
+    pet: PixelAgentsPetOptions | None = Field(
+        default=None,
+        description="Enable a pixel-index custom-pet export: manifest.json + a 96x96 pet.png. "
+        "Requires angles={0,90,180} (down/up/right), width=16, height=32, and states=[3-frame "
+        "'walk', 3-frame 'idle']. Mutually exclusive with pixel_agents/character.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -261,6 +309,34 @@ class RenderOptions(Model):
         if self.states:
             if len({state.id for state in self.states}) != len(self.states):
                 raise ValueError("State IDs must be distinct")
+        targets = (self.pixel_agents, self.character, self.pet)
+        if sum(target is not None for target in targets) > 1:
+            raise ValueError("Only one of pixel_agents/character/pet may be set per render")
+        if self.character:
+            if self.states:
+                raise ValueError("character export does not support named states")
+            if set(self.angles) != {0, 90, 180}:
+                raise ValueError("character export requires angles={0,90,180} (down/up/right)")
+            if self.width != 16 or self.height != 32:
+                raise ValueError("character export requires width=16, height=32")
+            if len(self.frames()) != 7:
+                raise ValueError("character export requires exactly 7 frames")
+        if self.pet:
+            if set(self.angles) != {0, 90, 180}:
+                raise ValueError("pet export requires angles={0,90,180} (down/up/right)")
+            if self.width != 16 or self.height != 32:
+                raise ValueError(
+                    "pet export requires width=16, height=32 (the down/up canvas; "
+                    "right is doubled automatically)"
+                )
+            state_ids = {state.id for state in self.states or []}
+            if state_ids != {"walk", "idle"}:
+                raise ValueError("pet export requires exactly two states: 'walk' and 'idle'")
+            for state in self.states or []:
+                if len(state.frames()) != 3:
+                    raise ValueError(f"pet '{state.id}' state requires exactly 3 frames")
+                if state.off_frame is not None:
+                    raise ValueError("pet states do not use off_frame")
         if self.pixel_agents:
             if self.fps != 5:
                 raise ValueError("pixel-agents furniture playback is fixed at 5 fps")
@@ -276,9 +352,11 @@ class RenderOptions(Model):
                         raise ValueError(
                             "Combined pixel-agents asset and state ID exceeds 64 chars"
                         )
-                    if len(f"{self.pixel_agents.name} — {state.name}") > 120:
+                    combined_name = f"{self.pixel_agents.name} — {state.name}"
+                    if len(combined_name) > PIXEL_AGENTS_NAME_MAX_LENGTH:
                         raise ValueError(
-                            "Combined pixel-agents asset and state name exceeds 120 chars"
+                            f"Combined pixel-agents asset and state name exceeds "
+                            f"{PIXEL_AGENTS_NAME_MAX_LENGTH} chars"
                         )
             elif len(self.frames()) > 1 and self.pixel_agents.off_frame is None:
                 raise ValueError("pixel-agents animation requires off_frame for the idle/off state")

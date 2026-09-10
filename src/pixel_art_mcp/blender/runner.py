@@ -136,6 +136,13 @@ def render(request, output):
     base_width = max(p.x for p in corners) - min(p.x for p in corners)
     base_height = max(p.y for p in corners) - min(p.y for p in corners)
 
+    # Per-row render width, in output (non-supersampled) pixels. Every existing kind
+    # (furniture/character) renders every angle at the same options["width"], so this
+    # defaults to a uniform list and nothing about their framing changes. Pet is the
+    # only kind that varies this today -- its right-facing row renders at double
+    # width (see imaging/pet.py) -- supplied by jobs/worker.py.
+    widths = options.get("angle_widths") or [options["width"]] * len(options["angles"])
+
     states = options.get("states")
     ranges = states or [options]
     frames = list(
@@ -174,14 +181,20 @@ def render(request, output):
     scale *= 1 + 2 * options["padding"]
     camera_data.ortho_scale = scale
     cx, cy = (xmin + xmax) / 2, (ymin + ymax) / 2
-    view_width, view_height = base_width * scale, base_height * scale
+    view_height = base_height * scale
     distance = max(10.0, radius * 3)
     camera_data.clip_start = 0.001
     camera_data.clip_end = distance + radius * 3 + 100
-    pivot = [
-        options["width"] * (0.5 - cx / view_width),
-        options["height"] * (0.5 + cy / view_height),
-    ]
+
+    def row_pivot(width):
+        # view_frame() depends on the camera's current resolution_x aspect, so this
+        # also has the side effect of setting resolution_x for that row's renders --
+        # ortho_scale (fixed above) keeps every row's real-world zoom identical;
+        # only the horizontal framing/pivot changes with a wider or narrower canvas.
+        scene.render.resolution_x = width * options["supersampling"]
+        frame_corners = camera_data.view_frame(scene=scene)
+        view_width = max(p.x for p in frame_corners) - min(p.x for p in frame_corners)
+        return [width * (0.5 - cx / view_width), options["height"] * (0.5 + cy / view_height)]
 
     sun = None
     if options["lighting"] == "studio":
@@ -206,13 +219,17 @@ def render(request, output):
             "projection": "orthographic",
             "ortho_scale": scale,
             "elevation": options["elevation"],
-            "pivot": pivot,
+            # A single top-level pivot, for uniform-width jobs (every kind but pet,
+            # where it's identical for every row anyway). Each frame entry below
+            # carries its own row's pivot, which is what packaging actually reads.
+            "pivot": row_pivot(options["width"]),
             "zero_angle": "negative_y",
             "positive_rotation": "around_positive_z",
         },
     }
     total = len(bases) * len(frames)
     for row, (outward, rotation, right, up) in enumerate(bases):
+        pivot = row_pivot(widths[row])
         camera.location = outward * distance + right * cx + up * cy
         camera.rotation_mode = "QUATERNION"
         camera.rotation_quaternion = rotation

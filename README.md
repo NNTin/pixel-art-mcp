@@ -17,7 +17,10 @@ so supersampled colors remain distinct instead of turning into muddy downscale a
 Exports default to 16×16 pixels and four cardinal views at 5 fps. Tile dimensions express small,
 tall, and wide objects; explicit pixel dimensions can override them. An optional
 [pixel-agents package](docs/tools.md#pixel-agents-furniture-package) provides ready-to-install
-furniture manifests and PNGs for its fixed-rate, agent-activated animations. The preview compares
+furniture manifests and PNGs for its fixed-rate, agent-activated animations, alongside
+[character](docs/tools.md#pixel-agents-character-package) and
+[pet](docs/tools.md#pixel-agents-pet-package) exports for pixel-index's custom-asset API. The
+preview compares
 the final sprites with genuine higher-resolution renders and highlights the game's resolution.
 [Named appearance states](docs/tools.md#named-appearance-states), such as empty/partial/full rain
 barrels, share one camera and palette and automatically get a combined HTML player and furniture ZIP.
@@ -43,6 +46,8 @@ targets Linux x86-64 and pins Blender 4.5.13 LTS with CPU Cycles; no GPU or disp
 See [client setup](docs/client-setup.md), [tool usage](docs/tools.md), and
 [architecture](docs/architecture.md) for the workflow and operating constraints.
 See [validation status](docs/validation.md) for the completed Docker rendering and playback checks.
+See [contract testing](docs/contract-testing.md) for how the pixel-agents/character/pet exports
+are checked live against pixel-index's real staging and production APIs.
 
 ## Development
 
