@@ -2,16 +2,24 @@
 
 Each check is a plain function `(base_url, session, context, timeout) -> result`
 returning `{"name", "status": "pass"|"fail"|"skipped", "detail"}`. Checks run in
-order and share `context` — the `root` check's discovered commit feeds the
-manifest-schema checks. pixel-agents-cogs' own contract checker
-(https://github.com/pixel-agents-hq/pixel-agents-cogs, contracts/pixel_index/)
-expresses its checks as a declarative list of {path, query, model} entries because
-every one of them is the same shape: GET a path, validate the JSON body against a
-pydantic model reused from its runtime HTTP client. Nothing here calls pixel-index at
-runtime (this repo only produces zips for a human to upload manually), and the checks
-themselves are heterogeneous — a plain health-style GET, a diff against our own
-Pydantic constraints, a cross-repo schema fetch, a real list call — so a flat list of
-functions is the honest shape instead of forcing that declarative pattern.
+order and share `context` — the `root` check's discovered commit is included in the
+manifest-schema checks' pass detail, purely for readability. pixel-agents-cogs' own
+contract checker (https://github.com/pixel-agents-hq/pixel-agents-cogs,
+contracts/pixel_index/) expresses its checks as a declarative list of
+{path, query, model} entries because every one of them is the same shape: GET a path,
+validate the JSON body against a pydantic model reused from its runtime HTTP client.
+Nothing here calls pixel-index at runtime (this repo only produces zips for a human to
+upload manually), and the checks themselves are heterogeneous — a plain health-style
+GET, a diff against our own Pydantic constraints, a live schema fetch, a real list
+call — so a flat list of functions is the honest shape instead of forcing that
+declarative pattern.
+
+The manifest-schema checks fetch straight from pixel-index's own
+GET /api/v1/assets/schema/:kind (pixel-agents-hq/index#108, added directly off this
+check's feedback that there was previously no live, unauthenticated way to discover
+these schemas) rather than pinning a commit or reaching across to GitHub -- so, like
+every other check here, a pass is a live claim about the environment actually being
+hit, nothing more.
 
 No authenticated POST /api/v1/assets upload is attempted anywhere here: that route
 requires a Bearer session or an X-Api-Key + discordUserId this project has no
@@ -40,16 +48,6 @@ from pixel_art_mcp.models import (
     PixelAgentsOptions,
     PixelAgentsPetOptions,
     RenderOptions,
-)
-
-# The real repo is pixel-agents-hq/index (confirmed via `git remote -v` on a checkout).
-# A live environment's own `GET /`  "repository" field says pixel-agents-hq/pixel-index
-# instead — a stale string in that response, not the actual location of the schema
-# files — so this is hardcoded rather than trusted from the API response.
-SCHEMA_REPO = "pixel-agents-hq/index"
-SCHEMA_URL_TEMPLATE = (
-    "https://raw.githubusercontent.com/{repo}/{commit}/"
-    "packages/layout-core/schema/custom-asset-{kind}-manifest.schema.json"
 )
 
 CheckContext = dict[str, Any]
@@ -205,16 +203,16 @@ def _check_manifest_schema(
     context: CheckContext,
     timeout: float,
 ) -> CheckResult:
-    commit = context.get("commit")
-    if not commit:
-        return _result(name, "skipped", "no commit discovered by the root check")
-    url = SCHEMA_URL_TEMPLATE.format(repo=SCHEMA_REPO, commit=commit, kind=kind)
+    url = base_url.rstrip("/") + f"/api/v1/assets/schema/{kind}"
     try:
         response = session.get(url, timeout=timeout)
     except requests.RequestException as exc:
         return _result(name, "fail", f"fetching {url} failed: {exc}")
     if response.status_code == 404:
-        return _result(name, "skipped", f"no schema published at commit {commit}: {url}")
+        # Either this environment predates pixel-agents-hq/index#108 (no schema
+        # endpoint at all yet) or `kind` genuinely has no schema (character -- a
+        # manifest-less PNG, see docs/custom-asset-zip-contract.md).
+        return _result(name, "skipped", f"no schema available at {url}")
     try:
         response.raise_for_status()
         schema = response.json()
@@ -229,7 +227,8 @@ def _check_manifest_schema(
     ]
     if errors:
         return _result(name, "fail", "; ".join(errors))
-    return _result(name, "pass", f"validated against commit {commit}")
+    commit = context.get("commit", "unknown")
+    return _result(name, "pass", f"validated live schema (commit {commit})")
 
 
 def check_manifest_schema_furniture(

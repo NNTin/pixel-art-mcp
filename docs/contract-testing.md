@@ -16,12 +16,15 @@ consumer-driven contract testing against pixel-index's read API
 
 **No schema file is vendored into this repo, and no commit is pinned.** Pinning would mean
 manually re-syncing every time pixel-index's contract changes; instead,
-[`contracts/pixel_index/checks.py`](../contracts/pixel_index/checks.py) asks each live
-environment which commit it's actually running (`GET /`'s `commit` field) and fetches
-that exact commit's manifest schema straight from GitHub
-(`raw.githubusercontent.com/pixel-agents-hq/index/<commit>/packages/layout-core/schema/...`)
-before validating against it. A pass is always a claim about what's live *right now*, and
-there is nothing to remember to update when pixel-index ships a change.
+[`contracts/pixel_index/checks.py`](../contracts/pixel_index/checks.py) fetches each
+manifest schema straight from the environment being checked, via pixel-index's own
+`GET /api/v1/assets/schema/:kind` — a live, unauthenticated discovery endpoint added in
+[pixel-agents-hq/index#108](https://github.com/pixel-agents-hq/index/pull/108) directly in
+response to this check having no such endpoint to use at first (it originally reached across
+to `raw.githubusercontent.com` using the commit `GET /` self-reports; that repo-crossing
+step is gone now that pixel-index serves its own schemas). A pass is always a claim about
+what's live *right now*, and there is nothing to remember to update when pixel-index ships
+a change.
 
 [`contracts/pixel_index/verify.py`](../contracts/pixel_index/verify.py) runs each check in
 [`checks.py`](../contracts/pixel_index/checks.py) against a given `--base-url` and writes a
@@ -34,7 +37,8 @@ PYTHONPATH=src python -m contracts.pixel_index.verify --base-url https://pixel-i
 
 The checks:
 
-- **`root`** — `GET /`, capturing the commit the other checks key off.
+- **`root`** — `GET /`, mainly to surface the commit an environment reports for the pass
+  detail on the other checks; nothing downstream depends on it.
 - **`openapi-query-shape`** — diffs `POST /api/v1/assets`'s documented query constraints
   (the `assetKind` enum, the `category` enum, the `name` length cap) against this repo's
   own Pydantic models (`src/pixel_art_mcp/models.py`). This is how a real mismatch was
@@ -43,17 +47,17 @@ The checks:
 - **`manifest-schema-furniture`** / **`manifest-schema-pet`** — build one manifest the
   *same way the real exporters do* (`imaging/pixel_agents.py`, `imaging/pet.py`, with small
   synthetic fixture inputs — not a hand-duplicated JSON blob that could quietly drift from
-  what the code actually generates) and validate it against the schema fetched for the
-  environment's own commit. Character has no manifest to check — it's a manifest-less PNG,
-  see [the contract doc](https://github.com/pixel-agents-hq/index/blob/main/docs/custom-asset-zip-contract.md).
+  what the code actually generates) and validate it against the schema fetched live from
+  `GET /api/v1/assets/schema/:kind` on that same environment. Character has no manifest to
+  check — it's a manifest-less PNG, see
+  [the contract doc](https://github.com/pixel-agents-hq/index/blob/main/docs/custom-asset-zip-contract.md).
 - **`assets-list`** — a real `GET /api/v1/assets?limit=1` call, checking returned
   `assetKind` values are within the expected set.
 
 A check whose route or schema doesn't exist yet on an environment (production, as of this
-writing, has neither `/api/v1/assets` nor a published schema at its current commit) is
-reported `skipped` with a clear reason, not `fail` — that's an expected gap while
-[pixel-agents-hq/index#108](https://github.com/pixel-agents-hq/index/pull/108) is unmerged,
-not a regression to chase.
+writing, predates pixel-agents-hq/index#108 entirely — no `/api/v1/assets`, no schema
+endpoint) is reported `skipped` with a clear reason, not `fail` — that's an expected gap
+while production hasn't deployed that commit yet, not a regression to chase.
 
 ## What this deliberately does not check
 
