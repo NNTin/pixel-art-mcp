@@ -249,6 +249,20 @@ class RenderOptions(Model):
     samples: int = Field(default=32, ge=1, le=256)
     lighting: Literal["studio", "scene"] = "studio"
     padding: float = Field(default=0.1, ge=0, le=0.5)
+    meters_per_tile: float | None = Field(
+        default=None,
+        gt=0,
+        le=1000,
+        description="Fix camera zoom to an absolute physical scale instead of auto-fitting to "
+        "this object's own bounding box: a 16px tile spans this many Blender units (meters, by "
+        "convention) at zero padding. Model geometry at accurate relative real-world size "
+        "(Blender units == meters) so unrelated objects rendered in separate jobs -- e.g. a "
+        "small candle and a tall street lamp -- come out at correctly relative sizes to each "
+        "other. padding still applies on top (default 0.1 adds ~20% margin, i.e. a tile maps to "
+        "meters_per_tile*(1+2*padding) meters); set padding=0 for an exact mapping. Objects that "
+        "overflow the fixed frame are simply cropped -- choose width/height generously. Leave "
+        "unset (default) for today's per-job auto-fit-to-bounding-box behavior.",
+    )
     pixel_agents: PixelAgentsOptions | None = Field(
         default=None,
         description="Enable an installable pixel-agents furniture manifest + PNG package. "

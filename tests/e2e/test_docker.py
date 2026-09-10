@@ -179,6 +179,68 @@ ring.data.bevel_resolution = 2
             assert 50 <= bounds[2] - bounds[0] <= 55
 
 
+async def test_docker_fixed_physical_scale_camera_is_independent_of_bounding_box():
+    """meters_per_tile pins camera zoom to an absolute physical scale instead of
+    auto-fitting to each object's own bounding box, so unrelated jobs sharing the
+    same meters_per_tile come out at correctly relative real-world sizes -- e.g. a
+    small candle and a tall street lamp. Verified with two spheres of very different
+    radii: their ortho_scale must be identical and deterministic (not derived from
+    either sphere's bounds), and the larger sphere must occupy a visibly larger
+    fraction of its own canvas than the smaller one -- proving neither independently
+    auto-filled its own frame the way the default (unset) mode would."""
+    url = os.environ.get("PIXEL_E2E_URL")
+    if not url:
+        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
+    async with httpx.AsyncClient(base_url=url, timeout=30) as http:
+        client = MCPClient(http)
+        await client.initialize()
+        widths = {}
+        for label, radius in [("small", 0.05), ("large", 0.4)]:
+            project = await client.data("create_project", {"name": f"Physical scale {label}"})
+            creation = await client.data(
+                "execute_blender_python",
+                {
+                    "project_id": project["id"],
+                    "expected_revision_id": None,
+                    "script": f"import bpy\n"
+                    f"bpy.ops.mesh.primitive_uv_sphere_add(radius={radius}, "
+                    f"location=(0, 0, {radius}))\n",
+                },
+            )
+            await client.wait(creation["id"])
+            job = await client.data(
+                "render_preview",
+                {
+                    "project_id": project["id"],
+                    "angle": 0,
+                    "options": {
+                        "width": 64,
+                        "height": 64,
+                        "meters_per_tile": 1.0,
+                        "padding": 0.0,
+                    },
+                },
+            )
+            completed = await client.wait(job["id"])
+            metadata_artifact = next(
+                a for a in completed["artifacts"] if a["filename"] == "spritesheet.json"
+            )
+            metadata = (await http.get(f"/artifacts/{metadata_artifact['id']}")).json()
+            # height=64px, meters_per_tile=1.0, padding=0, 16px/tile -> target view height
+            # = 64*1.0/16 = 4.0m; a square canvas gives ortho_scale == 4.0, identical and
+            # deterministic for both spheres regardless of their own (very different) bounds.
+            assert metadata["camera"]["ortho_scale"] == pytest.approx(4.0, abs=0.01)
+            sprite = next(a for a in completed["artifacts"] if a["kind"] == "frame")
+            png = await http.get(f"/artifacts/{sprite['id']}")
+            with Image.open(io.BytesIO(png.content)) as im:
+                bounds = im.getbbox()
+                assert bounds is not None
+                widths[label] = bounds[2] - bounds[0]
+        # The physical-scale claim itself, not just metadata plumbing: the 0.4m-radius
+        # sphere must render meaningfully wider (in pixels) than the 0.05m-radius one.
+        assert widths["large"] > widths["small"] * 2
+
+
 async def test_docker_pixel_agents_tall_lamp_package(example_dir):
     url = os.environ.get("PIXEL_E2E_URL")
     if not url:
