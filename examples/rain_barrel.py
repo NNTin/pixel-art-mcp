@@ -5,6 +5,10 @@ full: 21..28, idle 20. Use four cardinal views, elevation 40, 5 fps,
 and a pixel-agents footprint_w=1, footprint_h=2.
 Use tile_width=1 and tile_height=2 without a larger pixel override.
 The broad faucet and gauge take priority over wood grain and decorative fittings.
+
+Modeled at ~3.6x scale for editing convenience (an existing Z-only stretch keeps its
+proportions barrel-shaped), then uniformly rescaled to a real ~0.95m tall barrel via
+the root empty's scale below (BARREL_SCALE).
 """
 
 import math
@@ -267,7 +271,8 @@ scene.collection.objects.link(root)
 for obj in list(scene.objects):
     if obj != root:
         obj.parent = root
-root.scale.z = 1.08
+BARREL_SCALE = 0.28  # real-world meters; the existing z-only stretch keeps the shape
+root.scale = (BARREL_SCALE, BARREL_SCALE, 1.08 * BARREL_SCALE)
 scene["rain_barrel_states"] = "empty=0/1-8; partially_filled=10/11-18; full=20/21-28"
 scene["pixel_agents_footprint"] = "1x2; PNG canvas 16x32"
 scene.frame_set(21)

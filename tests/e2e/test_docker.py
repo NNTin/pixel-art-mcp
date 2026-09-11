@@ -161,7 +161,15 @@ ring.data.bevel_resolution = 2
         await client.wait(creation["id"])
         job = await client.data(
             "render_preview",
-            {"project_id": project["id"], "angle": 0, "options": {"width": 64, "height": 64}},
+            {
+                "project_id": project["id"],
+                "angle": 0,
+                # This regresses the auto-fit-to-bounding-box path specifically (a
+                # curve bounding-box bug), not physical-scale framing -- opt out of
+                # the meters_per_tile default explicitly so the expected ortho_scale
+                # stays bbox-derived rather than fixed.
+                "options": {"width": 64, "height": 64, "meters_per_tile": None},
+            },
         )
         completed = await client.wait(job["id"])
         metadata_artifact = next(

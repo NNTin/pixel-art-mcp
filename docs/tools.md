@@ -121,21 +121,24 @@ static inspection. Artifacts are also available at `GET /artifacts/{artifact_id}
 ## Physical scale
 
 Tile counts and explicit `width`/`height` describe an object's canvas, but not how much of that
-canvas the object should visually fill. By default the camera auto-fits to each rendered object's
-own bounding box (plus `padding`), so every export independently fills most of its own frame --
-a small object and a large one requested at the same canvas size both come out looking similarly
-"full." This makes it impossible to render two unrelated objects, in two separate jobs, at sizes
-that are correctly proportional to their real-world scale.
+canvas the object should visually fill. `options.meters_per_tile` fixes camera zoom to an
+absolute physical scale, so sizing is driven by the object's actual real-world size rather than a
+canvas-size guess: a 16px tile spans this many Blender units (meters, by convention) at zero
+padding. It defaults to `1.0` (1 tile == 1m). Model geometry at accurate relative real-world size
+-- treat Blender units as meters -- and unrelated objects rendered in separate jobs come out at
+correctly relative sizes to each other: a small object stays small in its tile, a large one needs
+(and can overflow into) a bigger canvas. `padding` still applies on top of the fixed scale
+(default 0.1 adds ~20% margin, i.e. a tile maps to `meters_per_tile*(1+2*padding)` meters); set
+`padding: 0` for an exact mapping. An object that overflows the fixed frame is simply cropped --
+choose a big enough `width`/`height` (or `tile_width`/`tile_height`) for it.
 
-Set `options.meters_per_tile` to fix camera zoom to an absolute physical scale instead: a 16px
-tile spans this many Blender units (meters, by convention) at zero padding. Model geometry at
-accurate relative real-world size -- treat Blender units as meters -- and unrelated objects
-rendered in separate jobs come out at correctly relative sizes to each other. `padding` still
-applies on top of the fixed scale (default 0.1 adds ~20% margin, i.e. a tile maps to
-`meters_per_tile*(1+2*padding)` meters); set `padding: 0` for an exact mapping. An object that
-overflows the fixed frame is simply cropped -- choose a big enough `width`/`height` (or
-`tile_width`/`tile_height`) for it. Leaving `meters_per_tile` unset keeps today's per-job
-auto-fit behavior, so nothing changes for existing exports that don't set it.
+Without `meters_per_tile`, the camera would instead auto-fit to each rendered object's own
+bounding box (plus `padding`), so every export independently fills most of its own frame -- a
+small object and a large one requested at the same canvas size would come out looking similarly
+"full," making it impossible to render two unrelated objects, in two separate jobs, at sizes that
+are correctly proportional to their real-world scale. Set `meters_per_tile: null` explicitly to
+opt back into that per-job auto-fit behavior -- useful for a quick preview where absolute scale
+doesn't matter, or an object with no meaningful real-world size.
 
 For example, [candle.py](../examples/candle.py) (~0.18m tall) and
 [street_lamp.py](../examples/street_lamp.py) (~3.7m tall) both occupy a 1×1 pixel-agents tile, but

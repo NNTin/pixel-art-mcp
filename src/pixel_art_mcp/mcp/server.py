@@ -30,10 +30,11 @@ Animated exports include transparent APNG loops per direction, an animated previ
 and an offline preview.html player.
 Choose canvas size deliberately: tile_width=1,tile_height=1 is small (16x16); 1x2 is tall (16x32),
 1x3 is 16x48, 2x1 is wide (32x16). Omit width/height for tile sizing; explicit pixels override it.
-By default the camera auto-fits to each render's own bounding box, so canvas size alone does not
-convey real-world scale. Set meters_per_tile to fix camera zoom to an absolute physical scale
-(Blender units as meters) instead, so unrelated objects rendered in separate jobs -- e.g. a candle
-vs. a street lamp -- come out at correctly relative sizes.
+meters_per_tile (default 1.0, i.e. 1 tile = 1m) fixes camera zoom to an absolute physical scale
+(Blender units as meters), so model geometry at accurate real-world size: unrelated objects
+rendered in separate jobs -- e.g. a candle vs. a street lamp -- then come out at correctly
+relative sizes instead of each filling its own canvas. Set it to null to opt into legacy
+per-job auto-fit-to-bounding-box framing instead, e.g. for a quick preview.
 Default export is 16x16, four cardinal views, 5 fps. Set pixel_agents with asset_id and name for an
 installable furniture manifest + PNG package. Animation requires an off_frame, cardinal views,
 and 5 fps. pixel-agents only animates on-state furniture near an active agent; no always-on mode.
