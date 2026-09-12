@@ -1,4 +1,8 @@
-"""New project: render frames 1–8 at 12 FPS, with any desired directions."""
+"""New project: render frames 1-8 at 12 FPS, with any desired directions.
+
+An abstract 1m test cube with no real-world referent -- fine as-is under the default
+meters_per_tile=1.0 (1 tile = 1m), no rescaling needed.
+"""
 
 import math
 

@@ -118,6 +118,74 @@ APNG artifacts have kind `animation`, MIME type `image/apng`, and width/height m
 preview artifact. APNGs and the HTML player are downloads; MCP clients can use `preview.png` for
 static inspection. Artifacts are also available at `GET /artifacts/{artifact_id}`.
 
+## Physical scale
+
+Tile counts and explicit `width`/`height` describe an object's canvas, but not how much of that
+canvas the object should visually fill. `options.meters_per_tile` fixes camera zoom to an
+absolute physical scale, so sizing is driven by the object's actual real-world size rather than a
+canvas-size guess: a 16px tile spans this many Blender units (meters, by convention) at zero
+padding. It defaults to `1.0` (1 tile == 1m). Model geometry at accurate relative real-world size
+-- treat Blender units as meters -- and unrelated objects rendered in separate jobs come out at
+correctly relative sizes to each other: a small object stays small in its tile, a large one needs
+(and can overflow into) a bigger canvas. `padding` still applies on top of the fixed scale
+(default 0.1 adds ~20% margin, i.e. a tile maps to `meters_per_tile*(1+2*padding)` meters); set
+`padding: 0` for an exact mapping. An object that overflows the fixed frame is simply cropped --
+choose a big enough `width`/`height` (or `tile_width`/`tile_height`) for it.
+
+Without `meters_per_tile`, the camera would instead auto-fit to each rendered object's own
+bounding box (plus `padding`), so every export independently fills most of its own frame -- a
+small object and a large one requested at the same canvas size would come out looking similarly
+"full," making it impossible to render two unrelated objects, in two separate jobs, at sizes that
+are correctly proportional to their real-world scale. Set `meters_per_tile: null` explicitly to
+opt back into that per-job auto-fit behavior -- useful for a quick preview where absolute scale
+doesn't matter, or an object with no meaningful real-world size.
+
+For example, [candle.py](../examples/candle.py) (~0.18m tall) and
+[street_lamp.py](../examples/street_lamp.py) (~3.7m tall) both occupy a 1×1 pixel-agents tile, but
+should look nothing alike at that footprint. Rendering both with the same `meters_per_tile`
+produces correctly relative sizes -- the candle stays small within its tile, the lamp dominates a
+much taller canvas:
+
+```json
+{
+  "tile_width": 1,
+  "tile_height": 1,
+  "meters_per_tile": 1.0,
+  "padding": 0.05,
+  "pixel_agents": {
+    "asset_id": "CANDLE",
+    "name": "Candle",
+    "category": "decor",
+    "can_place_on_surfaces": true,
+    "footprint_w": 1,
+    "footprint_h": 1
+  }
+}
+```
+
+```json
+{
+  "tile_width": 1,
+  "tile_height": 16,
+  "meters_per_tile": 1.0,
+  "padding": 0.05,
+  "pixel_agents": {
+    "asset_id": "STREET_LAMP",
+    "name": "Street Lamp",
+    "category": "decor",
+    "footprint_w": 1,
+    "footprint_h": 1
+  }
+}
+```
+
+The lamp's `tile_height: 16` requests a canvas tall enough for its full ~3.7m height at
+`meters_per_tile: 1.0` (without it, `footprint_h` would default to `ceil(height/16)` = 16, the
+whole canvas). The explicit `footprint_h: 1` overrides that default back down to the same single
+ground tile as the candle -- footprints don't resize the PNG, so the sprite still overflows
+visually above its footprint, exactly like the tall-sprite pattern described under "Optional
+furniture metadata" below, just driven by real-world scale instead of a guessed pixel height.
+
 ## Text-only sprite inspection
 
 `inspect_sprite` lets a completion-only client inspect a succeeded `render_preview` or
@@ -223,6 +291,8 @@ means `idle`'s right-facing frames are still rendered (one render pass covers ev
 angle) but are not used in the final PNG — a small, expected amount of wasted render time. Keep
 generated `pet.png` files under 512 KiB for genuine end-to-end pixel-agents compatibility, beyond
 what pixel-index itself enforces; the export raises an error if a generated pet PNG exceeds that.
+`meters_per_tile` (see "Physical scale" above) extends this same fixed-zoom idea across separate
+render jobs, not just across one job's own rows.
 
 ## Animated oil lamp example
 

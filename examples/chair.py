@@ -1,4 +1,10 @@
-"""Submit this entire file to execute_blender_python in a new project."""
+"""Submit this entire file to execute_blender_python in a new project.
+
+Modeled at 2x scale for editing convenience, then uniformly rescaled to a real ~0.94m
+tall dining chair via a parent empty's scale (CHAIR_SCALE) -- see the bottom of this
+file. Follow-up scripts (e.g. modify_chair.py) can keep editing objects in the same
+oversized local coordinates; the parent scale applies transparently to every edit.
+"""
 
 import bpy
 
@@ -30,4 +36,15 @@ for x in (-0.43, 0.43):
 for x in (-0.43, 0.43):
     box(f"BackPost_{x}", (x, 0.4, 1.5), (0.13, 0.13, 1.1))
 box("Backrest", (0, 0.4, 1.85), (1, 0.12, 0.25))
-print("Created chair. Modify named objects such as Seat or Backrest in follow-up scripts.")
+
+# Rescale the whole (oversized, for editing convenience) assembly to a real ~0.94m
+# chair via one parent empty -- geometry, modifier widths, and any follow-up script's
+# edits to these objects' local transforms all scale through this uniformly.
+CHAIR_SCALE = 0.46
+root = bpy.data.objects.new("Chair / proportions", None)
+bpy.context.collection.objects.link(root)
+for obj in list(bpy.context.scene.objects):
+    if obj is not root:
+        obj.parent = root
+root.scale = (CHAIR_SCALE, CHAIR_SCALE, CHAIR_SCALE)
+print("Created chair (~0.94m tall). Modify named objects such as Seat or Backrest in follow-ups.")

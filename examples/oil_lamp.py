@@ -3,6 +3,11 @@
 Export frames 1..8 at 5 fps. Frame 9 repeats frame 1 for a seamless cycle.
 Frame 0 is the extinguished pose for pixel-agents off/on furniture states.
 The spout points toward -Y (the exporter's 0 degree view).
+
+Modeled at ~4x scale for editing convenience, then uniformly rescaled to a real
+~0.28m tall decorative oil lamp via a parent empty's scale (OIL_LAMP_SCALE) -- see
+the bottom of this file. Light properties (shadow_soft_size) don't scale with object
+transforms in Blender, so they're set pre-multiplied by the same factor directly.
 """
 
 import math
@@ -122,12 +127,26 @@ for polygon in flame.data.polygons:
 for vertex in flame.data.vertices:
     vertex.co.x += 0.085 * (vertex.co.z / 0.69) ** 2
 
+OIL_LAMP_SCALE = 0.26
+
 light_data = bpy.data.lights.new("Flame glow", "POINT")
 light_data.color = (1, 0.36, 0.07)
-light_data.shadow_soft_size = 0.24
+# Light properties are world-space, not part of the mesh -- pre-multiply by the same
+# factor the parent-empty rescale below applies to everything else.
+light_data.shadow_soft_size = 0.24 * OIL_LAMP_SCALE
 light = bpy.data.objects.new("Flame glow", light_data)
 bpy.context.collection.objects.link(light)
 light.location = flame.location + Vector((0, 0, 0.24))
+
+# Rescale the whole (oversized, for editing convenience) assembly to a real ~0.28m
+# lamp via one parent empty -- geometry, curve bevel widths, and the animated flame's
+# own relative scale keyframes all scale through this uniformly.
+root = bpy.data.objects.new("Oil lamp / proportions", None)
+bpy.context.collection.objects.link(root)
+for obj in list(bpy.context.scene.objects):
+    if obj is not root:
+        obj.parent = root
+root.scale = (OIL_LAMP_SCALE, OIL_LAMP_SCALE, OIL_LAMP_SCALE)
 
 scene = bpy.context.scene
 scene.frame_start, scene.frame_end = 1, 8

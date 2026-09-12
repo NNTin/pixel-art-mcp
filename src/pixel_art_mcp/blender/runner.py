@@ -9,6 +9,9 @@ from pathlib import Path
 import bpy
 from mathutils import Euler, Vector
 
+sys.path.insert(0, str(Path(__file__).parent))
+import camera_fit  # noqa: E402
+
 
 def progress(stage, completed, total):
     print(
@@ -177,11 +180,19 @@ def render(request, output):
             ymin, ymax = min(ymin, min(ys)), max(ymax, max(ys))
     if not all(math.isfinite(v) for v in (xmin, xmax, ymin, ymax, radius)):
         raise ValueError("Scene contains invalid or unbounded geometry")
-    scale = max((xmax - xmin) / base_width, (ymax - ymin) / base_height, 0.001)
-    scale *= 1 + 2 * options["padding"]
+    fit = camera_fit.fit_camera(
+        base_width=base_width,
+        base_height=base_height,
+        xmin=xmin,
+        xmax=xmax,
+        ymin=ymin,
+        ymax=ymax,
+        padding=options["padding"],
+        height=options["height"],
+        meters_per_tile=options.get("meters_per_tile"),
+    )
+    scale, cx, cy, view_height = fit.ortho_scale, fit.cx, fit.cy, fit.view_height
     camera_data.ortho_scale = scale
-    cx, cy = (xmin + xmax) / 2, (ymin + ymax) / 2
-    view_height = base_height * scale
     distance = max(10.0, radius * 3)
     camera_data.clip_start = 0.001
     camera_data.clip_end = distance + radius * 3 + 100
@@ -194,7 +205,14 @@ def render(request, output):
         scene.render.resolution_x = width * options["supersampling"]
         frame_corners = camera_data.view_frame(scene=scene)
         view_width = max(p.x for p in frame_corners) - min(p.x for p in frame_corners)
-        return [width * (0.5 - cx / view_width), options["height"] * (0.5 + cy / view_height)]
+        return camera_fit.row_pivot(
+            width=width,
+            height=options["height"],
+            cx=cx,
+            cy=cy,
+            view_width=view_width,
+            view_height=view_height,
+        )
 
     sun = None
     if options["lighting"] == "studio":
