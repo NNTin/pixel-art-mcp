@@ -6,7 +6,10 @@ from itertools import repeat
 from pathlib import Path
 from typing import Any, cast
 
+import cv2
+import numpy as np
 from PIL import Image
+from pixelfixer.reconstruct import two_stage_pack
 
 from pixel_art_mcp.imaging.character import export_character
 from pixel_art_mcp.imaging.gif import save_animated_gif
@@ -61,6 +64,29 @@ def sample_source_colors(
     ]
 
 
+def _two_stage_downscale(source: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Downscale via pixel-art-fixer's two-stage packing (vendor/pixel-art-fixer, see #11)
+    instead of a plain box blur. A small adaptive quantization decides crisp per-cell
+    placement first, then each cell is colored from the original pixels that share its
+    winning label -- so flat regions and edges survive the downscale instead of every
+    cell being mashed into one blended, muddy average.
+
+    Alpha still comes from a box average, kept separate so it stays governed by
+    options.alpha_threshold below rather than two_stage_pack's own fixed 50% vote.
+    """
+    if source.size == size:
+        return source.copy()
+    boxed = source.resize(size, Image.Resampling.BOX)
+    # two_stage_pack's k-means clustering draws on OpenCV's global RNG, which is not
+    # controlled by any seed argument -- reset it so repeated calls on the same input
+    # are reproducible instead of drifting with however many prior kmeans calls ran.
+    cv2.setRNGSeed(42)
+    low = two_stage_pack(np.asarray(source, dtype=np.uint8), size[0], size[1])
+    result = Image.fromarray(low[:, :, :3], "RGB").convert("RGBA")
+    result.putalpha(boxed.getchannel("A"))
+    return result
+
+
 def pixelate(
     frames: Iterable[Image.Image],
     options: RenderOptions,
@@ -81,7 +107,11 @@ def pixelate(
             source_samples.extend(
                 sample_source_colors(source, sample_budget, options.alpha_threshold)
             )
-        im = source.resize(size, Image.Resampling.BOX)
+        im = (
+            _two_stage_downscale(source, size)
+            if options.downscale_mode == "crisp"
+            else source.resize(size, Image.Resampling.BOX)
+        )
         alpha = im.getchannel("A").point(lambda a: 255 if a >= options.alpha_threshold else 0)
         im.putalpha(alpha)
         resized.append(im)

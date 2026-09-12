@@ -315,9 +315,8 @@ def export_asset(
     sheet.save(output / "spritesheet.png")
     high_sheet.save(output / "comparison/high-resolution.png")
     preview_scale = min(4, max(1, 1024 // max(sheet.size)))
-    sheet.resize(tuple(v * preview_scale for v in sheet.size), Image.Resampling.NEAREST).save(
-        output / "preview.png"
-    )
+    preview_size = (sheet.width * preview_scale, sheet.height * preview_scale)
+    sheet.resize(preview_size, Image.Resampling.NEAREST).save(output / "preview.png")
     (output / "animations").mkdir()
     animation_files = []
     for key, clip in spec.clips.items():

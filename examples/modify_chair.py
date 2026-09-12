@@ -8,8 +8,12 @@ for obj in bpy.context.scene.objects:
         obj.scale.z *= 1.45
         obj.location.z += 0.125
 
-material = bpy.data.materials["WarmWood"]
-material.diffuse_color = (0.12, 0.32, 0.6, 1)
-material.node_tree.nodes["Principled BSDF"].inputs[
-    "Base Color"
-].default_value = material.diffuse_color
+for name, color in [
+    ("WarmWood / frame", (0.12, 0.32, 0.6, 1)),
+    ("WarmWood / backrest", (0.07, 0.19, 0.36, 1)),
+]:
+    material = bpy.data.materials[name]
+    material.diffuse_color = color
+    material.node_tree.nodes["Principled BSDF"].inputs[
+        "Base Color"
+    ].default_value = material.diffuse_color
