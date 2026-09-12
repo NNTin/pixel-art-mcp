@@ -35,16 +35,17 @@ import json
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any
 
 import requests
 from jsonschema import Draft202012Validator
 from PIL import Image
 
+from pixel_art_mcp.imaging.character import export_character
 from pixel_art_mcp.imaging.pet import export_pet_sheet
 from pixel_art_mcp.imaging.pixel_agents import export_pixel_agents
 from pixel_art_mcp.models import (
-    PIXEL_AGENTS_NAME_MAX_LENGTH,
+    PixelAgentsCharacterOptions,
     PixelAgentsOptions,
     PixelAgentsPetOptions,
     RenderOptions,
@@ -79,8 +80,11 @@ def check_root(
 def check_openapi_query_shape(
     base_url: str, session: requests.Session, context: CheckContext, timeout: float
 ) -> CheckResult:
-    """Cross-checks POST /api/v1/assets's documented query constraints (assetKind,
-    category, name) against what this repo's own models assume."""
+    """Confirms POST /api/v1/assets no longer takes assetKind/category/name as query
+    params (pixel-agents-hq/index#105 follow-up: the server now detects the kind and
+    reads name/category from the zip's own manifest instead) -- if pixel-index ever
+    re-adds one of these as *required*, this repo's zips would stop supplying it and
+    every upload would start failing with no local signal."""
     try:
         response = session.get(base_url.rstrip("/") + "/openapi.json", timeout=timeout)
         response.raise_for_status()
@@ -96,33 +100,16 @@ def check_openapi_query_shape(
             "POST /api/v1/assets is not deployed to this environment yet",
         )
 
-    params = {p["name"]: p.get("schema", {}) for p in post.get("parameters", [])}
-    errors: list[str] = []
-
-    asset_kind_enum = set(params.get("assetKind", {}).get("enum") or [])
-    expected_kinds = {"furniture", "character", "pet"}
-    if asset_kind_enum != expected_kinds:
-        errors.append(
-            f"assetKind enum is {sorted(asset_kind_enum)}, expected {sorted(expected_kinds)}"
+    params = {p["name"] for p in post.get("parameters", [])}
+    stale = params & {"assetKind", "category", "name"}
+    if stale:
+        return _result(
+            "openapi-query-shape",
+            "fail",
+            f"POST /api/v1/assets still declares {sorted(stale)} as query params -- "
+            "this repo's zips no longer supply them (#105 follow-up)",
         )
-
-    category_enum = set(params.get("category", {}).get("enum") or [])
-    expected_categories = set(get_args(PixelAgentsOptions.model_fields["category"].annotation))
-    if category_enum != expected_categories:
-        errors.append(
-            f"category enum is {sorted(category_enum)}, expected {sorted(expected_categories)}"
-        )
-
-    name_max = params.get("name", {}).get("maxLength")
-    if name_max != PIXEL_AGENTS_NAME_MAX_LENGTH:
-        errors.append(
-            f"name maxLength is {name_max!r}, expected {PIXEL_AGENTS_NAME_MAX_LENGTH} "
-            "(update PIXEL_AGENTS_NAME_MAX_LENGTH in src/pixel_art_mcp/models.py)"
-        )
-
-    if errors:
-        return _result("openapi-query-shape", "fail", "; ".join(errors))
-    return _result("openapi-query-shape", "pass", "assetKind/category/name constraints match")
+    return _result("openapi-query-shape", "pass", "no assetKind/category/name query params")
 
 
 def _build_furniture_manifest_fixture() -> dict[str, Any]:
@@ -150,6 +137,31 @@ def _build_furniture_manifest_fixture() -> dict[str, Any]:
             / options.pixel_agents.asset_id
             / "manifest.json"
         )
+        manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return manifest
+
+
+def _build_character_manifest_fixture() -> dict[str, Any]:
+    """Builds one manifest the same way imaging/character.py actually builds it, so
+    the contract check exercises the real code path (#105 follow-up: characters now
+    carry a manifest.json too, mirroring pets) instead of a hand-duplicated fixture."""
+    options = RenderOptions(
+        tile_width=1,
+        tile_height=2,
+        angles=[0, 90, 180],
+        frame_start=0,
+        frame_end=6,
+        character=PixelAgentsCharacterOptions(
+            asset_id="CONTRACT_CHECK_FIXTURE", name="Contract check fixture"
+        ),
+    )
+    columns = len(options.frames())
+    frame = Image.new("RGBA", (16, 32), (0, 0, 0, 0))
+    frames = [frame] * (len(options.angles) * columns)
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp)
+        export_character(output_dir, options, frames)
+        manifest_path = output_dir / "pixel-agents-character" / "manifest.json"
         manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
         return manifest
 
@@ -209,9 +221,9 @@ def _check_manifest_schema(
     except requests.RequestException as exc:
         return _result(name, "fail", f"fetching {url} failed: {exc}")
     if response.status_code == 404:
-        # Either this environment predates pixel-agents-hq/index#108 (no schema
-        # endpoint at all yet) or `kind` genuinely has no schema (character -- a
-        # manifest-less PNG, see docs/custom-asset-zip-contract.md).
+        # This environment predates pixel-agents-hq/index#108 (no schema endpoint at
+        # all yet) or #105's character-manifest follow-up (character 404s on an
+        # older instance that still treats it as manifest-less).
         return _result(name, "skipped", f"no schema available at {url}")
     try:
         response.raise_for_status()
@@ -238,6 +250,20 @@ def check_manifest_schema_furniture(
         "manifest-schema-furniture",
         "furniture",
         _build_furniture_manifest_fixture,
+        base_url,
+        session,
+        context,
+        timeout,
+    )
+
+
+def check_manifest_schema_character(
+    base_url: str, session: requests.Session, context: CheckContext, timeout: float
+) -> CheckResult:
+    return _check_manifest_schema(
+        "manifest-schema-character",
+        "character",
+        _build_character_manifest_fixture,
         base_url,
         session,
         context,
@@ -288,12 +314,11 @@ def check_assets_list(
     return _result("assets-list", "pass", f"{len(assets)} asset(s) checked, of {total} total")
 
 
-# character has no manifest schema to check at all -- see
-# docs/custom-asset-zip-contract.md, it's a manifest-less PNG.
 CHECKS = [
     check_root,
     check_openapi_query_shape,
     check_manifest_schema_furniture,
+    check_manifest_schema_character,
     check_manifest_schema_pet,
     check_assets_list,
 ]

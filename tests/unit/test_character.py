@@ -1,4 +1,5 @@
 import io
+import json
 import zipfile
 
 import pytest
@@ -28,7 +29,7 @@ def test_character_constraints_are_rejected_before_render(values):
         "angles": [0, 90, 180],
         "frame_start": 0,
         "frame_end": 6,
-        "character": {"name": "Hero"},
+        "character": {"asset_id": "HERO", "name": "Hero"},
     }
     with pytest.raises(ValidationError):
         RenderOptions.model_validate({**base, **values})
@@ -40,12 +41,12 @@ def test_character_and_pixel_agents_are_mutually_exclusive():
             {
                 "angles": [0],
                 "pixel_agents": {"asset_id": "LAMP", "name": "Lamp"},
-                "character": {"name": "Hero"},
+                "character": {"asset_id": "HERO", "name": "Hero"},
             }
         )
 
 
-def test_character_package_is_manifest_less_and_matches_the_general_spritesheet(tmp_path):
+def test_character_package_has_manifest_and_matches_the_general_spritesheet(tmp_path):
     options = RenderOptions(
         tile_width=1,
         tile_height=2,
@@ -53,7 +54,7 @@ def test_character_package_is_manifest_less_and_matches_the_general_spritesheet(
         frame_start=0,
         frame_end=6,
         supersampling=1,
-        character={"name": "Hero"},
+        character={"asset_id": "HERO", "name": "Hero"},
     )
     raw, out = tmp_path / "raw", tmp_path / "out"
     raw.mkdir()
@@ -78,7 +79,8 @@ def test_character_package_is_manifest_less_and_matches_the_general_spritesheet(
         zipfile.ZipFile(out / "pixel-agents-character.zip") as archive,
     ):
         sheet = sheet.convert("RGBA")
-        assert archive.namelist() == ["character.png"]
+        assert set(archive.namelist()) == {"character.png", "manifest.json"}
+        assert json.loads(archive.read("manifest.json")) == {"id": "HERO", "name": "Hero"}
         with Image.open(io.BytesIO(archive.read("character.png"))) as character:
             assert character.size == (112, 96)
             character = character.convert("RGBA")

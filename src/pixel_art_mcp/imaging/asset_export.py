@@ -80,7 +80,7 @@ def package_asset(
             height=32,
             angles=angles,
             frame_sequence=frames,
-            character=PixelAgentsCharacterOptions(name=spec.name),
+            character=PixelAgentsCharacterOptions(asset_id=str(spec.asset_id), name=spec.name),
         )
         target = export_character(output, options, [cells[(a, f)] for a in angles for f in frames])
         return {"kind": spec.kind, **(target or {})}

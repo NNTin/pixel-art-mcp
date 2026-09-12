@@ -35,7 +35,7 @@ def test_meters_per_tile_rejects_out_of_range_values(value):
     [
         {"pixel_agents": {"asset_id": "LAMP", "name": "Lamp"}},
         {
-            "character": {"name": "Hero"},
+            "character": {"asset_id": "HERO", "name": "Hero"},
             "angles": [0, 90, 180],
             "width": 16,
             "height": 32,
