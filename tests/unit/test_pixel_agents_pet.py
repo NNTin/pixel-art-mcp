@@ -45,7 +45,11 @@ def test_pet_constraints_are_rejected_before_render(values):
 def test_pet_and_character_are_mutually_exclusive():
     with pytest.raises(ValidationError, match="Only one of pixel_agents/character/pet"):
         RenderOptions.model_validate(
-            {**base_options(), "character": {"name": "Hero"}, "angles": [0, 90, 180]}
+            {
+                **base_options(),
+                "character": {"asset_id": "HERO", "name": "Hero"},
+                "angles": [0, 90, 180],
+            }
         )
 
 

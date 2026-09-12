@@ -210,14 +210,13 @@ footprints do not shift or resize the PNG. The game asset workflow derives these
 
 ## pixel-agents character package
 
-Set `options.character` to an object with just `name` (a label for this export's own summary —
-pixel-index's custom-character format carries no id or name at all; characters are identified
-purely positionally). This requires `angles=[0, 90, 180]` (any order), `width=16`, `height=32`,
-and exactly 7 frames, and adds `pixel-agents-character.zip` containing a single manifest-less
-`character.png`, 112×96: three direction rows top to bottom (`down`, `up`, `right`) of seven
-16×32 poses each: three walking, two typing, and two reading. `left` is derived by the pixel-agents client from a horizontal flip
-of `right` and is never part of the export — do not model a fourth row for it. States and
-`pixel_agents` are not supported alongside `character`.
+Set `options.character` to an object with `asset_id` (same pattern as furniture's/pet's) and
+`name`. This requires `angles=[0, 90, 180]` (any order), `width=16`, `height=32`, and exactly 7
+frames, and adds `pixel-agents-character.zip` containing `manifest.json` (`{id, name}`, mirroring
+the pet package) and `character.png`, 112×96: three direction rows top to bottom (`down`, `up`,
+`right`) of seven 16×32 poses each: three walking, two typing, and two reading. `left` is derived
+by the pixel-agents client from a horizontal flip of `right` and is never part of the export — do
+not model a fourth row for it. States and `pixel_agents` are not supported alongside `character`.
 
 ## pixel-agents pet package
 

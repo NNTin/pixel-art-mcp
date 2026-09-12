@@ -39,18 +39,17 @@ The checks:
 
 - **`root`** — `GET /`, mainly to surface the commit an environment reports for the pass
   detail on the other checks; nothing downstream depends on it.
-- **`openapi-query-shape`** — diffs `POST /api/v1/assets`'s documented query constraints
-  (the `assetKind` enum, the `category` enum, the `name` length cap) against this repo's
-  own Pydantic models (`src/pixel_art_mcp/models.py`). This is how a real mismatch was
-  caught while building this feature: pixel-index's `name` cap is 60 characters,
-  `PixelAgentsOptions.name` (and friends) allowed 120.
-- **`manifest-schema-furniture`** / **`manifest-schema-pet`** — build one manifest the
-  *same way the real exporters do* (`imaging/pixel_agents.py`, `imaging/pet.py`, with small
-  synthetic fixture inputs — not a hand-duplicated JSON blob that could quietly drift from
-  what the code actually generates) and validate it against the schema fetched live from
-  `GET /api/v1/assets/schema/:kind` on that same environment. Character has no manifest to
-  check — it's a manifest-less PNG, see
-  [the contract doc](https://github.com/pixel-agents-hq/index/blob/main/docs/custom-asset-zip-contract.md).
+- **`openapi-query-shape`** — confirms `POST /api/v1/assets` no longer declares
+  `assetKind`/`category`/`name` as query params (#105 follow-up: the server detects the
+  kind and reads name/category straight from the zip's own manifest instead). If
+  pixel-index ever brings one of these back, this repo's zips would silently stop
+  supplying it and every upload would start failing with no local signal.
+- **`manifest-schema-furniture`** / **`manifest-schema-character`** / **`manifest-schema-pet`**
+  — build one manifest the *same way the real exporters do* (`imaging/pixel_agents.py`,
+  `imaging/character.py`, `imaging/pet.py`, with small synthetic fixture inputs — not a
+  hand-duplicated JSON blob that could quietly drift from what the code actually
+  generates) and validate it against the schema fetched live from
+  `GET /api/v1/assets/schema/:kind` on that same environment.
 - **`assets-list`** — a real `GET /api/v1/assets?limit=1` call, checking returned
   `assetKind` values are within the expected set.
 

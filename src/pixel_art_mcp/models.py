@@ -142,14 +142,15 @@ class PixelAgentsOptions(Model):
 
 
 class PixelAgentsCharacterOptions(Model):
-    """A pixel-index custom-character export: one manifest-less 112x96 PNG (3
+    """A pixel-index custom-character export: manifest.json + a 112x96 PNG (3
     direction rows -- down, up, right -- x 3 walk, 2 typing, 2 reading columns).
 
-    Characters carry no id or name in the zip itself -- pixel-index identifies them
-    purely positionally (see docs/custom-asset-zip-contract.md) -- so `name` here is
-    only a label for this export's own summary/docs, never uploaded.
+    Mirrors PixelAgentsPetOptions's shape -- pixel-index identifies a custom
+    character by this manifest's id/name (see docs/custom-asset-zip-contract.md),
+    the same as it does for a pet.
     """
 
+    asset_id: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,63}$", description="Stable ID, e.g. KNIGHT")
     name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
 
 
@@ -368,7 +369,7 @@ class RenderOptions(Model):
     )
     character: PixelAgentsCharacterOptions | None = Field(
         default=None,
-        description="Enable a pixel-index custom-character export: one manifest-less 112x96 PNG. "
+        description="Enable a pixel-index custom-character export: manifest.json + a 112x96 PNG. "
         "Requires angles={0,90,180} (down/up/right), width=16, height=32, and exactly 7 frames. "
         "Mutually exclusive with pixel_agents.",
     )
