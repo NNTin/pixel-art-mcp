@@ -91,11 +91,22 @@ Unknown options, nonfinite numbers, duplicate directions, invalid palettes, and 
 are rejected before execution.
 
 `downscale_mode` defaults to `"crisp"`. The renderer fits the shared palette from genuine
-supersampled source colors, BOX-downscales coverage, then maps each target pixel back to that
-source-derived palette. This keeps pale gauge frames, saturated water, brass, wood, and iron from
-being represented by new muddy colors created only by averaging. Use `"average"` to reproduce the
-legacy behavior and compare it with crisp mode. An explicit `palette` is authoritative in either
-mode.
+supersampled source colors, then downscales via
+[pixel-art-fixer](https://github.com/NNTin/pixel-art-fixer)'s two-stage packing
+(`vendor/pixel-art-fixer`, added for [#11](https://github.com/NNTin/pixel-art-mcp/issues/11)):
+a small adaptive quantization decides crisp per-cell placement first, then each cell is colored
+from the original pixels that share its winning label. A plain box blur mixes every cell into one
+blended average; this keeps a cell's *edge* crisp and its *color* accurate instead, which is why
+pale gauge frames, saturated water, brass, wood, and iron aren't represented by new muddy colors
+invented only by averaging. Alpha coverage is still a box average, gated by `alpha_threshold`
+below. Use `"average"` to reproduce the legacy plain-box-downscale behavior and compare it with
+crisp mode. An explicit `palette` is authoritative in either mode.
+
+Downscaling can only preserve detail that the source render actually has: a model built from one
+flat material has no per-cell color contrast for either downscale mode to keep, so it reads as
+plain at 16x16 regardless. Give distinct parts of a model distinct materials (see how
+[chair.py](../examples/chair.py) separates frame wood, backrest wood, and a cushion fabric) so the
+downscale has real color boundaries to preserve, not just geometry a small canvas will smooth away.
 
 Each render produces individual frame PNGs, `spritesheet.png`, `spritesheet.json`, `preview.png`,
 `preview.html`, `comparison/high-resolution.png`, and `sprites.zip`. `preview.html` embeds both

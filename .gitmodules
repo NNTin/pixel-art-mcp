@@ -1,0 +1,3 @@
+[submodule "vendor/pixel-art-fixer"]
+	path = vendor/pixel-art-fixer
+	url = https://github.com/NNTin/pixel-art-fixer
