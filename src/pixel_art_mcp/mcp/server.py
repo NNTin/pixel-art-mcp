@@ -1,18 +1,43 @@
 import base64
 import json
 from pathlib import Path
+from typing import Any, Literal
 from uuid import UUID
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
 
+from pixel_art_mcp.assets import get_asset_profile as describe_asset_profile
 from pixel_art_mcp.imaging.inspection import compare_inspections
 from pixel_art_mcp.imaging.inspection import inspect_sprite as inspect_export
-from pixel_art_mcp.models import Job, OpenAIFile, Project, ProjectDetail, Reference, RenderOptions
+from pixel_art_mcp.models import (
+    AssetSpec,
+    Job,
+    OpenAIFile,
+    Project,
+    ProjectDetail,
+    Reference,
+    RenderOptions,
+)
 from pixel_art_mcp.projects.service import Service
 
-INSTRUCTIONS = """Create pixel art by modeling in Blender, then inspecting and refining renders.
+INSTRUCTIONS = """Create Pixel Agents art with the target-aware asset workflow:
+get_asset_profile(kind,preset), create_project, configure_asset, execute_blender_python,
+wait_for_job, render_asset, wait_for_job, inspect_asset and inspect_sprite. Refine named Blender
+objects or configure_asset, then rerender. Every render_asset produces the final installable ZIP,
+source comparison, approximate contextual HTML/PNG previews and asset-report.json automatically.
+Use job.outputs for named top-level artifacts; export_path preserves paths within nested variants.
+Game profiles fit readable silhouettes, derive furniture footprints/background rows and anchor
+characters/pets at bottom-center. Never use physical-scale generic defaults for game assets.
+Character clips are walk(3), typing(2), reading(2), NOT seven walking frames. Pet clips are walk(3)
+and idle(3), with a wider side view. Furniture animated clips require off_frame and play at 5 fps
+only near active agents. The LLM writes Blender geometry; no cloud image generation is involved.
+Inspect readability/placement diagnostics, not just file validity. Context previews approximate the
+consumer; browser contract tests exercise the actual webview. Do not hand-edit generated exports.
+
+Generic render_preview/render_sprites remain available for non-target workflows:
+Create pixel art by modeling in Blender, then inspecting and refining renders.
 Create a project, upload/read reference images, execute_blender_python, poll get_job until terminal,
 inspect_scene, render_preview, inspect its image or text grid, refine with Python, then
 render_sprites.
@@ -81,6 +106,41 @@ def create_mcp(service: Service) -> FastMCP:
     async def get_capabilities() -> dict[str, object]:
         """Use before modeling to discover Blender availability, defaults, and job limits."""
         return service.capabilities()
+
+    @server.tool(annotations=READ)
+    async def get_asset_profile(
+        kind: Literal["furniture", "character", "pet"],
+        preset: str | None = None,
+    ) -> dict[str, Any]:
+        """Discover game canvas sizes, pose semantics, anchors and Blender modeling guidance."""
+        return describe_asset_profile(kind, preset)
+
+    @server.tool(annotations=WRITE)
+    async def configure_asset(project_id: UUID, specification: AssetSpec) -> dict[str, Any]:
+        """Save a complete target specification. Omitted clips use the profile's documented poses.
+
+        Replaces the project's configuration, without editing its Blender scene. Returns the
+        resolved per-direction canvases and placement footprints. Use before modeling/rendering.
+        """
+        return service.configure_asset(str(project_id), specification)
+
+    @server.tool(annotations=WRITE)
+    async def render_asset(project_id: UUID, revision_id: UUID | None = None) -> Job:
+        """Render the configured game asset. Returns a job; wait_for_job before inspecting.
+
+        Snapshots configuration and scene revision; emits frames, installable ZIP, source
+        comparison, contextual previews, and diagnostics for furniture, characters, and pets.
+        """
+        return service.render_asset(str(project_id), str(revision_id) if revision_id else None)
+
+    @server.tool(annotations=READ)
+    async def inspect_asset(job_id: UUID) -> dict[str, Any]:
+        """Read all-frame readability, alignment, animation and named-object pixel diagnostics.
+
+        Findings are advisory except invalid packages, empty sprites or definite clipping.
+        Use inspect_sprite for a selected clip's exact pixel grid and color analysis.
+        """
+        return service.inspect_asset(str(job_id))
 
     @server.tool(annotations=WRITE)
     async def create_project(name: str) -> Project:

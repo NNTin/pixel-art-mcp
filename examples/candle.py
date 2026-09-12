@@ -1,16 +1,13 @@
-"""A small pillar candle, real-world scale in meters; submit via execute_blender_python.
+"""Pillar candle with broad wax and flame shapes for the small/surface game profile.
 
-Modeled ~0.18m tall to the flame tip (0.14m wax body + 0.015m wick + flame), 0.035m
-radius -- a typical pillar candle. Pairs with street_lamp.py to demonstrate
-options.meters_per_tile: rendered with the same meters_per_tile, this candle should
-come out tiny compared to the lamp, matching their real relative sizes, even though
-both occupy a 1x1 pixel-agents tile.
+Submit via execute_blender_python, then configure_asset/render_asset. Geometry is
+in meters, but the profile fits a readable game silhouette independently of scale.
 """
 
 import bpy
 
 WAX_HEIGHT = 0.14
-WAX_RADIUS = 0.035
+WAX_RADIUS = 0.055
 WICK_HEIGHT = 0.015
 
 
@@ -48,10 +45,10 @@ wick.name = "Wick"
 wick.data.materials.append(wick_mat)
 
 bpy.ops.mesh.primitive_cone_add(
-    radius1=0.009,
+    radius1=0.024,
     radius2=0.001,
-    depth=0.025,
-    location=(0, 0, WAX_HEIGHT + WICK_HEIGHT + 0.0125),
+    depth=0.04,
+    location=(0, 0, WAX_HEIGHT + WICK_HEIGHT + 0.02),
 )
 flame = bpy.context.object
 flame.name = "Flame"

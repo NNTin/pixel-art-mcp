@@ -2,6 +2,7 @@ import asyncio
 import base64
 import binascii
 import importlib.metadata
+import json
 import mimetypes
 import shutil
 import time
@@ -10,11 +11,13 @@ from typing import Any
 from uuid import UUID
 
 from pixel_art_mcp import __version__
+from pixel_art_mcp.assets import get_asset_profile, normalize_asset, resolve_asset
 from pixel_art_mcp.async_utils import finish_thread
 from pixel_art_mcp.config import Settings
 from pixel_art_mcp.jobs.log_condense import condense_log
 from pixel_art_mcp.models import (
     Artifact,
+    AssetSpec,
     DomainError,
     Job,
     OpenAIFile,
@@ -47,6 +50,15 @@ class Service:
             "transport": "streamable-http",
             "authentication": "none",
             "modeling": "full Blender Python (trusted scripts)",
+            "asset_workflow": [
+                "get_asset_profile",
+                "configure_asset",
+                "render_asset",
+                "inspect_asset",
+            ],
+            "asset_profiles": {
+                kind: get_asset_profile(kind) for kind in ("furniture", "character", "pet")
+            },
             "render_defaults": RenderOptions().model_dump(),
             "export_features": {
                 "preview_options": "same as render_sprites; angle/frame override options",
@@ -89,7 +101,55 @@ class Service:
             revisions=[
                 Revision.model_validate(r) for r in self.store.records(project_id, "revision")
             ],
+            asset_configuration=self.asset_configuration(project_id),
         )
+
+    def asset_configuration(self, project_id: str) -> dict[str, Any] | None:
+        self.store.project(project_id)
+        records = self.store.records(project_id, "asset_configuration")
+        return max(records, key=lambda record: record["created_at"]) if records else None
+
+    def configure_asset(self, project_id: str, specification: AssetSpec) -> dict[str, Any]:
+        self.store.project(project_id)
+        specification = normalize_asset(specification)
+        resolved = resolve_asset(specification)
+        record = {
+            "id": identifier(),
+            "project_id": project_id,
+            "created_at": timestamp(),
+            "specification": specification.model_dump(),
+            "layouts": resolved.asset_layouts,
+        }
+        self.store.put_record("asset_configuration", record)
+        return record
+
+    def render_asset(self, project_id: str, revision_id: str | None = None) -> Job:
+        configuration = self.asset_configuration(project_id)
+        if configuration is None:
+            raise DomainError("Call configure_asset before render_asset")
+        options = resolve_asset(
+            AssetSpec.model_validate(configuration["specification"]), configuration["id"]
+        )
+        return self.submit_render(project_id, options, revision_id)
+
+    def export_root(self, job_id: str) -> Path:
+        job = self.job(job_id)
+        if job.status != "succeeded" or job.operation not in ("preview", "sprites"):
+            raise DomainError("Inspection requires a succeeded render job")
+        paths = [
+            self.artifact_path(str(a.id)) for a in job.artifacts if a.filename == "sprites.zip"
+        ]
+        if not paths:
+            raise DomainError("Render has no sprites.zip artifact")
+        return min(paths, key=lambda path: len(path.parts)).parent
+
+    def inspect_asset(self, job_id: str) -> dict[str, Any]:
+        path = self.export_root(job_id) / "asset-report.json"
+        if not path.is_file():
+            raise DomainError(
+                "This legacy render has no asset report; use configure_asset/render_asset"
+            )
+        return {"job_id": job_id, **json.loads(path.read_text())}
 
     def artifact_record(
         self,
@@ -109,6 +169,13 @@ class Service:
             "kind": kind,
             "filename": path.name,
             "relative_path": relative,
+            "export_path": (
+                path.relative_to(
+                    self.store.root / "projects" / project_id / "jobs" / job_id
+                ).as_posix()
+                if job_id
+                else path.name
+            ),
             "media_type": (
                 "image/apng"
                 if path.suffix == ".apng"
@@ -234,6 +301,11 @@ class Service:
             if options.states
             else frame_count
         )
+        if options.asset:
+            output_count = sum(
+                len(clip.frames) + (clip.off_frame is not None)
+                for clip in options.asset.clips.values()
+            ) * len(options.angles)
         pixel_count = max(frame_count, output_count) * options.width * options.height
         if pixel_count > self.settings.max_sheet_pixels:
             raise DomainError("Sprite sheet exceeds the configured pixel limit")
@@ -272,6 +344,11 @@ class Service:
         record = self.store.job(job_id)
         record.pop("params")
         record["artifacts"] = [self.artifact(i) for i in record.pop("artifact_ids")]
+        record["outputs"] = {
+            artifact.export_path: artifact
+            for artifact in record["artifacts"]
+            if artifact.export_path and "/" not in artifact.export_path
+        }
         record["logs"] = condense_log(record.get("logs") or "")
         return Job.model_validate(record)
 

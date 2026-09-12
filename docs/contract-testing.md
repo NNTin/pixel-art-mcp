@@ -101,3 +101,11 @@ itself.
   and its detail for which side needs to change.
 - **A check is `skipped`** → the environment doesn't have that route/schema yet (expected
   for production today); not a failure.
+
+## Actual webview rendering checks
+
+The game asset workflow also has a [development browser harness](game-assets.md#reproduce-examples-and-webview-checks).
+It imports the consumer's own decoders, catalog, layout, activation logic, sprite selectors, and
+canvas renderer from a read-only checkout. Its local report identifies the tested commit and
+records the unchanged checkout status. This complements the live API schema checks: PNG dimensions
+and a valid manifest alone cannot establish correct placement, animation, or visual readability.

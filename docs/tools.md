@@ -1,5 +1,9 @@
 # Tool workflow
 
+For Pixel Agents furniture, characters, and pets, follow the [game asset workflow](game-assets.md):
+`get_asset_profile` → `configure_asset` → `execute_blender_python` → `render_asset` → `inspect_asset`.
+The options below document the generic and legacy export APIs retained for existing clients.
+
 Call `get_capabilities` first. Create or find a project, upload references, inspect those images,
 then use `execute_blender_python` to create and modify the 3D model.
 
@@ -120,71 +124,14 @@ static inspection. Artifacts are also available at `GET /artifacts/{artifact_id}
 
 ## Physical scale
 
-Tile counts and explicit `width`/`height` describe an object's canvas, but not how much of that
-canvas the object should visually fill. `options.meters_per_tile` fixes camera zoom to an
-absolute physical scale, so sizing is driven by the object's actual real-world size rather than a
-canvas-size guess: a 16px tile spans this many Blender units (meters, by convention) at zero
-padding. It defaults to `1.0` (1 tile == 1m). Model geometry at accurate relative real-world size
--- treat Blender units as meters -- and unrelated objects rendered in separate jobs come out at
-correctly relative sizes to each other: a small object stays small in its tile, a large one needs
-(and can overflow into) a bigger canvas. `padding` still applies on top of the fixed scale
-(default 0.1 adds ~20% margin, i.e. a tile maps to `meters_per_tile*(1+2*padding)` meters); set
-`padding: 0` for an exact mapping. An object that overflows the fixed frame is simply cropped --
-choose a big enough `width`/`height` (or `tile_width`/`tile_height`) for it.
+Generic `render_preview` and `render_sprites` retain `meters_per_tile` (default 1.0).
+It fixes camera zoom in Blender units per 16px tile; `padding` adds margin. Set it to null for
+per-job bounds fitting. Fixed-scale output can crop geometry outside its canvas.
 
-Without `meters_per_tile`, the camera would instead auto-fit to each rendered object's own
-bounding box (plus `padding`), so every export independently fills most of its own frame -- a
-small object and a large one requested at the same canvas size would come out looking similarly
-"full," making it impossible to render two unrelated objects, in two separate jobs, at sizes that
-are correctly proportional to their real-world scale. Set `meters_per_tile: null` explicitly to
-opt back into that per-job auto-fit behavior -- useful for a quick preview where absolute scale
-doesn't matter, or an object with no meaningful real-world size.
-
-For example, [candle.py](../examples/candle.py) (~0.18m tall) and
-[street_lamp.py](../examples/street_lamp.py) (~3.7m tall) both occupy a 1×1 pixel-agents tile, but
-should look nothing alike at that footprint. Rendering both with the same `meters_per_tile`
-produces correctly relative sizes -- the candle stays small within its tile, the lamp dominates a
-much taller canvas:
-
-```json
-{
-  "tile_width": 1,
-  "tile_height": 1,
-  "meters_per_tile": 1.0,
-  "padding": 0.05,
-  "pixel_agents": {
-    "asset_id": "CANDLE",
-    "name": "Candle",
-    "category": "decor",
-    "can_place_on_surfaces": true,
-    "footprint_w": 1,
-    "footprint_h": 1
-  }
-}
-```
-
-```json
-{
-  "tile_width": 1,
-  "tile_height": 16,
-  "meters_per_tile": 1.0,
-  "padding": 0.05,
-  "pixel_agents": {
-    "asset_id": "STREET_LAMP",
-    "name": "Street Lamp",
-    "category": "decor",
-    "footprint_w": 1,
-    "footprint_h": 1
-  }
-}
-```
-
-The lamp's `tile_height: 16` requests a canvas tall enough for its full ~3.7m height at
-`meters_per_tile: 1.0` (without it, `footprint_h` would default to `ceil(height/16)` = 16, the
-whole canvas). The explicit `footprint_h: 1` overrides that default back down to the same single
-ground tile as the candle -- footprints don't resize the PNG, so the sprite still overflows
-visually above its footprint, exactly like the tall-sprite pattern described under "Optional
-furniture metadata" below, just driven by real-world scale instead of a guessed pixel height.
+For Pixel Agents, use `configure_asset` / `render_asset` instead: readable silhouettes, bottom
+alignment, and rotated occupied/background rows are derived together. Real-world proportionality
+usually makes small props unreadable on a 16px grid. The candle and street lamp examples now use
+the game profiles in [asset-specs.json](../examples/asset-specs.json).
 
 ## Text-only sprite inspection
 
@@ -257,9 +204,9 @@ control is a preview, not a simulation of the app's activation rules.
 
 Optional furniture metadata includes `category`, `can_place_on_surfaces`, `can_place_on_walls`,
 `footprint_w`, `footprint_h`, and `background_tiles`. Footprints default to the sprite dimensions
-rounded up to 16px tiles. Override them for a tall sprite standing on a smaller floor area, or a
-small object sitting on a desk; footprints do not resize the PNG. `background_tiles` must be less
-than the footprint height.
+rounded up to 16px tiles. `background_tiles` is the count of top footprint rows that remain
+walkable and must be less than the footprint height. Furniture is drawn from the tile top-left;
+footprints do not shift or resize the PNG. The game asset workflow derives these fields together.
 
 ## pixel-agents character package
 
@@ -268,7 +215,7 @@ pixel-index's custom-character format carries no id or name at all; characters a
 purely positionally). This requires `angles=[0, 90, 180]` (any order), `width=16`, `height=32`,
 and exactly 7 frames, and adds `pixel-agents-character.zip` containing a single manifest-less
 `character.png`, 112×96: three direction rows top to bottom (`down`, `up`, `right`) of seven
-16×32 walk-cycle frames each. `left` is derived by the pixel-agents client from a horizontal flip
+16×32 poses each: three walking, two typing, and two reading. `left` is derived by the pixel-agents client from a horizontal flip
 of `right` and is never part of the export — do not model a fourth row for it. States and
 `pixel_agents` are not supported alongside `character`.
 
@@ -280,9 +227,8 @@ Set `options.pet` to an object with `asset_id` (same pattern as furniture's) and
 to pets). This adds `pixel-agents-pet.zip` containing `<ASSET_ID>/manifest.json` (`{id, name}`)
 and `<ASSET_ID>/pet.png`, a 96×96 sheet with an asymmetric grid: row 0 (`down`) and row 1 (`up`)
 are six 16×32 frames each — `walk[0..2]` then `idle[0..2]` — and row 2 (`right`) is three **32×32**
-frames — `walk[0..2]` only, at double the width of the other two rows. `walkLeft`/`idleLeft` are
-derived by the pixel-agents client from a horizontal flip and are never part of the export, and
-there is no idle-facing-right row in the format at all.
+frames — `walk[0..2]` only, at double the width of the other two rows. `walkLeft` mirrors right walking. Right idle uses down idle; left idle uses up idle without
+mirroring. There is no authored sideways idle row in the format.
 
 The wider right row comes from a genuine per-angle render-width change: the renderer frames the
 `right` camera view at twice the pixel width of `down`/`up`, at the same real-world zoom, so a

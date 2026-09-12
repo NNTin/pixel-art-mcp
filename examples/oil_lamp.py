@@ -109,7 +109,7 @@ handle_points = [
     (0, 0.69 + 0.30 * math.cos(i * math.tau / 32), 0.67 + 0.39 * math.sin(i * math.tau / 32))
     for i in range(32)
 ]
-tube("Raised loop handle", handle_points, 0.065, gold, cyclic=True)
+tube("Raised loop handle", handle_points, 0.13, gold, cyclic=True)
 tube("Handle lower attachment", [(0, 0.45, 0.31), (0, 0.75, 0.35)], 0.09, bronze)
 
 flame = lathe(
@@ -125,7 +125,9 @@ for polygon in flame.data.polygons:
     band = polygon.index // 10
     polygon.material_index = 0 if band == 0 else (1 if band < 3 else 2)
 for vertex in flame.data.vertices:
-    vertex.co.x += 0.085 * (vertex.co.z / 0.69) ** 2
+    vertex.co.x *= 1.8
+    vertex.co.y *= 1.8
+    vertex.co.x += 0.16 * (vertex.co.z / 0.69) ** 2
 
 OIL_LAMP_SCALE = 0.26
 
@@ -160,9 +162,9 @@ light_data.keyframe_insert(data_path="energy", frame=0)
 for frame in range(1, 10):
     phase = (frame - 1) * math.tau / 8
     flame.scale = (
-        1 + 0.14 * math.sin(phase),
+        1 + 0.35 * math.sin(phase),
         1 + 0.10 * math.cos(phase),
-        1 + 0.17 * math.sin(phase + 0.5),
+        1 + 0.28 * math.sin(phase + 0.5),
     )
     flame.rotation_euler = (0.08 * math.cos(phase), 0.15 * math.sin(phase), 0)
     flame.keyframe_insert(data_path="scale", frame=frame)

@@ -113,6 +113,11 @@ def export_sheet(
     project_id: str,
     revision_id: str,
 ) -> None:
+    if options.asset:
+        from pixel_art_mcp.imaging.asset_export import export_asset
+
+        export_asset(raw_dir, output_dir, manifest, options, project_id, revision_id)
+        return
     if options.pet:
         # Checked before options.states: pet also configures its walk/idle frame
         # roles through options.states, but its packaging (a single asymmetric-grid

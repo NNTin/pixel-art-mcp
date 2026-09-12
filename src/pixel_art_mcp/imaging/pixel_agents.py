@@ -22,6 +22,7 @@ def export_pixel_agents(
     options: RenderOptions,
     frames: list[Image.Image],
     off_frames: list[Image.Image] | None,
+    layouts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     target = options.pixel_agents
     if target is None:
@@ -37,14 +38,21 @@ def export_pixel_agents(
         asset_id = f"{target.asset_id}_{orientation.upper()}{suffix}"
         filename = f"{asset_id}.png"
         im.save(directory / filename)
+        layout = next(
+            (row for row in layouts or [] if ORIENTATIONS[int(row["angle"])] == orientation), {}
+        )
         return {
             "type": "asset",
             "id": asset_id,
             "file": filename,
-            "width": options.width,
-            "height": options.height,
-            "footprintW": target.footprint_w or math.ceil(options.width / 16),
-            "footprintH": target.footprint_h or math.ceil(options.height / 16),
+            "width": im.width,
+            "height": im.height,
+            "footprintW": layout.get("footprint_w")
+            or target.footprint_w
+            or math.ceil(im.width / 16),
+            "footprintH": layout.get("footprint_h")
+            or target.footprint_h
+            or math.ceil(im.height / 16),
             "orientation": orientation,
             **extra,
         }

@@ -57,5 +57,5 @@ strict = true
 exclude = ["src/pixel_art_mcp/blender/runner.py", "examples/"]
 
 [[tool.mypy.overrides]]
-module = ["pixel_art_mcp.blender.runner"]
+module = ["pixel_art_mcp.blender.runner", "pixel_art_mcp.blender.game_renderer"]
 ignore_errors = true

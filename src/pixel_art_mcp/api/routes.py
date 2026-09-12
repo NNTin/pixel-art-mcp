@@ -1,11 +1,12 @@
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from pixel_art_mcp.models import DomainError, Project, ProjectDetail, Reference
+from pixel_art_mcp.assets import get_asset_profile
+from pixel_art_mcp.models import AssetSpec, DomainError, Job, Project, ProjectDetail, Reference
 from pixel_art_mcp.projects.service import Service
 
 
@@ -15,6 +16,22 @@ class CreateProject(BaseModel):
 
 def routes(service: Service) -> APIRouter:
     router = APIRouter()
+
+    @router.get("/asset-profiles/{kind}")
+    async def asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
+        return get_asset_profile(kind, preset)
+
+    @router.put("/projects/{project_id}/asset")
+    async def configure_asset(project_id: UUID, specification: AssetSpec) -> dict[str, Any]:
+        return service.configure_asset(str(project_id), specification)
+
+    @router.post("/projects/{project_id}/asset/renders", response_model=Job, status_code=202)
+    async def render_asset(project_id: UUID, revision_id: UUID | None = None) -> Job:
+        return service.render_asset(str(project_id), str(revision_id) if revision_id else None)
+
+    @router.get("/jobs/{job_id}/asset-inspection")
+    async def inspect_asset(job_id: UUID) -> dict[str, Any]:
+        return service.inspect_asset(str(job_id))
 
     @router.get("/health/live")
     async def live() -> dict[str, str]:

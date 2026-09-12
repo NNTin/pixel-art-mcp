@@ -1,0 +1,179 @@
+{
+  "bobbing-cube": {
+    "scripts": [
+      "bobbing_cube.py"
+    ],
+    "specification": {
+      "kind": "furniture",
+      "name": "Bobbing Cube",
+      "asset_id": "BOBBING_CUBE",
+      "width": 32,
+      "height": 32,
+      "ground_width": 2,
+      "ground_depth": 2,
+      "clips": {
+        "bob": {
+          "frames": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "off_frame": 1
+        }
+      }
+    }
+  },
+  "candle": {
+    "scripts": [
+      "candle.py"
+    ],
+    "specification": {
+      "kind": "furniture",
+      "name": "Candle",
+      "asset_id": "CANDLE",
+      "placement": "surface"
+    }
+  },
+  "chair": {
+    "scripts": [
+      "chair.py"
+    ],
+    "specification": {
+      "kind": "furniture",
+      "name": "Chair",
+      "asset_id": "CHAIR",
+      "preset": "chair"
+    }
+  },
+  "modify-chair": {
+    "scripts": [
+      "chair.py",
+      "modify_chair.py"
+    ],
+    "specification": {
+      "kind": "furniture",
+      "name": "Modified Chair",
+      "asset_id": "MODIFIED_CHAIR",
+      "preset": "chair"
+    }
+  },
+  "oil-lamp": {
+    "scripts": [
+      "oil_lamp.py"
+    ],
+    "specification": {
+      "kind": "furniture",
+      "name": "Oil Lamp",
+      "asset_id": "OIL_LAMP",
+      "placement": "surface",
+      "clips": {
+        "flame": {
+          "frames": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "off_frame": 0
+        }
+      },
+      "height": 32,
+      "colors": 6
+    }
+  },
+  "rain-barrel": {
+    "scripts": [
+      "rain_barrel.py"
+    ],
+    "specification": {
+      "kind": "furniture",
+      "name": "Rain Barrel",
+      "asset_id": "RAIN_BARREL",
+      "preset": "chair",
+      "category": "misc",
+      "clips": {
+        "empty": {
+          "name": "Empty",
+          "frames": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "off_frame": 0
+        },
+        "partial": {
+          "name": "Partially filled",
+          "frames": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ],
+          "off_frame": 10
+        },
+        "full": {
+          "name": "Full",
+          "frames": [
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28
+          ],
+          "off_frame": 20
+        }
+      }
+    }
+  },
+  "street-lamp": {
+    "scripts": [
+      "street_lamp.py"
+    ],
+    "specification": {
+      "kind": "furniture",
+      "name": "Street Lamp",
+      "asset_id": "STREET_LAMP",
+      "preset": "tall"
+    }
+  },
+  "character": {
+    "scripts": [
+      "character.py"
+    ],
+    "specification": {
+      "kind": "character",
+      "name": "Office Worker"
+    }
+  },
+  "pet": {
+    "scripts": [
+      "pet.py"
+    ],
+    "specification": {
+      "kind": "pet",
+      "name": "Golden Dog",
+      "asset_id": "GOLDEN_DOG"
+    }
+  }
+}

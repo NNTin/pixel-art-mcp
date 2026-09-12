@@ -20,7 +20,12 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert "execute_blender_python" in initialized["instructions"]
         listing = await client.request("tools/list", {})
         tools = {tool["name"]: tool for tool in listing["tools"]}
-        assert len(tools) == 15
+        assert {
+            "get_asset_profile",
+            "configure_asset",
+            "render_asset",
+            "inspect_asset",
+        } <= tools.keys()
         assert tools["execute_blender_python"]["annotations"]["readOnlyHint"] is False
         assert tools["inspect_scene"]["annotations"]["readOnlyHint"] is True
         assert tools["wait_for_job"]["annotations"]["readOnlyHint"] is True
@@ -240,3 +245,34 @@ async def test_http_body_limit_before_parsing(settings):
             "/mcp", content=b"x" * 70_000, headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 413
+
+
+async def test_asset_configuration_shared_by_http_and_mcp(settings, fake_blender):
+    settings.blender_binary = fake_blender
+    app = create_app(settings)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost"
+        ) as http,
+    ):
+        client = MCPClient(http)
+        await client.initialize()
+        profile = await client.data("get_asset_profile", {"kind": "character"})
+        assert profile == (await http.get("/asset-profiles/character")).json()
+        project = await client.data("create_project", {"name": "Configured"})
+        response = await http.put(
+            f"/projects/{project['id']}/asset", json={"kind": "character", "name": "Person"}
+        )
+        assert response.status_code == 200
+        config = response.json()
+        detail = await client.data("get_project", {"project_id": project["id"]})
+        assert detail["asset_configuration"] == config
+        assert (await http.get("/asset-profiles/unknown")).status_code == 400
+        invalid = await http.put(
+            f"/projects/{project['id']}/asset", json={"kind": "pet", "name": "No ID"}
+        )
+        assert invalid.status_code == 422
+        # Configuration alone is insufficient: render requires an actual scene revision.
+        response = await http.post(f"/projects/{project['id']}/asset/renders")
+        assert response.status_code == 409

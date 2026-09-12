@@ -33,7 +33,21 @@ There is no automatic replay of scripts. A crash between file publication and da
 leave unreferenced files; they are not exposed as artifacts. Retention is explicit: there is no
 scheduled deletion of projects, references, revisions, or completed exports.
 
-## Pixel export
+## Game asset export
+
+`assets.py` resolves persistent `AssetSpec` records into immutable render options. `render_asset`
+captures configuration and scene revision at submission. Configurations use the existing generic
+records table; existing projects and jobs require no migration.
+
+`blender/game_renderer.py` uses evaluated bounds over all clips to fit a common pixel scale, with
+stable bottom alignment and per-rotation furniture canvases. Render-only material nodes generate
+three broad shade bands. `imaging/asset_export.py` shares quantization, frame inspection, source
+comparisons, and context generation across all targets; only the final package layout differs.
+`context.py` and `asset_player.html` provide the production approximation. The development
+`scripts/check_webview.mjs` harness imports consumer code read-only for exact integration checks.
+See [game-assets.md](game-assets.md) for placements, semantic clips, diagnostics, and artifacts.
+
+## Generic and legacy pixel export
 
 Default framing is orthographic, with Z up, 0° viewing from negative Y, and positive angles orbiting
 around +Z. Bounds are collected from evaluated geometry and instances over every requested frame
