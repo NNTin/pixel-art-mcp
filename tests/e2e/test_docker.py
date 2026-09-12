@@ -381,3 +381,89 @@ async def test_docker_pixel_agents_pet_package(example_dir):
                     # the whole point of the per-angle width change under test.
                     assert pet.crop((0, 0, 96, 64)).getbbox() is not None
                     assert pet.crop((0, 64, 96, 96)).getbbox() is not None
+
+
+@pytest.mark.parametrize(
+    "kind,script,preset",
+    [
+        ("furniture", "chair.py", "chair"),
+        ("character", "character.py", "character"),
+        ("pet", "pet.py", "pet"),
+    ],
+)
+async def test_game_asset_workflow_in_docker(example_dir, kind, script, preset):
+    url = os.environ.get("PIXEL_E2E_URL")
+    if not url:
+        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
+    async with httpx.AsyncClient(base_url=url, timeout=60) as http:
+        client = MCPClient(http)
+        await client.initialize()
+        project = await client.data("create_project", {"name": f"Game {kind}"})
+        config = await client.data(
+            "configure_asset",
+            {
+                "project_id": project["id"],
+                "specification": {
+                    "kind": kind,
+                    "asset_id": "FIXTURE",
+                    "name": "Fixture",
+                    "preset": preset,
+                    "samples": 8,
+                    "outline": True,
+                },
+            },
+        )
+        modeled = await client.wait(
+            (
+                await client.data(
+                    "execute_blender_python",
+                    {
+                        "project_id": project["id"],
+                        "script": (example_dir / script).read_text(),
+                        "expected_revision_id": None,
+                    },
+                )
+            )["id"]
+        )
+        queued = await client.data("render_asset", {"project_id": project["id"]})
+        # The package must retain the original configuration despite a subsequent update.
+        await client.data(
+            "configure_asset",
+            {
+                "project_id": project["id"],
+                "specification": {
+                    "kind": kind,
+                    "asset_id": "CHANGED",
+                    "name": "Later configuration",
+                    "preset": preset,
+                },
+            },
+        )
+        job = await client.wait(queued["id"], timeout=300)
+        assert job["input_revision_id"] == modeled["result_revision_id"]
+        report = await client.data("inspect_asset", {"job_id": job["id"]})
+        assert report["configuration_id"] == config["id"]
+        assert report["kind"] == kind
+        assert report == {
+            "job_id": job["id"],
+            **(await http.get(job["outputs"]["asset-report.json"]["download_url"])).json(),
+        }
+        assert len({a["export_path"] for a in job["artifacts"]}) == len(job["artifacts"])
+        archive = (await http.get(job["outputs"]["sprites.zip"]["download_url"])).content
+        with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
+            assert zipped.testzip() is None
+            metadata = json.loads(zipped.read("spritesheet.json"))
+            assert metadata["asset"]["name"] == "Fixture"
+            assert metadata["asset"]["outline"] is True
+            assert metadata["configuration_id"] == config["id"]
+            assert len({v["pixels_per_unit"] for v in metadata["camera"]["views"]}) == 1
+            for frame in metadata["frames"]:
+                with Image.open(io.BytesIO(zipped.read(frame["filename"]))) as image:
+                    bounds = image.getchannel("A").getbbox()
+                    assert bounds is not None
+                    assert set(image.getchannel("A").get_flattened_data()) <= {0, 255}
+                    assert image.size in ((16, 32), (32, 32))
+            inspection = await client.data("inspect_sprite", {"job_id": job["id"], "angle": 90})
+            assert inspection["size"] == ([32, 32] if kind == "pet" else [16, 32])
+            assert "__ASSET_DATA__" not in zipped.read("preview.html").decode()
+            assert metadata["package"]["archive"] in zipped.namelist()

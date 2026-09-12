@@ -4,8 +4,43 @@ plain floats already reduced from mathutils.Vector world-space bounds.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 TILE_PIXELS = 16  # Mirrors RenderOptions.tile_width/tile_height: 1 tile == 16px.
+
+
+def fit_asset_views(
+    layouts: list[dict[str, Any]],
+    bounds: list[tuple[float, float, float, float]],
+    anchors: list[tuple[float, float]] | None = None,
+) -> list[dict[str, float]]:
+    """One pixels-per-unit scale, stable per-view translation over the complete clip union."""
+    limits = []
+    centers = []
+    for i, (layout, (xmin, xmax, ymin, ymax)) in enumerate(zip(layouts, bounds, strict=True)):
+        x, y = anchors[i] if anchors else ((xmin + xmax) / 2, ymin)
+        centers.append((x, y))
+        half = max(xmax - x, x - xmin, 1e-6)
+        limits.append((layout["width"] / 2 - layout["margin"]) / half)
+        bottom = layout["bottom"] - (2 if anchors else 0)
+        limits.append(
+            min(layout["content_height"], bottom - layout["margin"]) / max(ymax - y, 1e-6)
+        )
+        if ymin < y:
+            limits.append((layout["height"] - layout["margin"] - bottom) / (y - ymin))
+    pixels_per_unit = min(limits)
+    if pixels_per_unit <= 0:
+        raise ValueError("Anchor lies above visible geometry; use its frontmost ground contact")
+    return [
+        {
+            "pixels_per_unit": pixels_per_unit,
+            "cx": x,
+            "cy": y
+            + (layout["bottom"] - (2 if anchors else 0) - layout["height"] / 2) / pixels_per_unit,
+            "view_height": layout["height"] / pixels_per_unit,
+        }
+        for layout, (x, y) in zip(layouts, centers, strict=True)
+    ]
 
 
 @dataclass(frozen=True)

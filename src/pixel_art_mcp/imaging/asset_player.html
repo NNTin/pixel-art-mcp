@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pixel Agents asset preview</title>
+<style>
+body{font:16px/1.6 system-ui,sans-serif;background:#182027;color:#e6eef4;margin:24px auto;padding:0 24px;max-width:1100px}
+button,select,input{font:inherit;padding:4px;margin:4px;color:inherit;background:#2b3944;border:1px solid #647989;border-radius:4px}
+canvas{image-rendering:pixelated;max-width:100%;height:auto;background:#343e42;border:1px solid #62727c}
+.panels{display:flex;flex-wrap:wrap;gap:24px}figure{margin:8px 0}a{color:#a4cefb}small{color:#b9c9d5}
+</style>
+<h1 id="name"></h1>
+<p>Approximate Pixel Agents context · 16px tiles · schematic reference agent. Actual webview behavior is checked separately.</p>
+<label>Clip <select id="clip"></select></label>
+<label>Direction <select id="direction"></select></label>
+<label id="activationLabel">Furniture <select id="activation"><option value="off">Inactive / off</option><option value="on">Working agent / on</option></select></label>
+<label id="interactionLabel">Reference agent <select id="interaction"><option value="beside">Beside</option><option value="seated">Seated / overlapping</option><option value="behind">Behind</option><option value="front">In front</option></select></label>
+<button id="play">Play</button><label>Pose <input id="pose" type="range" min="0" value="0"></label>
+<label>Zoom <select id="zoom"><option>2</option><option selected>4</option><option>6</option></select></label>
+<div class="panels"><figure><figcaption>Placement context — exported pixels</figcaption><canvas id="context"></canvas></figure>
+<figure><figcaption>Sprite · source render</figcaption><canvas id="comparison"></canvas></figure></div>
+<p id="details"></p><p><a id="package">Installable package</a> · <a href="asset-report.json">Diagnostics</a> · <a href="sprites.zip">All outputs</a></p>
+<small>Gold outlines show occupied ground tiles. Upper background rows remain walkable. Character walking plays poses 0,1,2,1; work poses include the webview's 6px sitting offset. Pet left walking mirrors right; sideways idle uses down/up idle.</small>
+<script>
+const data=__ASSET_DATA__;
+const $=id=>document.getElementById(id), spec=data.spec;
+$('name').textContent=spec.name;
+$('package').href=data.package;
+for(const [key,value] of Object.entries(spec.clips)) $('clip').add(new Option(value.name||key,key));
+for(const angle of [0,90,180,270]) $('direction').add(new Option(({0:'Front / down',90:'Right',180:'Back / up',270:'Left'})[angle],angle));
+$('activationLabel').hidden=spec.kind!=='furniture';
+$('interactionLabel').hidden=spec.kind!=='furniture';
+let running=false, elapsed=0;
+const load=src=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=src});
+async function start(){
+const reference=await load(data.reference);
+const cells=new Map();
+await Promise.all(data.cells.map(async cell=>cells.set(`${cell.angle}:${cell.frame}`,{...cell,png:await load(cell.image),source:await load(cell.high)})));
+function draw(){
+ const clipId=$('clip').value,clip=spec.clips[clipId], requested=Number($('direction').value);
+ let angle=requested,mirror=false;
+ if(spec.kind==='character'&&requested===270){angle=90;mirror=true}
+ if(spec.kind==='pet'){
+  if(clipId==='idle'&&(requested===90||requested===270)) angle=requested===90?0:180;
+  else if(requested===270){angle=90;mirror=true}
+ }
+ let frames=data.playback[clipId].frames;
+ if(spec.kind==='furniture'&&$('activation').value==='off'&&clip.off_frame!==null)frames=[clip.off_frame];
+ $('pose').max=frames.length-1;
+ const index=Number($('pose').value)%frames.length,frame=frames[index],cell=cells.get(`${angle}:${frame}`);
+ if(!cell)return;
+ const layout=data.layouts.find(l=>l.angle===angle),geometry={...data.geometry[angle]},zoom=Number($('zoom').value);
+ if(spec.kind==='furniture'){
+  const mode=$('interaction').value;
+  if(mode==='seated'){geometry.agent_x=geometry.seat_x;geometry.agent_y=geometry.seat_y;geometry.agent_in_front=geometry.seat_in_front}
+  if(mode==='behind'||mode==='front'){geometry.agent_x=geometry.x+layout.width/2-8;geometry.agent_y=mode==='behind'?geometry.y-24:geometry.y+layout.height-16;geometry.agent_in_front=mode==='front'}
+ }
+ if(spec.kind==='character'&&clipId!=='walk')geometry.y+=6;
+ const canvas=$('context'),width=Math.max(160,layout.width+96),height=Math.max(128,layout.height+80);
+ canvas.width=width*zoom;canvas.height=height*zoom;
+ const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.scale(zoom,zoom);
+ ctx.fillStyle='#343e42';ctx.fillRect(0,0,width,height);ctx.strokeStyle='#475153';ctx.lineWidth=1;
+ for(let x=0;x<width;x+=16){ctx.beginPath();ctx.moveTo(x+.5,0);ctx.lineTo(x+.5,height);ctx.stroke()}
+ for(let y=0;y<height;y+=16){ctx.beginPath();ctx.moveTo(0,y+.5);ctx.lineTo(width,y+.5);ctx.stroke()}
+ const {x,y}=geometry;
+ if(spec.kind==='furniture'){
+  if(spec.placement==='surface'){ctx.fillStyle='#8c624b';ctx.fillRect(x-16,y-1,layout.width+32,14)}
+  if(spec.placement==='wall'){ctx.fillStyle='#7a818b';ctx.fillRect(x-16,y-16,layout.width+32,29)}
+  ctx.strokeStyle='#ddbd63';ctx.strokeRect(x+.5,y+layout.background_tiles*16+.5,layout.width-1,layout.ground_depth*16-1);
+ }
+ const agent=()=>ctx.drawImage(reference,geometry.agent_x,geometry.agent_y);
+ if(!geometry.agent_in_front)agent();
+ ctx.save();if(mirror){ctx.translate(x+layout.width,y);ctx.scale(-1,1);ctx.drawImage(cell.png,0,0)}else ctx.drawImage(cell.png,x,y);ctx.restore();
+ if(geometry.agent_in_front)agent();
+ const comparison=$('comparison');comparison.width=(layout.width*2+8)*zoom;comparison.height=layout.height*zoom;
+ const c=comparison.getContext('2d');c.imageSmoothingEnabled=false;
+ c.drawImage(cell.png,0,0,layout.width*zoom,layout.height*zoom);
+ c.drawImage(cell.source,(layout.width+8)*zoom,0,layout.width*zoom,layout.height*zoom);
+ $('details').textContent=`${layout.width} × ${layout.height}px · source frame ${frame} · ${spec.kind==='furniture'?`${layout.footprint_w} × ${layout.footprint_h} footprint, ${layout.background_tiles} background rows`:'bottom-center anchor'}${mirror?' · mirrored':''}`;
+}
+for(const id of ['clip','direction','activation','interaction','zoom'])$(id).addEventListener('change',()=>{$('pose').value=0;elapsed=0;draw()});
+$('pose').addEventListener('input',draw);
+$('play').onclick=()=>{running=!running;$('play').textContent=running?'Pause':'Play'};
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches){running=true;$('play').textContent='Pause'}
+setInterval(()=>{if(running){elapsed+=50;if(elapsed>=data.playback[$('clip').value].duration_ms){elapsed=0;$('pose').value=(Number($('pose').value)+1)%(Number($('pose').max)+1);draw()}}},50);
+draw();window.assetPreviewReady=true;
+}
+start().catch(error=>{$('details').textContent=String(error)});
+</script>
+</html>

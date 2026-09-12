@@ -5,6 +5,37 @@ and modification, reference uploads, saved revisions, asynchronous jobs, multi-a
 transform animation, and PNG/JSON/ZIP sprite exports. No server-side AI provider is required.
 Remote ChatGPT connectivity, authentication, and automatic image-to-3D reconstruction are deferred.
 
+## Game asset workflow validation (2026-09-12)
+
+- Added persistent target configuration, game-sized stable framing, three-band shading, optional
+  outlines, semantic character/pet clips, shared diagnostics, and contextual previews for all kinds.
+  Existing generic rendering APIs remain available. Legacy `storage` categories normalize to `misc`
+  to match the current Pixel Index upload query contract.
+- 146 unit/HTTP integration tests, eight Docker end-to-end tests, and two real Blender integration
+  tests passed. The latter used Blender 4.5.13 from the built image through a local Docker wrapper.
+  Ruff lint/formatting and strict mypy passed; the runtime image includes the HTML template and
+  Blender renderer without Node or Chromium dependencies.
+- All nine examples were generated through MCP into `tmp/asset-workflow/`, including new character
+  and pet models. The original `tmp/<example>/` exports remain available for comparison. Final
+  reports contain no advisory findings; that is a diagnostic result, not a guarantee of artistic quality.
+- The actual Pixel Agents webview at commit `3537e140c2094761beae748592aeb92ece8edfdd` passed
+  256 decoder/catalog/layout/render checks. These cover semantic poses, mirrored directions,
+  mixed-width pet frames, timing, seated characters, background walkability, surface layering,
+  and working-agent activation/off restoration. The harness also exercised every clip/direction
+  in the offline previews. The consumer repository remained unchanged.
+- `tmp/asset-workflow/webview/` contains the actual-renderer gallery, screenshots, and a report.
+  The chair now occupies 12×23 visible pixels in its front view, compared with 6×13 previously;
+  its 16×32 canvas agrees with the built-in chair's placement. The oil lamp's flame and street
+  lamp's glass were exaggerated in the Blender examples after visual inspection.
+- All ten generated furniture/pet manifests passed the live staging schemas.
+  All five read-only live staging contract checks passed at Pixel Index commit
+  `d15a5358d841581810a088abdc40a1626191d83a`. Production's root check passed, while four asset API
+  checks were skipped because those endpoints are not deployed there. No asset upload was performed.
+- The updated image is `pixel-art-mcp:asset-workflow`; local validation used the separate service
+  at `http://localhost:18001/mcp`. The deployment-managed primary container was not replaced.
+
+Reproduce with the commands in [game-assets.md](game-assets.md#reproduce-examples-and-webview-checks).
+
 ## Tile sizing and pixel-agents validation (2026-09-06)
 
 - The rebuilt Docker service advertises 16px tile dimensions, explicit width/height overrides,

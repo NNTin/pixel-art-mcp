@@ -60,7 +60,7 @@ def camera_basis(angle, elevation):
     return outward, rotation, rotation @ Vector((1, 0, 0)), rotation @ Vector((0, 1, 0))
 
 
-def evaluated_corners():
+def evaluated_corners(named=None):
     graph = bpy.context.evaluated_depsgraph_get()
     points = []
     local_bounds = {}
@@ -96,7 +96,10 @@ def evaluated_corners():
                     obj.to_mesh_clear()
             else:
                 local_bounds[key] = [Vector(p) for p in obj.bound_box]
-        points.extend(instance.matrix_world @ point for point in local_bounds[key])
+        world = [instance.matrix_world @ point for point in local_bounds[key]]
+        points.extend(world)
+        if named is not None:
+            named.setdefault(obj.original.name, []).extend(world)
     return points
 
 
@@ -128,6 +131,11 @@ def render(request, output):
     scene.view_settings.look = "None"
     scene.view_settings.exposure = 0
     scene.view_settings.gamma = 1
+
+    if options.get("asset"):
+        from game_renderer import render_game
+
+        return render_game(scene, options, output, evaluated_corners, camera_basis, progress)
 
     camera_data = bpy.data.cameras.new("PixelExportCamera")
     camera_data.type = "ORTHO"

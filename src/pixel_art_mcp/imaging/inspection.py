@@ -106,7 +106,20 @@ def _selection(
     except (OSError, ValueError, KeyError) as exc:
         raise DomainError("Sprite export metadata is missing or invalid") from exc
     selected_state = None
-    if metadata.get("states"):
+    if metadata.get("asset"):
+        clips = metadata["asset"]["clips"]
+        key = state_id or next(iter(clips))
+        if key not in clips:
+            raise DomainError(f"Unknown clip {key!r}; choose one of: {', '.join(clips)}")
+        clip = clips[key]
+        allowed = [
+            *clip["frames"],
+            *([clip["off_frame"]] if clip.get("off_frame") is not None else []),
+        ]
+        selected_state = {"id": key, "name": clip.get("name") or key}
+        child = {**metadata, "frames": [e for e in metadata["frames"] if e["frame"] in allowed]}
+        directory = root
+    elif metadata.get("states"):
         states = metadata["states"]
         if state_id is None:
             selected_state = states[0]

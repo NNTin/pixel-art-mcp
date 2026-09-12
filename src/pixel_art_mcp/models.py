@@ -1,7 +1,7 @@
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
 
 
 class Model(BaseModel):
@@ -13,6 +13,13 @@ class Model(BaseModel):
 # (confirmed against its openapi.json by contracts/pixel_index/checks.py) — every
 # pixel-agents asset-kind name field must stay within what the real upload accepts.
 PIXEL_AGENTS_NAME_MAX_LENGTH = 60
+
+# The webview still knows storage, but pixel-index's upload API now accepts misc instead.
+# Normalize saved/legacy requests while advertising only the accepted wire values.
+FurnitureCategory = Annotated[
+    Literal["desks", "chairs", "decor", "electronics", "wall", "misc"],
+    BeforeValidator(lambda value: "misc" if value == "storage" else value),
+]
 
 
 class DomainError(Exception):
@@ -39,6 +46,7 @@ class Artifact(Model):
     width: int | None = None
     height: int | None = None
     download_url: str = ""
+    export_path: str = ""
 
 
 class Reference(Model):
@@ -68,6 +76,7 @@ class ProjectDetail(Model):
     project: Project
     references: list[Reference]
     revisions: list[Revision]
+    asset_configuration: dict[str, Any] | None = None
 
 
 class Job(Model):
@@ -85,6 +94,7 @@ class Job(Model):
     error: str | None = None
     result_revision_id: UUID | None = None
     artifacts: list[Artifact] = []
+    outputs: dict[str, Artifact] = {}
 
 
 class OpenAIFile(BaseModel):
@@ -106,9 +116,7 @@ class PixelAgentsOptions(Model):
         max_length=PIXEL_AGENTS_NAME_MAX_LENGTH,
         description="Furniture label in the editor",
     )
-    category: Literal["desks", "chairs", "storage", "decor", "electronics", "wall", "misc"] = (
-        "decor"
-    )
+    category: FurnitureCategory = "decor"
     footprint_w: int | None = Field(
         default=None,
         ge=1,
@@ -135,7 +143,7 @@ class PixelAgentsOptions(Model):
 
 class PixelAgentsCharacterOptions(Model):
     """A pixel-index custom-character export: one manifest-less 112x96 PNG (3
-    direction rows -- down, up, right, top to bottom -- x 7 walk-cycle columns).
+    direction rows -- down, up, right -- x 3 walk, 2 typing, 2 reading columns).
 
     Characters carry no id or name in the zip itself -- pixel-index identifies them
     purely positionally (see docs/custom-asset-zip-contract.md) -- so `name` here is
@@ -177,7 +185,94 @@ class RenderState(Model):
         return list(range(self.frame_start, self.frame_end + 1, self.frame_step))
 
 
+class AssetClip(Model):
+    frames: list[int] = Field(min_length=1, max_length=64)
+    name: str | None = Field(default=None, min_length=1, max_length=48)
+    off_frame: int | None = Field(default=None, ge=0, le=100_000)
+
+    @field_validator("frames")
+    @classmethod
+    def valid_frames(cls, frames: list[int]) -> list[int]:
+        if any(frame < 0 or frame > 100_000 for frame in frames):
+            raise ValueError("Source frames must be between 0 and 100000")
+        return frames
+
+
+class AssetSpec(Model):
+    """One authoring contract; the server derives the consumer's wire formats."""
+
+    kind: Literal["furniture", "character", "pet"]
+    name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
+    asset_id: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{0,63}$")
+    preset: Literal["small", "chair", "tall", "desk", "character", "pet"] | None = None
+    placement: Literal["floor", "surface", "wall"] = "floor"
+    category: FurnitureCategory = "decor"
+    ground_width: int | None = Field(default=None, ge=1, le=16)
+    ground_depth: int = Field(default=1, ge=1, le=16)
+    width: int | None = Field(default=None, ge=16, le=512)
+    height: int | None = Field(default=None, ge=16, le=512)
+    anchor_object: str | None = Field(default=None, min_length=1, max_length=120)
+    clips: dict[str, AssetClip] = Field(default_factory=dict, max_length=16)
+    colors: int = Field(default=16, ge=2, le=64)
+    palette: list[str] | None = Field(default=None, min_length=2, max_length=64)
+    shading: Literal["game", "studio", "scene"] = "game"
+    outline: bool = False
+    elevation: float = Field(default=35.264, ge=0, le=70)
+    samples: int = Field(default=32, ge=1, le=256)
+    supersampling: int = Field(default=4, ge=1, le=4)
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "AssetSpec":
+        import re
+
+        if self.kind != "character" and self.asset_id is None:
+            raise ValueError("Furniture and pets require asset_id")
+        preset = self.preset or ("small" if self.kind == "furniture" else self.kind)
+        allowed = {"small", "chair", "tall", "desk"} if self.kind == "furniture" else {self.kind}
+        if preset not in allowed:
+            raise ValueError(f"Invalid preset for {self.kind}: {preset}")
+        if self.kind != "furniture":
+            if self.placement != "floor" or self.ground_width is not None or self.ground_depth != 1:
+                raise ValueError("Placement and ground tiles apply only to furniture")
+            if self.width not in (None, 16) or self.height not in (None, 32):
+                raise ValueError("Characters and pets require 16x32 front/back frames")
+        for key, clip in self.clips.items():
+            if not re.fullmatch(r"[a-z][a-z0-9_]{0,23}", key):
+                raise ValueError("Clip IDs must be lowercase identifiers, up to 24 characters")
+            if self.kind != "furniture" and clip.off_frame is not None:
+                raise ValueError("Only furniture clips have off_frame")
+            if self.kind == "furniture":
+                if len(clip.frames) > 1 and clip.off_frame is None:
+                    raise ValueError("Animated furniture clips require off_frame")
+                if len(self.clips) > 1:
+                    if len(f"{self.asset_id}_{key.upper()}") > 64:
+                        raise ValueError("Combined asset and variant ID exceeds 64 characters")
+                    if len(f"{self.name} — {clip.name or key}") > 60:
+                        raise ValueError("Combined asset and variant name exceeds 60 characters")
+        required = (
+            {"walk": 3, "typing": 2, "reading": 2}
+            if self.kind == "character"
+            else {"walk": 3, "idle": 3}
+        )
+        if self.kind != "furniture" and self.clips:
+            if set(self.clips) != set(required):
+                raise ValueError(f"{self.kind} clips must be {required}")
+            if any(len(self.clips[key].frames) != count for key, count in required.items()):
+                raise ValueError(f"{self.kind} clip frame counts must be {required}")
+        if self.palette is not None:
+            if any(not re.fullmatch(r"#[0-9a-fA-F]{6}", color) for color in self.palette):
+                raise ValueError("Palette colors must be #RRGGBB")
+            if len(set(color.lower() for color in self.palette)) != len(self.palette):
+                raise ValueError("Palette colors must be distinct")
+        return self
+
+
 class RenderOptions(Model):
+    # Internal resolved target settings. Public authoring uses configure_asset / render_asset.
+    asset: AssetSpec | None = None
+    asset_configuration_id: str | None = None
+    frame_sequence: list[int] | None = None
+    asset_layouts: list[dict[str, Any]] | None = None
     states: list[RenderState] | None = Field(
         default=None,
         min_length=1,
@@ -385,6 +480,8 @@ class RenderOptions(Model):
         return self
 
     def frames(self) -> list[int]:
+        if self.frame_sequence is not None:
+            return self.frame_sequence
         if self.states:
             return list(dict.fromkeys(frame for state in self.states for frame in state.frames()))
         return list(range(self.frame_start, self.frame_end + 1, self.frame_step))

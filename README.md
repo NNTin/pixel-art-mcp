@@ -14,16 +14,15 @@ Clients without vision can call `inspect_sprite` for a palette-index text grid, 
 cluster metrics, and comparisons between render jobs. Source-derived palettes are used by default
 so supersampled colors remain distinct instead of turning into muddy downscale averages.
 
-Exports default to 16×16 pixels and four cardinal views at 5 fps. Tile dimensions express small,
-tall, and wide objects; explicit pixel dimensions can override them. An optional
-[pixel-agents package](docs/tools.md#pixel-agents-furniture-package) provides ready-to-install
-furniture manifests and PNGs for its fixed-rate, agent-activated animations, alongside
-[character](docs/tools.md#pixel-agents-character-package) and
-[pet](docs/tools.md#pixel-agents-pet-package) exports for pixel-index's custom-asset API. The
-preview compares
-the final sprites with genuine higher-resolution renders and highlights the game's resolution.
-[Named appearance states](docs/tools.md#named-appearance-states), such as empty/partial/full rain
-barrels, share one camera and palette and automatically get a combined HTML player and furniture ZIP.
+For Pixel Agents, use `get_asset_profile` → `configure_asset` → `execute_blender_python` →
+`render_asset` → `inspect_asset`. [Game asset profiles](docs/game-assets.md) give furniture,
+characters, and pets readable sizes, stable placement, shared palettes, and the consumer's actual
+pose sequences. Every render produces an installable package, exact pixel inspection, and offline
+context previews. Named furniture clips become selectable variants such as empty/partial/full barrels.
+
+Generic exports retain their configurable canvas, views, physical scale, and animation options.
+The development webview harness checks generated packages against a read-only Pixel Agents checkout;
+Node and Chromium are not production dependencies.
 
 The AI lives in your MCP client. It interprets reference images, writes Blender Python, and calls
 `execute_blender_python`. This service executes the code, saves `.blend` revisions, and renders
