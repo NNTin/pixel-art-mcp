@@ -28,10 +28,14 @@ optional rendered geometry supplies broad volume beneath exact-pixel identifying
 5. Read `inspect_asset({"job_id":"JOB_UUID"})`. For exact pixels call `inspect_sprite`;
    its `state_id` selects a clip, `frame` is a Blender source frame, and `angle` selects the view.
 6. Use `get_asset_preview` for inline image content: select clip, source frame, direction, integer
-   scale and approximate context. Use `get_pixel_art` to retrieve source, then send the complete
-   modified definition to `write_pixel_art` with its revision as `expected_revision_id`.
-   `get_artifact` returns PNG/JSON/source text inline. ZIPs and the offline player are optional
-   human downloads, not required client tools. Do not repair generated output PNGs by hand.
+   scale and approximate context. Use `get_pixel_art` to retrieve source, then `edit_pixel_art`
+   for targeted layer/pose edits with its revision as `expected_revision_id`. `write_pixel_art`
+   remains a complete replacement. `get_artifact` returns PNG/JSON/source text and small binary
+   resources inline; `get_artifact_chunk` delivers any artifact without HTTP. Client integration
+   is needed for local saving/installing. Do not repair generated output PNGs by hand.
+
+Generic 16x32 objects use the neutral furniture `prop` preset. Set placement/category explicitly
+for the actual object; `chair` and `desk` carry chair/desk category defaults.
 
 `configure_asset` replaces the configuration and returns an immutable configuration ID and
 resolved per-direction layouts. `get_project` returns the current configuration. Each render

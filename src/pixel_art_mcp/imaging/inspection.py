@@ -205,6 +205,9 @@ def inspect_sprite(
     else:
         bounds = None
     components = _components(indices, width, height)
+    opaque_sizes = _components(
+        [0 if value is not None else None for value in indices], width, height
+    ).get(0, [])
     counts = Counter(value for value in indices if value is not None)
     palette_report = []
     for index, color in enumerate(palette):
@@ -277,11 +280,25 @@ def inspect_sprite(
             "occupied_pixels": len(occupied),
             "transparent_pixels": width * height - len(occupied),
             "occupied_bounds": bounds,
-            "opaque_components": sum(len(sizes) for sizes in components.values()),
-            "singleton_components": sum(sizes.count(1) for sizes in components.values()),
+            "opaque_connected_components": len(opaque_sizes),
+            "opaque_singleton_components": opaque_sizes.count(1),
+            "color_components": sum(len(sizes) for sizes in components.values()),
+            "color_singleton_components": sum(sizes.count(1) for sizes in components.values()),
             "lowest_contrast_boundaries": boundaries[:8],
         },
         "palette": palette_report,
+        "metric_definitions": {
+            "connectivity": "Four-neighbor (edge sharing), not diagonal.",
+            "opaque_connected_components": "Connected nontransparent regions, ignoring color.",
+            "opaque_singleton_components": "Isolated one-pixel nontransparent regions, "
+            "ignoring color.",
+            "color_components": "Sum of connected regions of each palette color; highlights "
+            "and ticks can add regions within one solid object.",
+            "color_singleton_components": "One-pixel same-color regions, not necessarily "
+            "detached pixels or defects.",
+            "palette_components": "Per-color components and singleton_components use "
+            "same-color connectivity.",
+        },
         "grid": {
             "encoding": "Each two-character token is a palette symbol; '..' is transparent. "
             "Rows and coordinates are zero-based from the top-left.",
@@ -311,10 +328,15 @@ def compare_inspections(first: dict[str, Any], second: dict[str, Any]) -> dict[s
         "alpha_changed_pixels": alpha_changes,
         "occupied_pixel_delta": second["analysis"]["occupied_pixels"]
         - first["analysis"]["occupied_pixels"],
-        "opaque_component_delta": second["analysis"]["opaque_components"]
-        - first["analysis"]["opaque_components"],
-        "singleton_component_delta": second["analysis"]["singleton_components"]
-        - first["analysis"]["singleton_components"],
+        **{
+            delta: second["analysis"][metric] - first["analysis"][metric]
+            for delta, metric in (
+                ("opaque_connected_component_delta", "opaque_connected_components"),
+                ("opaque_singleton_component_delta", "opaque_singleton_components"),
+                ("color_component_delta", "color_components"),
+                ("color_singleton_component_delta", "color_singleton_components"),
+            )
+        },
         "note": "Deltas are second job minus first job. changed_pixels compares resolved hex "
         "colors because palette symbols are local to each export.",
     }

@@ -136,7 +136,7 @@ def asset_report(output: Path, metadata: dict[str, Any]) -> dict[str, Any]:
                 "bottom_gap": height - y - h,
                 "contact_offset": layouts[entry["angle"]]["bottom"] - y - h,
                 "center_offset": round(x + w / 2 - width / 2, 2),
-                "singleton_color_clusters": analysis["singleton_components"],
+                "singleton_color_clusters": analysis["color_singleton_components"],
                 "pixel_features": entry.get("pixel_features", []),
             }
         )
@@ -183,7 +183,7 @@ def asset_report(output: Path, metadata: dict[str, Any]) -> dict[str, Any]:
                     "suggestion": "Increase the useful pixel area or exaggerate slender geometry.",
                 }
             )
-        if analysis["singleton_components"] > max(12, analysis["occupied_pixels"] * 0.4):
+        if analysis["color_singleton_components"] > max(12, analysis["occupied_pixels"] * 0.4):
             findings.append(
                 {
                     "code": "fragmented_colors",

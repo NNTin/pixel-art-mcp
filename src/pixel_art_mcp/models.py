@@ -205,7 +205,12 @@ class AssetSpec(Model):
     kind: Literal["furniture", "character", "pet"]
     name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
     asset_id: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{0,63}$")
-    preset: Literal["small", "chair", "tall", "desk", "character", "pet"] | None = None
+    preset: Literal["small", "prop", "chair", "tall", "desk", "character", "pet"] | None = Field(
+        default=None,
+        description="Furniture: small=16x16, prop=neutral 16x32, chair=16x32 with chair category, "
+        "tall=16x64, desk=48x32 with desk category. Set placement/category for the actual object; "
+        "profiles explain rotated footprints.",
+    )
     placement: Literal["floor", "surface", "wall"] = "floor"
     category: FurnitureCategory = "decor"
     ground_width: int | None = Field(default=None, ge=1, le=16)
@@ -245,7 +250,9 @@ class AssetSpec(Model):
         if self.kind != "character" and self.asset_id is None:
             raise ValueError("Furniture and pets require asset_id")
         preset = self.preset or ("small" if self.kind == "furniture" else self.kind)
-        allowed = {"small", "chair", "tall", "desk"} if self.kind == "furniture" else {self.kind}
+        allowed = (
+            {"small", "prop", "chair", "tall", "desk"} if self.kind == "furniture" else {self.kind}
+        )
         if preset not in allowed:
             raise ValueError(f"Invalid preset for {self.kind}: {preset}")
         if self.kind != "furniture":

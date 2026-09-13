@@ -22,6 +22,7 @@ PALETTE = {"D": "#293039", "G": "#f3cf65"}
     "kind,preset",
     [
         ("furniture", "small"),
+        ("furniture", "prop"),
         ("furniture", "chair"),
         ("furniture", "desk"),
         ("furniture", "tall"),

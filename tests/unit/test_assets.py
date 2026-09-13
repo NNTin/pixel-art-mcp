@@ -68,6 +68,10 @@ def test_profiles_and_character_pose_roles():
     assert profile["specification"]["clips"]["typing"]["frames"] == [4, 5]
     assert profile["specification"]["clips"]["reading"]["frames"] == [6, 7]
     assert get_asset_profile("furniture", "chair")["specification"]["category"] == "chairs"
+    prop = get_asset_profile("furniture", "prop")
+    assert prop["specification"]["category"] == "decor"
+    assert {(row["width"], row["height"]) for row in prop["layouts"]} == {(16, 32)}
+    assert "placement=wall" in prop["preset_guidance"]
     explicit = resolve_asset(
         AssetSpec(
             kind="furniture", name="Barrel", asset_id="BARREL", preset="chair", category="decor"

@@ -182,6 +182,128 @@ class PixelArtSource(Model):
     configuration_id: UUID | None
 
 
+class PoseTarget(PixelModel):
+    layer: str = Field(min_length=1, max_length=100, description="Existing, exact layer name.")
+    angle: Literal[0, 90, 180, 270]
+    frame: StrictInt | None = Field(
+        ge=0,
+        le=100_000,
+        description="Exact stored pose key. null selects the view default, not all frames.",
+    )
+
+
+class MovePose(PoseTarget):
+    """Move one existing patch without resending rows or changing any other property."""
+
+    op: Literal["move_pose"]
+    x: StrictInt = Field(ge=-512, le=512, description="New absolute native x, not a delta.")
+    y: StrictInt = Field(ge=-512, le=512, description="New absolute native y, not a delta.")
+
+
+class SetPose(PixelModel):
+    """Replace an exact pose in place, or append it; the named layer must already exist."""
+
+    op: Literal["set_pose"]
+    layer: str = Field(min_length=1, max_length=100)
+    pose: PixelPose = Field(
+        description="Complete patch. Omitted properties use PixelPose defaults."
+    )
+
+
+class DeletePose(PoseTarget):
+    """Delete an exact stored pose. Deleting an override may reveal its view default."""
+
+    op: Literal["delete_pose"]
+
+
+class SetLayer(PixelModel):
+    """Replace a named layer at its current order, or append a new topmost layer."""
+
+    op: Literal["set_layer"]
+    layer: PixelLayer = Field(description="Complete layer; omitted previous poses are deleted.")
+
+
+class DeleteLayer(PixelModel):
+    """Delete an existing named layer. Missing targets fail the entire edit batch."""
+
+    op: Literal["delete_layer"]
+    name: str = Field(min_length=1, max_length=100)
+
+
+class SetPalette(PixelModel):
+    """Replace the palette; all retained poses must use symbols from the final palette."""
+
+    op: Literal["set_palette"]
+    palette: dict[Symbol, Color] = Field(min_length=2, max_length=64)
+
+
+PixelEdit = Annotated[
+    MovePose | SetPose | DeletePose | SetLayer | DeleteLayer | SetPalette,
+    Field(discriminator="op"),
+]
+PixelEdits = Annotated[
+    list[PixelEdit],
+    Field(
+        min_length=1,
+        max_length=128,
+        description="Ordered atomic operations; only the final document is validated.",
+    ),
+]
+
+
+def apply_pixel_edits(definition: PixelDefinition, edits: PixelEdits) -> PixelDefinition:
+    """Work on a detached document so any failure leaves the original source untouched."""
+    data = definition.model_dump()
+    layers = data["layers"]
+    for index, edit in enumerate(edits):
+        if isinstance(edit, SetPalette):
+            data["palette"] = dict(edit.palette)
+            continue
+        if isinstance(edit, SetLayer):
+            name = edit.layer.name
+        elif isinstance(edit, DeleteLayer):
+            name = edit.name
+        else:
+            name = edit.layer
+        layer_index = next((i for i, layer in enumerate(layers) if layer["name"] == name), None)
+        if isinstance(edit, SetLayer):
+            if layer_index is None:
+                layers.append(edit.layer.model_dump())
+            else:
+                layers[layer_index] = edit.layer.model_dump()
+            continue
+        if layer_index is None:
+            raise ValueError(f"edits[{index}] {edit.op}: unknown layer {name!r}")
+        if isinstance(edit, DeleteLayer):
+            layers.pop(layer_index)
+            continue
+        poses = layers[layer_index]["poses"]
+        target = edit.pose if isinstance(edit, SetPose) else edit
+        pose_index = next(
+            (
+                i
+                for i, pose in enumerate(poses)
+                if (pose["angle"], pose["frame"]) == (target.angle, target.frame)
+            ),
+            None,
+        )
+        if isinstance(edit, SetPose):
+            if pose_index is None:
+                poses.append(edit.pose.model_dump())
+            else:
+                poses[pose_index] = edit.pose.model_dump()
+        elif pose_index is None:
+            raise ValueError(
+                f"edits[{index}] {edit.op}: no stored pose ({target.angle}, {target.frame}) "
+                f"in {name!r}; defaults are not implicit edit targets"
+            )
+        elif isinstance(edit, DeletePose):
+            poses.pop(pose_index)
+        else:
+            poses[pose_index].update(x=edit.x, y=edit.y)
+    return PixelDefinition.model_validate(data)
+
+
 def validated_art(data: dict[str, Any], options: dict[str, Any]) -> PixelArt:
     try:
         PixelDefinition.from_art(data)

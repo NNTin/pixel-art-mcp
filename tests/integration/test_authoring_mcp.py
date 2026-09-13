@@ -2,8 +2,10 @@ import copy
 
 import httpx
 from helpers import MCPClient
+from pydantic import TypeAdapter
 
 from pixel_art_mcp.app import create_app
+from pixel_art_mcp.authoring import PixelEdits
 
 
 async def test_source_roundtrip_atomic_replacement_and_reconfiguration(settings, fake_blender):
@@ -148,3 +150,87 @@ async def test_typed_write_queue_cas_and_configuration_snapshot(service, fake_bl
         assert len(service.get_project(pid).revisions) == 1
     finally:
         await worker.stop()
+    current = service.get_pixel_art(pid)
+    service.worker_ready = True
+    # Both edits read the same revision before either worker job publishes.
+    edits = TypeAdapter(PixelEdits).validate_python(
+        [{"op": "move_pose", "layer": "marker", "angle": 0, "frame": None, "x": 4, "y": 6}]
+    )
+    first_edit = service.edit_pixel_art(pid, edits, str(current.revision_id))
+    stale_edit = service.edit_pixel_art(pid, edits, str(current.revision_id))
+    service.configure_asset(pid, AssetSpec(kind="furniture", name="Again", asset_id="TEST"))
+    worker = Worker(service)
+    await worker.start()
+    try:
+        assert (await wait_job(service, str(first_edit.id))).status == "succeeded"
+        assert (await wait_job(service, str(stale_edit.id))).status == "failed"
+        assert service.get_pixel_art(pid).authored_views["0"] == [16, 32]
+        assert len(service.get_project(pid).revisions) == 2
+    finally:
+        await worker.stop()
+
+
+async def test_targeted_mcp_edit_validation_revision_and_failed_job(settings, fake_blender):
+    settings.blender_binary = fake_blender
+    app = create_app(settings)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost"
+        ) as http,
+    ):
+        client = MCPClient(http)
+        await client.initialize()
+        pid = (await client.data("create_project", {"name": "Targeted edits"}))["id"]
+        profile = await client.data("get_asset_profile", {"kind": "furniture", "preset": "prop"})
+        await client.data(
+            "configure_asset", {"project_id": pid, "specification": profile["specification"]}
+        )
+        job = await client.data(
+            "write_pixel_art",
+            {
+                "project_id": pid,
+                "definition": profile["pixel_authoring"]["example_definition"],
+                "expected_revision_id": None,
+            },
+        )
+        await client.wait(job["id"])
+        original = await client.data("get_pixel_art", {"project_id": pid})
+        edit = profile["pixel_authoring"]["example_edit_call"]
+        args = {
+            **edit["arguments"],
+            "project_id": pid,
+            "expected_revision_id": original["revision_id"],
+        }
+        job = await client.data(edit["tool"], args)
+        await client.wait(job["id"])
+        current = await client.data("get_pixel_art", {"project_id": pid})
+        expected = copy.deepcopy(original["definition"])
+        expected["layers"][0]["poses"][0]["x"] += 1
+        assert current["definition"] == expected
+        assert (await client.call("edit_pixel_art", args, allow_error=True))["isError"]
+        args["expected_revision_id"] = current["revision_id"]
+        for invalid in (
+            [{"op": "delete_layer", "name": "marker"}],
+            [*args["edits"], {"op": "delete_pose", "layer": "marker", "angle": 0, "frame": 999}],
+            [{"op": "set_pose", "layer": "marker", "pose": {"angle": 0, "rows": ["G" * 17]}}],
+        ):
+            assert (
+                await client.call("edit_pixel_art", {**args, "edits": invalid}, allow_error=True)
+            )["isError"]
+            assert await client.data("get_pixel_art", {"project_id": pid}) == current
+        # The fixture deliberately fails scripts containing this marker, after enqueueing.
+        failed = await client.data(
+            "edit_pixel_art",
+            {
+                **args,
+                "edits": [
+                    {
+                        "op": "set_layer",
+                        "layer": {"name": "# fail", "poses": [{"angle": 0, "rows": ["G"]}]},
+                    }
+                ],
+            },
+        )
+        assert (await client.data("wait_for_job", {"job_id": failed["id"]}))["status"] == "failed"
+        assert await client.data("get_pixel_art", {"project_id": pid}) == current

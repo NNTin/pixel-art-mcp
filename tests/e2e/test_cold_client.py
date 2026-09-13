@@ -3,6 +3,7 @@
 import base64
 import io
 import os
+from zipfile import ZipFile
 
 import httpx
 import pytest
@@ -63,18 +64,22 @@ async def test_cold_mcp_only_author_edit_render_inspect(kind):
         # Distinct frame patch using documented source-frame semantics, no hidden helper calls.
         first = source["definition"]["layers"][0]["poses"][0]
         selected_frame = next(iter(profile["specification"]["clips"].values()))["frames"][-1]
-        source["definition"]["layers"][0]["poses"].append(
-            {
-                **first,
-                "frame": selected_frame,
-                "x": first["x"] + 1,
-            }
-        )
         edited = await client.data(
-            "write_pixel_art",
+            "edit_pixel_art",
             {
                 "project_id": source["project_id"],
-                "definition": source["definition"],
+                "edits": [
+                    {"op": "set_palette", "palette": source["definition"]["palette"]},
+                    {
+                        "op": "set_pose",
+                        "layer": "marker",
+                        "pose": {
+                            **first,
+                            "frame": selected_frame,
+                            "x": first["x"] + 1,
+                        },
+                    },
+                ],
                 "expected_revision_id": original_revision,
             },
         )
@@ -102,6 +107,23 @@ async def test_cold_mcp_only_author_edit_render_inspect(kind):
             },
         )
         assert source_artifact["metadata"]["palette"]["G"] == "#66d6c5"
+        archive_id = rendered["outputs"]["sprites.zip"]["id"]
+        archive = await client.call("get_artifact", {"artifact_id": archive_id})
+        resource = next(
+            block["resource"] for block in archive["content"] if block["type"] == "resource"
+        )
+        embedded_bytes = base64.b64decode(resource["blob"], validate=True)
+        offset, chunks = 0, []
+        while offset is not None:
+            chunk = await client.data(
+                "get_artifact_chunk", {"artifact_id": archive_id, "offset": offset, "length": 4096}
+            )
+            chunks.append(base64.b64decode(chunk["data_base64"], validate=True))
+            offset = chunk["next_offset"]
+        assert b"".join(chunks) == embedded_bytes
+        with ZipFile(io.BytesIO(embedded_bytes)) as archive_zip:
+            assert archive_zip.testzip() is None
+            assert "spritesheet.json" in archive_zip.namelist()
         for clip_id, clip in profile["specification"]["clips"].items():
             for layout in profile["layouts"]:
                 frame = clip["frames"][-1]
@@ -117,6 +139,9 @@ async def test_cold_mcp_only_author_edit_render_inspect(kind):
                 )
                 assert inspected["size"] == [layout["width"], layout["height"]]
                 assert inspected["analysis"]["occupied_pixels"] == 36
+                assert inspected["analysis"]["opaque_connected_components"] == 1
+                assert inspected["analysis"]["color_components"] > 1
+                assert inspected["analysis"]["opaque_singleton_components"] == 0
                 image = await client.call(
                     "get_asset_preview",
                     {

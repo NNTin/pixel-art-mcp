@@ -173,7 +173,7 @@
       "kind": "furniture",
       "name": "Thermometer",
       "asset_id": "THERMOMETER",
-      "preset": "chair",
+      "preset": "prop",
       "placement": "wall",
       "category": "wall",
       "colors": 8,

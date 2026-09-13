@@ -6,6 +6,7 @@ from pixel_art_mcp.models import AssetClip, AssetSpec, DomainError, RenderOption
 
 PROFILES: dict[str, dict[str, Any]] = {
     "small": {"kind": "furniture", "size": [16, 16], "content_height": 14},
+    "prop": {"kind": "furniture", "size": [16, 32], "content_height": 30},
     "chair": {"kind": "furniture", "size": [16, 32], "content_height": 24},
     "tall": {"kind": "furniture", "size": [16, 64], "content_height": 62},
     "desk": {"kind": "furniture", "size": [48, 32], "content_height": 24},
@@ -124,7 +125,7 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
         )
     )
     layouts = asset_layouts(spec)
-    starter = {
+    starter: dict[str, Any] = {
         "version": 1,
         "base": "native",
         "palette": {"D": "#293039", "G": "#f3cf65"},
@@ -152,6 +153,11 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
         "presets": [key for key, value in PROFILES.items() if value["kind"] == kind],
         "specification": spec.model_dump(),
         "layouts": layouts,
+        "preset_guidance": "For a generic 16x32 object use furniture preset=prop, which defaults "
+        "to category=decor. chair/desk imply chairs/desks unless category is explicit. Set "
+        "placement and category for the actual object: a thermometer uses placement=wall, "
+        "category=wall. Presets choose native canvas/footprint, not the drawing; never increase "
+        "pixel density to add detail.",
         "pixel_authoring": {
             "contract_version": 1,
             "required": True,
@@ -163,9 +169,28 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
             "layers": "Ordered back to front. Exact-frame pose replaces the null-frame default; "
             "without a default a layer is hidden in unspecified frames. Every view/frame needs "
             "a resolved pose; native mode also needs visible ink.",
-            "editing": "get_pixel_art returns definition and revision_id. Modify that whole "
-            "definition, then write_pixel_art(expected_revision_id=revision_id). This replaces, "
-            "never merges: omitted layers/poses are deleted. Wait for the job before continuing.",
+            "editing": "get_pixel_art returns definition and revision_id. Use edit_pixel_art "
+            "for targeted move_pose/set_pose/delete_pose/set_layer/delete_layer/set_palette "
+            "operations with expected_revision_id=revision_id. Untouched source is preserved. "
+            "Alternatively write_pixel_art replaces the entire definition: omitted layers/poses "
+            "are deleted. Both validate all source and use mandatory helpers. Wait for the job.",
+            "example_edit_call": {
+                "tool": "edit_pixel_art",
+                "arguments": {
+                    "project_id": "<project.id>",
+                    "expected_revision_id": "<get_pixel_art.revision_id>",
+                    "edits": [
+                        {
+                            "op": "move_pose",
+                            "layer": "marker",
+                            "angle": 0,
+                            "frame": None,
+                            "x": starter["layers"][0]["poses"][0]["x"] + 1,
+                            "y": starter["layers"][0]["poses"][0]["y"],
+                        }
+                    ],
+                },
+            },
             "features": "Reserve connected contrasting clusters, separating gaps and usually "
             "2px thickness for identifying details before texture. Exaggerate a faucet or gauge; "
             "simplify nonessential parts. More colors cannot add pixels. Do not enlarge native "
@@ -215,10 +240,12 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
             "The starter is a valid small pixel marker, not a finished design; default patches "
             "are static across all semantic clips. Author the documented distinct poses. "
             "On nonterminal wait results call wait_for_job again; on failure inspect get_job. "
-            "To edit, change definition.palette.G to #66d6c5, then send the entire definition "
-            "to write_pixel_art with expected_revision_id from get_pixel_art. Render and inspect "
-            "again. Retrieve job.outputs source JSON and Python through get_artifact, no HTTP "
-            "needed.",
+            "example_edit_call moves just the front default marker one native pixel right. "
+            "Substitute the current source revision, wait for success, render and inspect again. "
+            "Retrieve job.outputs PNG/JSON/text and small binary resources through get_artifact; "
+            "get_artifact_chunk delivers any file in bounded base64 chunks, no HTTP needed. "
+            "Decode each chunk separately and concatenate raw bytes until next_offset=null. "
+            "Saving locally requires client attachment support.",
         },
         "modeling": [
             "+Z is up; front faces -Y. Model near the origin with named parts.",
