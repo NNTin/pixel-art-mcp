@@ -214,13 +214,29 @@ class AssetSpec(Model):
     height: int | None = Field(default=None, ge=16, le=512)
     anchor_object: str | None = Field(default=None, min_length=1, max_length=120)
     clips: dict[str, AssetClip] = Field(default_factory=dict, max_length=16)
-    colors: int = Field(default=16, ge=2, le=64)
-    palette: list[str] | None = Field(default=None, min_length=2, max_length=64)
-    shading: Literal["game", "studio", "scene"] = "game"
-    outline: bool = False
+    colors: int = Field(default=16, ge=2, le=64, description="Maximum authored palette size.")
+    palette: list[str] | None = Field(
+        default=None,
+        min_length=2,
+        max_length=64,
+        description="Optional fixed hex colors; write_pixel_art.palette must match exactly.",
+    )
+    shading: Literal["game", "studio", "scene"] = Field(
+        default="game",
+        description="Hybrid geometry shading only; native pixels are unchanged.",
+    )
+    outline: Literal[False] = Field(
+        default=False,
+        description="Must be false. Draw outlines explicitly in required pixel layers.",
+    )
     elevation: float = Field(default=35.264, ge=0, le=70)
     samples: int = Field(default=32, ge=1, le=256)
-    supersampling: int = Field(default=4, ge=1, le=4)
+    supersampling: int = Field(
+        default=4,
+        ge=1,
+        le=4,
+        description="Hybrid source render scale. Never increases or resamples authored pixels.",
+    )
 
     @model_validator(mode="after")
     def validate_target(self) -> "AssetSpec":
@@ -330,9 +346,9 @@ class RenderOptions(Model):
     palette: list[str] | None = Field(default=None, min_length=2, max_length=255)
     downscale_mode: Literal["crisp", "average"] = Field(
         default="crisp",
-        description="crisp derives the shared palette from supersampled source colors before "
-        "mapping averaged target pixels, avoiding muddy colors invented by downscaling. average "
-        "retains the legacy behavior of deriving the palette after BOX downscaling.",
+        description="crisp classifies source pixels against one shared palette, then uses local "
+        "alpha-weighted color votes without per-frame clustering. average is a BOX-filter "
+        "comparison path. Native PixelArt layers bypass conversion.",
     )
     supersampling: int = Field(
         default=4,

@@ -6,10 +6,12 @@ from PIL import Image, ImageDraw
 from pydantic import ValidationError
 
 from pixel_art_mcp.assets import asset_layouts, get_asset_profile, resolve_asset
+from pixel_art_mcp.authoring import PixelDefinition
 from pixel_art_mcp.blender.camera_fit import fit_asset_views
 from pixel_art_mcp.imaging.asset_export import export_asset
 from pixel_art_mcp.imaging.inspection import inspect_sprite
 from pixel_art_mcp.models import AssetSpec, DomainError
+from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 
 def fixture_export(tmp_path, kind="furniture", **kwargs):
@@ -17,10 +19,24 @@ def fixture_export(tmp_path, kind="furniture", **kwargs):
     options = resolve_asset(spec, "configuration-1")
     raw, out = tmp_path / "raw", tmp_path / "out"
     raw.mkdir()
+    art = PixelArt(
+        {"D": "#293039", "G": "#f3cf65", "B": "#5285b8"},
+        {row["angle"]: (row["width"], row["height"]) for row in options.asset_layouts},
+        base="render",
+    )
     entries, views = [], []
     for row in options.asset_layouts:
+        art.layer("detail", row["angle"], Canvas.from_rows(["GG", "GG"]), x=5, y=5)
         views.append({**row, "objects": [{"name": "Body", "pixel_width": 12, "pixel_height": 20}]})
         for frame in options.frames():
+            art.layer(
+                "detail",
+                row["angle"],
+                Canvas.from_rows(["GG", "GG"]),
+                x=5 + frame % 3,
+                y=5,
+                frame=frame,
+            )
             size = (row["width"] * options.supersampling, row["height"] * options.supersampling)
             im = Image.new("RGBA", size)
             draw = ImageDraw.Draw(im)
@@ -37,9 +53,11 @@ def fixture_export(tmp_path, kind="furniture", **kwargs):
                     "frame": frame,
                     "filename": filename,
                     "pivot": [row["width"] / 2, row["bottom"]],
+                    "pixel_layers": art.poses(row["angle"], frame),
                 }
             )
     manifest = {"frames": entries, "camera": {"views": views}, "blender_version": "fixture"}
+    manifest["pixel_art"] = art.to_dict()
     export_asset(raw, out, manifest, options, "project", "revision")
     return out, options, manifest
 
@@ -99,7 +117,7 @@ def test_explicit_anchor_reserves_contact_clearance():
 
 @pytest.mark.parametrize("kind", ["furniture", "character", "pet"])
 def test_all_targets_have_complete_inspectable_export(tmp_path, kind):
-    out, options, _ = fixture_export(tmp_path, kind, outline=True)
+    out, options, _ = fixture_export(tmp_path, kind)
     metadata = json.loads((out / "spritesheet.json").read_text())
     assert metadata["configuration_id"] == "configuration-1"
     for entry in metadata["frames"]:
@@ -230,6 +248,8 @@ def test_asset_export_rejects_invalid_source_frames(tmp_path, problem):
     out, options, manifest = fixture_export(tmp_path)
     raw = tmp_path / "raw"
     first = raw / manifest["frames"][0]["filename"]
+    if problem == "empty":
+        manifest["frames"][0]["pixel_layers"] = []
     if problem == "path":
         manifest["frames"][0]["filename"] = "../outside.png"
     else:
@@ -260,9 +280,13 @@ async def test_render_captures_configuration_and_scene_revision(service, fake_bl
     worker = Worker(service)
     await worker.start()
     project = str(service.create_project("Snapshot").id)
+    first = service.configure_asset(project, AssetSpec(kind="character", name="First"))
+    definition = PixelDefinition.model_validate(
+        get_asset_profile("character")["pixel_authoring"]["example_definition"]
+    )
     try:
         created = await wait_job(
-            service, str(service.submit_script(project, "print('model')", None).id)
+            service, str(service.write_pixel_art(project, definition, None).id)
         )
         assert created.status == "succeeded"
     finally:
@@ -270,7 +294,6 @@ async def test_render_captures_configuration_and_scene_revision(service, fake_bl
     # Hold the queue so subsequent configuration edits happen before rendering starts.
     service.worker_ready = True
     service.blender_version = "fixture"
-    first = service.configure_asset(project, AssetSpec(kind="character", name="First"))
     job = service.render_asset(project)
     second = service.configure_asset(project, AssetSpec(kind="pet", name="Second", asset_id="PET"))
     snapshot = service.store.job(str(job.id))

@@ -1,32 +1,36 @@
 # Pixel Art MCP
 
-A local Docker service for turning natural-language prompts and optional reference images into
-pixel-art sprite sheets with multiple viewing directions and animation frames.
+A local MCP service for creating **Pixel Agents furniture, characters, and pets** at the
+consumer's native pixel resolution. Author recognizable shapes on the final grid, save named
+layers and animation poses in Blender revisions, and export installable packages.
 
-Describe an object, ask for changes, and export consistent views of the same model: for example,
-a chair viewed at 0°, 45°, and 90°, or an animated object rendered from eight directions. Blender
-provides the editable 3D geometry, materials, and animation; the pixel-art converter turns its
-renders into transparent sprites and packs them into a sheet with playback metadata.
-Animated exports include transparent APNG loops for each direction and a self-contained browser
-player for checking playback, individual frames, and backgrounds. See the
-[animated oil lamp example](docs/tools.md#animated-oil-lamp-example) for a complete modeling recipe.
-Clients without vision can call `inspect_sprite` for a palette-index text grid, color descriptions,
-cluster metrics, and comparisons between render jobs. Source-derived palettes are used by default
-so supersampled colors remain distinct instead of turning into muddy downscale averages.
+`write_pixel_art` accepts a typed pixel definition and runs the mandatory `PixelArt` and `Canvas`
+helpers on the server. No client-side imports or filesystem tools are needed. It supports native
+drawing or exact-pixel finishing layers anchored to rendered Blender objects. Important features
+are designed explicitly, not recovered by adding
+colors or shrinking a detailed model. A shared palette and local color voting keep rendered
+surfaces stable; authored pixels bypass resampling entirely. Feature diagnostics check visibility,
+connectivity and clipping, while offline previews support the necessary visual review.
 
-For Pixel Agents, use `get_asset_profile` → `configure_asset` → `execute_blender_python` →
-`render_asset` → `inspect_asset`. [Game asset profiles](docs/game-assets.md) give furniture,
+Use `get_asset_profile` → `create_project` → `configure_asset` → `write_pixel_art` → `wait_for_job`
+→ `render_asset` → `wait_for_job` → `inspect_asset` / `inspect_sprite` / `get_asset_preview`.
+Use `get_pixel_art` to retrieve and revise the complete source. Profiles include full JSON starters
+and tool-call examples inline. [Game asset profiles](docs/game-assets.md) give furniture,
 characters, and pets readable sizes, stable placement, shared palettes, and the consumer's actual
 pose sequences. Every render produces an installable package, exact pixel inspection, and offline
 context previews. Named furniture clips become selectable variants such as empty/partial/full barrels.
 
-Generic exports retain their configurable canvas, views, physical scale, and animation options.
 The development webview harness checks generated packages against a read-only Pixel Agents checkout;
 Node and Chromium are not production dependencies.
 
-The AI lives in your MCP client. It interprets reference images, writes Blender Python, and calls
-`execute_blender_python`. This service executes the code, saves `.blend` revisions, and renders
-consistent views. No AI API key or image-to-3D service is required.
+The AI lives in your MCP client. It interprets reference images and authors exact native pixels.
+`execute_blender_python` remains available for advanced hybrid geometry; geometry alone cannot
+render. Generic `render_preview` and `render_sprites` tools have been removed. Every successful
+write saves an editable `.blend` revision; failures preserve the prior revision.
+No AI API key, automatic semantic redraw, or image-to-3D service is involved.
+
+After upgrading, refresh cached client tool lists. `get_capabilities` reports
+`authoring_contract_version: 1` and `pixel_authoring_required: true`.
 
 Read [what we are building](docs/overview.md) for the project goals and Mermaid diagrams of the
 MCP integration and rendering pipeline.
@@ -44,6 +48,8 @@ targets Linux x86-64 and pins Blender 4.5.13 LTS with CPU Cycles; no GPU or disp
 
 See [client setup](docs/client-setup.md), [tool usage](docs/tools.md), and
 [architecture](docs/architecture.md) for the workflow and operating constraints.
+See [rendering pipeline](docs/rendering-pipeline.md) for how a render actually executes: the
+Blender subprocess boundary, the native/hybrid split, and downscaling.
 See [validation status](docs/validation.md) for the completed Docker rendering and playback checks.
 See [contract testing](docs/contract-testing.md) for how the pixel-agents/character/pet exports
 are checked live against pixel-index's real staging and production APIs.

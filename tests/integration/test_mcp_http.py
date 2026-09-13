@@ -30,14 +30,19 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert tools["inspect_scene"]["annotations"]["readOnlyHint"] is True
         assert tools["wait_for_job"]["annotations"]["readOnlyHint"] is True
         assert tools["inspect_sprite"]["annotations"]["readOnlyHint"] is True
-        assert "options" in tools["render_preview"]["inputSchema"]["properties"]
-        render_schema = tools["render_sprites"]["inputSchema"]["$defs"]["RenderOptions"]
-        assert render_schema["properties"]["tile_width"]["default"] == 1
-        assert "tall" in render_schema["properties"]["tile_height"]["description"]
-        assert "override" in render_schema["properties"]["width"]["description"]
-        assert render_schema["properties"]["fps"]["default"] == 5
-        assert render_schema["properties"]["downscale_mode"]["default"] == "crisp"
-        assert "pixel_agents" in render_schema["properties"]
+        assert {"write_pixel_art", "get_pixel_art", "get_asset_preview"} <= tools.keys()
+        assert not {"render_preview", "render_sprites"} & tools.keys()
+        definitions = tools["write_pixel_art"]["inputSchema"]["$defs"]
+        assert set(definitions["PixelDefinition"]["properties"]) == {
+            "version",
+            "base",
+            "palette",
+            "layers",
+        }
+        assert "expected_revision_id" in tools["write_pixel_art"]["inputSchema"]["required"]
+        assert definitions["PixelPose"]["properties"]["rows"]["description"]
+        assert definitions["PixelLayer"]["properties"]["poses"]["description"]
+        assert tools["get_pixel_art"]["outputSchema"]["properties"]["definition"]
         upload_schema = tools["add_reference_image"]["inputSchema"]
         file_schema = upload_schema["$defs"]["OpenAIFile"]
         assert file_schema["required"] == ["download_url", "file_id"]
@@ -71,7 +76,7 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert bad["isError"]
 
 
-async def test_preview_options_and_legacy_overrides(settings, fake_blender, monkeypatch):
+async def test_geometry_alone_cannot_render(settings, fake_blender):
     settings.blender_binary = fake_blender
     app = create_app(settings)
     async with (
@@ -82,71 +87,29 @@ async def test_preview_options_and_legacy_overrides(settings, fake_blender, monk
     ):
         client = MCPClient(http)
         await client.initialize()
-        project = await client.data("create_project", {"name": "Preview settings"})
+        project = await client.data("create_project", {"name": "Geometry"})
+        profile = await client.data("get_asset_profile", {"kind": "furniture"})
+        await client.data(
+            "configure_asset",
+            {
+                "project_id": project["id"],
+                "specification": profile["specification"],
+            },
+        )
         job = await client.data(
             "execute_blender_python",
             {
                 "project_id": project["id"],
-                "script": "print('model')",
+                "script": "print('geometry')",
                 "expected_revision_id": None,
             },
         )
         await client.wait(job["id"])
-        service = app.state.service
-        # Leave render jobs queued: this fixture tests the wire contract, not Blender rendering.
-        monkeypatch.setattr(service.store, "claim_job", lambda: None)
-        defaults = await client.data("render_preview", {"project_id": project["id"]})
-        values = service.store.job(defaults["id"])["params"]["options"]
-        assert values["angles"] == [0] and values["frame_start"] == values["frame_end"] == 1
-        assert values["width"] == 16 and values["samples"] == 16
-        options = {
-            "angles": [0, 90],
-            "width": 96,
-            "height": 64,
-            "elevation": 20,
-            "frame_start": 2,
-            "frame_end": 8,
-            "frame_step": 2,
-            "lighting": "scene",
-            "palette": ["#000000", "#ffffff"],
-            "samples": 4,
-        }
-        preview = await client.data(
-            "render_preview", {"project_id": project["id"], "options": options}
-        )
-        values = service.store.job(preview["id"])["params"]["options"]
-        assert all(values[key] == value for key, value in options.items())
-        assert service.store.job(preview["id"])["operation"] == "preview"
-        override = await client.data(
-            "render_preview",
-            {
-                "project_id": project["id"],
-                "options": options,
-                "angle": 0,
-                "frame": 0,
-            },
-        )
-        values = service.store.job(override["id"])["params"]["options"]
-        assert values["angles"] == [0] and values["frame_start"] == values["frame_end"] == 0
-        assert values["width"] == 96 and values["lighting"] == "scene"
-        invalid = await client.call(
-            "render_preview",
-            {
-                "project_id": project["id"],
-                "frame": -1,
-            },
-            allow_error=True,
-        )
-        assert invalid["isError"]
-        excessive = await client.call(
-            "render_preview",
-            {
-                "project_id": project["id"],
-                "options": {"frame_end": 1000},
-            },
-            allow_error=True,
-        )
-        assert excessive["isError"]
+        for name in ("render_asset", "render_preview", "render_sprites"):
+            result = await client.call(name, {"project_id": project["id"]}, allow_error=True)
+            assert result["isError"]
+        result = await client.call("get_pixel_art", {"project_id": project["id"]}, allow_error=True)
+        assert result["isError"]
 
 
 async def test_http_upload_validation_and_local_boundary(settings, png):

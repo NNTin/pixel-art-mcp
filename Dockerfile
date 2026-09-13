@@ -17,6 +17,7 @@ RUN test "$(dpkg --print-architecture)" = amd64 \
     && apt-get install -y --no-install-recommends \
        ca-certificates curl xz-utils libglib2.0-0 libgl1 libegl1 libgomp1 \
        libx11-6 libxi6 libxrender1 libxfixes3 libxxf86vm1 libxkbcommon0 libsm6 libice6 \
+       libxext6 \
     && apt-get clean
 
 # Verify the pinned release archive against Blender's release checksum list.

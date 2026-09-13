@@ -14,3 +14,5 @@ data/
 *.blend
 *.blend1
 tmp/
+.ao/
+.claude/

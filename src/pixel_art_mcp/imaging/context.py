@@ -104,6 +104,7 @@ def export_context(output: Path, metadata: dict[str, Any]) -> None:
     reference_agent().save(agent_path)
     data = {
         "spec": spec,
+        "source_kind": metadata.get("source_kind", "blender-render"),
         "playback": metadata["playback"],
         "layouts": layouts,
         "reference": encode(agent_path),

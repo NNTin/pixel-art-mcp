@@ -5,11 +5,13 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image
 
 from pixel_art_mcp.assets import clip_duration_ms, clip_playback
+from pixel_art_mcp.authoring import validated_art
 from pixel_art_mcp.imaging.character import export_character
 from pixel_art_mcp.imaging.context import export_context
+from pixel_art_mcp.imaging.features import composite_features
 from pixel_art_mcp.imaging.gif import save_animated_gif
 from pixel_art_mcp.imaging.inspection import inspect_sprite
 from pixel_art_mcp.imaging.pet import MAX_PET_PNG_BYTES
@@ -135,8 +137,20 @@ def asset_report(output: Path, metadata: dict[str, Any]) -> dict[str, Any]:
                 "contact_offset": layouts[entry["angle"]]["bottom"] - y - h,
                 "center_offset": round(x + w / 2 - width / 2, 2),
                 "singleton_color_clusters": analysis["singleton_components"],
+                "pixel_features": entry.get("pixel_features", []),
             }
         )
+        for feature in entry.get("pixel_features", []):
+            for code in feature["issues"]:
+                findings.append(
+                    {
+                        "code": code,
+                        "angle": entry["angle"],
+                        "frame": entry["frame"],
+                        "feature": feature["name"],
+                        "suggestion": "Revise the feature shape, offset or layer order.",
+                    }
+                )
         with Image.open(output / entry["filename"]) as image:
             opaque = [
                 p
@@ -212,7 +226,8 @@ def asset_report(output: Path, metadata: dict[str, Any]) -> dict[str, Any]:
     ]
     thin = [f for f in features if min(f["pixel_width"], f["pixel_height"]) < 2]
     return {
-        "status": "review" if findings else "ready",
+        "status": "review" if findings else "checks_passed",
+        "visual_review_required": True,
         "kind": spec["kind"],
         "configuration_id": metadata["configuration_id"],
         "frames": reports,
@@ -244,6 +259,10 @@ def export_asset(
 ) -> None:
     spec, layouts = options.asset, options.asset_layouts
     assert spec is not None and layouts is not None
+    if not manifest.get("pixel_art"):
+        raise DomainError("Render output has no required pixel-art definition")
+    art = validated_art(manifest["pixel_art"], options.model_dump())
+    options = options.model_copy(update={"palette": list(art.palette.values())})
     entries = manifest["frames"]
     expected = [(row["angle"], f) for row in layouts for f in options.frames()]
     if [(e["angle"], e["frame"]) for e in entries] != expected:
@@ -271,21 +290,20 @@ def export_asset(
                 "fix anchor or enlarge canvas"
             )
         sources.append(source)
-    rendered, palette = pixelate(sources, options, sizes=sizes)
-    if spec.outline:
-        color = min(palette, key=lambda c: sum(bytes.fromhex(c[1:])))
-        for i, im in enumerate(rendered):
-            alpha = im.getchannel("A")
-            expanded = alpha.filter(ImageFilter.MaxFilter(3))
-            border = ImageChops.subtract(expanded, alpha)
-            outlined = Image.new("RGBA", im.size, color)
-            outlined.putalpha(border)
-            outlined.alpha_composite(im)
-            transparent = outlined.getchannel("A").point(lambda alpha: 255 if alpha == 0 else 0)
-            outlined.paste((0, 0, 0, 0), mask=transparent)
-            rendered[i] = outlined
+    if art.base == "native":
+        rendered = [Image.new("RGBA", size) for size in sizes]
+        palette = list(art.palette.values())
+    else:
+        rendered, palette = pixelate(sources, options, sizes=sizes)
+    for index, (entry, im) in enumerate(zip(entries, rendered, strict=True)):
+        rendered[index], entry["pixel_features"] = composite_features(
+            im, entry["pixel_layers"], art.palette
+        )
+        if art.base == "native":
+            sources[index] = rendered[index].resize(sources[index].size, Image.Resampling.NEAREST)
     cells = {(int(e["angle"]), e["frame"]): im for e, im in zip(entries, rendered, strict=True)}
     output.mkdir(parents=True, exist_ok=True)
+    write_json(output / "pixel-art.json", art.to_dict())
     (output / "frames").mkdir()
     (output / "comparison").mkdir()
     max_width, max_height = max(s[0] for s in sizes), max(s[1] for s in sizes)
@@ -315,9 +333,8 @@ def export_asset(
     sheet.save(output / "spritesheet.png")
     high_sheet.save(output / "comparison/high-resolution.png")
     preview_scale = min(4, max(1, 1024 // max(sheet.size)))
-    sheet.resize(tuple(v * preview_scale for v in sheet.size), Image.Resampling.NEAREST).save(
-        output / "preview.png"
-    )
+    preview_size = (sheet.width * preview_scale, sheet.height * preview_scale)
+    sheet.resize(preview_size, Image.Resampling.NEAREST).save(output / "preview.png")
     (output / "animations").mkdir()
     animation_files = []
     for key, clip in spec.clips.items():
@@ -354,6 +371,8 @@ def export_asset(
     package = package_asset(output, spec, layouts, cells)
     metadata = {
         "schema_version": 1,
+        "source_kind": "native-grid" if art.base == "native" else "blender-render",
+        "pixel_art": "pixel-art.json",
         "project_id": project_id,
         "revision_id": revision_id,
         "configuration_id": options.asset_configuration_id,

@@ -1,8 +1,8 @@
 # Pixel Agents asset workflow
 
-Use this workflow for furniture, characters, and pets. Blender remains the editable source;
-the server derives framing, game shading, placement metadata, packages, and previews. Generic
-`render_preview`/`render_sprites` remain available for existing clients and physical-scale work.
+Use this workflow for furniture, characters, and pets. Blender remains the editable source,
+including named native pixel layers. The server derives placement metadata, packages and previews;
+optional rendered geometry supplies broad volume beneath exact-pixel identifying features.
 
 ## Model, render, inspect, refine
 
@@ -19,21 +19,80 @@ the server derives framing, game shading, placement metadata, packages, and prev
    }
    ```
 
-3. Use `execute_blender_python` to model named parts and poses, then `wait_for_job`.
-   Use +Z up and face the front toward -Y. Keep locomotion in place. Exaggerate thin details
-   until they survive at least two pixels; real-world dimensions do not determine game size.
+3. Use `write_pixel_art` to author typed named pixel layers and poses, then `wait_for_job`.
+   `get_asset_profile.pixel_authoring` contains a complete JSON starter and tool-call examples.
+   The server invokes the helpers; clients need no Python import or source files.
+   Reserve space for identifying features first. Keep locomotion in place and follow the
+   configured layouts; real-world dimensions do not determine game size.
 4. Call `render_asset({"project_id":"PROJECT_UUID"})`, then `wait_for_job`.
 5. Read `inspect_asset({"job_id":"JOB_UUID"})`. For exact pixels call `inspect_sprite`;
    its `state_id` selects a clip, `frame` is a Blender source frame, and `angle` selects the view.
-6. Download `job.outputs["sprites.zip"]` with `get_artifact`. Extract and open `preview.html`.
-   Change named Blender objects or replace the configuration, then rerender. All output files
-   are generated; do not repair exported PNGs, metadata, or HTML by hand.
+6. Use `get_asset_preview` for inline image content: select clip, source frame, direction, integer
+   scale and approximate context. Use `get_pixel_art` to retrieve source, then send the complete
+   modified definition to `write_pixel_art` with its revision as `expected_revision_id`.
+   `get_artifact` returns PNG/JSON/source text inline. ZIPs and the offline player are optional
+   human downloads, not required client tools. Do not repair generated output PNGs by hand.
 
 `configure_asset` replaces the configuration and returns an immutable configuration ID and
 resolved per-direction layouts. `get_project` returns the current configuration. Each render
 captures both that configuration and a scene revision when submitted; later edits cannot change
 queued jobs. Pass `revision_id` to render an earlier scene using the current configuration.
 All clips, including off poses, share a palette, scale, and stable framing.
+
+## Native pixel authoring
+
+The primary API is typed JSON through `write_pixel_art`; see [the MCP contract](tools.md).
+`render_asset` rejects missing or invalid definitions; generic render tools are removed.
+The following is an advanced developer example of the helper used internally by the server.
+Independent MCP agents do not need to discover or execute this import:
+
+```python
+import bpy
+from pixel_art_mcp.pixel_art import Canvas, PixelArt
+
+art = PixelArt(
+    {"D": "#293039", "G": "#f3cf65"},
+    {angle: (16, 16) for angle in (0, 90, 180, 270)},
+)
+tap = Canvas.from_rows(["GGG.", ".G..", "GGGG", "...G", "...G"])
+for angle in (0, 90, 180, 270):
+    art.layer("faucet", angle, tap, x=5, y=3, min_pixels=10, connected=True)
+art.save(bpy.context.scene)
+```
+
+This minimal example shows the same glyph in every direction; actual assets must author the
+appropriate view. Coordinates are integer pixels from the top-left, not Blender units. A dot
+is transparent. `Canvas.rect(x, y, width, height, symbol)` and `stamp(x, y, rows)` draw exact
+pixels; `mirrored()` returns a reflected canvas. Out-of-bounds drawing raises an error.
+
+Layers composite in insertion order. Omit `frame` for a static default; `frame=...` overrides it
+for that source frame. A layer without a default is absent in unspecified frames. A dot reveals
+the preceding layer, not an eraser. Use a separate static body and small animated patches.
+`min_pixels` is a budget for pixels remaining visible **after all layers composite**, and
+`connected=True` requires one four-connected cluster. Set budgets per view to account for
+intentional occlusion. Diagnostics cannot decide whether the shape actually resembles a faucet.
+
+Reload `PixelArt.load(bpy.context.scene)` in a later revision to change its palette or named poses.
+See `modify_chair.py`. Every native export includes `pixel-art.json`, and inspection exposes
+the resolved feature bounds, visible pixels, clipping, overwritten pixels and components.
+
+For a hybrid asset, use `base="render"` and optionally `anchor="ObjectName"` on a layer. Its
+`x,y` become integer offsets from that object's evaluated, projected origin each frame. The
+cube example demonstrates this. These are screen-space finishing layers, **not depth-tested
+decals**: omit hidden features in other views/poses. Offsets do not rotate or scale with geometry.
+Use +Z up and front -Y for rendered geometry. No automatic multi-view reconstruction is implied.
+
+Declare exactly the canvas sizes returned by `configure_asset`. The authored palette is fixed
+for the complete job, must fit `colors`, and must match `palette` if configured. Native mode
+does not run Cycles or downscale artwork. Its source comparison is labeled **authored grid**,
+not a higher-detail source render. Hybrid source comparisons show the unmodified Blender render.
+Automatic `outline` is rejected with pixel layers; draw outlines explicitly on the native grid.
+
+The rain barrel keeps its front body at 12x20 inside a 16x32 canvas. Its faucet is a connected
+10-pixel gold glyph; the gauge is a 4x7 frame with a 2x5 interior. A wood gap separates them.
+The opening and fill are broad clusters; rain moves independently above the body. Screws,
+threads and repeated wood texture yield space to these identifying features. This is deliberate
+pixel art direction, not a promise that every small detail can survive at this footprint.
 
 ## Sizes and placement
 
@@ -102,7 +161,7 @@ empty/partial/full barrel configurations.
 `shading: "game"` uses three broad directional shade bands from authored base colors and textures,
 with unlit emissive materials. `studio` and `scene` retain conventional lighting alternatives.
 The default shared palette has 16 colors; use `colors` or an explicit `palette` to simplify it.
-`outline: true` adds a one-pixel silhouette outline and reserves its margin during camera fitting.
+Automatic `outline` must remain false because pixel helpers are mandatory; draw outlines in rows.
 These changes only affect the render copy, leaving the saved scene editable.
 
 Every target exports individual frames, supersampled source comparisons, `spritesheet.json`,
@@ -117,7 +176,9 @@ changed animation pixels, and named-object projected dimensions. Small silhouett
 against the dark preview floor, fragmented colors, and imperceptible animation are advisory.
 Projected object bounds cannot establish visibility or occlusion; a hidden bulb can have a large
 bounding box. Empty sprites, invalid canvases/packages, and geometry touching the raw render
-boundary fail the export. A `ready` report means no detected issues, not an artistic-quality guarantee.
+boundary fail the export. `checks_passed` means no detected issues, not an artistic-quality
+guarantee; `visual_review_required` is always true. Native feature clipping, lost pixel budgets
+and disconnected required features produce review findings even when the package is valid.
 
 The offline preview approximates a 16-pixel grid, reference agent, desktop, wall, seating,
 directions, activation, and playback. It does not embed the consumer or require Node/Chromium in

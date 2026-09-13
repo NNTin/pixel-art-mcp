@@ -6,12 +6,18 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from pixel_art_mcp.assets import get_asset_profile
+from pixel_art_mcp.authoring import PixelArtSource, PixelDefinition, PixelModel
 from pixel_art_mcp.models import AssetSpec, DomainError, Job, Project, ProjectDetail, Reference
 from pixel_art_mcp.projects.service import Service
 
 
 class CreateProject(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
+
+class WritePixelArt(PixelModel):
+    definition: PixelDefinition
+    expected_revision_id: UUID | None
 
 
 def routes(service: Service) -> APIRouter:
@@ -28,6 +34,18 @@ def routes(service: Service) -> APIRouter:
     @router.post("/projects/{project_id}/asset/renders", response_model=Job, status_code=202)
     async def render_asset(project_id: UUID, revision_id: UUID | None = None) -> Job:
         return service.render_asset(str(project_id), str(revision_id) if revision_id else None)
+
+    @router.put("/projects/{project_id}/pixel-art", response_model=Job, status_code=202)
+    async def write_pixel_art(project_id: UUID, body: WritePixelArt) -> Job:
+        return service.write_pixel_art(
+            str(project_id),
+            body.definition,
+            str(body.expected_revision_id) if body.expected_revision_id else None,
+        )
+
+    @router.get("/projects/{project_id}/pixel-art", response_model=PixelArtSource)
+    async def get_pixel_art(project_id: UUID, revision_id: UUID | None = None) -> PixelArtSource:
+        return service.get_pixel_art(str(project_id), str(revision_id) if revision_id else None)
 
     @router.get("/jobs/{job_id}/asset-inspection")
     async def inspect_asset(job_id: UUID) -> dict[str, Any]:

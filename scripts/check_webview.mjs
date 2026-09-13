@@ -12,6 +12,9 @@ const arg = (name, fallback) => args.includes(name) ? args[args.indexOf(name) + 
 const consumer = path.resolve(arg('--consumer', '../pixel-index/vendor/pixel-agents'));
 const assets = path.resolve(arg('--assets', 'tmp/asset-workflow'));
 const output = path.resolve(arg('--output', path.join(assets, 'webview')));
+const only = arg('--only', '').split(',').filter(Boolean);
+const exampleSpecs = JSON.parse(fs.readFileSync(path.join(root, 'examples/asset-specs.json'), 'utf8'));
+for (const key of only) assert(key in exampleSpecs, `Unknown example: ${key}`);
 assert(output !== consumer && !output.startsWith(consumer + path.sep), 'Output must be outside the read-only consumer');
 fs.mkdirSync(output, { recursive: true });
 const require = createRequire(path.join(consumer, 'package.json'));
@@ -52,6 +55,7 @@ const stock = path.join(consumer, 'webview-ui/public/assets');
 data.characters.push(decodeCharacterPng(read(path.join(stock, 'characters/char_0.png'))));
 for (const name of ['DESK', 'WOODEN_CHAIR']) furniture(path.join(stock, 'furniture', name), 'STOCK_');
 for (const key of fs.readdirSync(assets).sort()) {
+  if (only.length && !only.includes(key)) continue;
   const folder = path.join(assets, key);
   if (!fs.existsSync(path.join(folder, 'asset-specification.json'))) continue;
   const metadata = json(path.join(folder, 'spritesheet.json'));
@@ -67,7 +71,7 @@ for (const key of fs.readdirSync(assets).sort()) {
     for (const variant of fs.readdirSync(dir).sort()) example.ids.push(...furniture(path.join(dir, variant), '').map(e => e.id));
     const oldDir = path.join(root, 'tmp', key, 'pixel-agents/assets/furniture');
     example.beforeIds = [];
-    if (fs.existsSync(oldDir)) for (const variant of fs.readdirSync(oldDir).sort()) {
+    if (fs.existsSync(oldDir) && fs.realpathSync(oldDir) !== fs.realpathSync(dir)) for (const variant of fs.readdirSync(oldDir).sort()) {
       example.beforeIds.push(...furniture(path.join(oldDir, variant), 'BEFORE_').map(e => e.id));
     }
   } else if (spec.kind === 'character') {
@@ -92,7 +96,7 @@ for (const key of fs.readdirSync(assets).sort()) {
   }
   data.examples.push(example);
 }
-assert.equal(data.examples.length, Object.keys(json(path.join(root, 'examples/asset-specs.json'))).length, 'Generate all examples first');
+assert.deepEqual(data.examples.map(ex => ex.key).sort(), Object.keys(exampleSpecs).filter(key => !only.length || only.includes(key)).sort(), 'Generate the selected examples first');
 await bundle({ entryPoints: [path.join(root, 'scripts/webview/check.ts')], platform: 'browser', format: 'iife', alias: { '@consumer': consumer } }, 'check.js');
 fs.writeFileSync(path.join(output, 'index.html'), `<!doctype html><meta charset="utf-8"><title>Actual Pixel Agents renderer</title>
 <style>body{font:16px system-ui;background:#1d252c;color:#e6eef4;margin:24px}canvas{image-rendering:pixelated}section{margin-bottom:24px}.row{display:flex;flex-wrap:wrap;gap:16px}figure{margin:0}h2{font-size:20px}</style>
@@ -122,6 +126,18 @@ try {
     if (example.spec.kind === 'furniture') {
       await preview.selectOption('#activation', 'on');
       await preview.selectOption('#interaction', 'seated');
+    }
+    for (const [label, width] of [['desktop', 1440], ['mobile', 390]]) {
+      await preview.setViewportSize({ width, height: 900 });
+      await preview.waitForTimeout(100);
+      assert(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${example.key}/${label} overflow`);
+      const visible = await preview.locator('#comparison').evaluate(canvas => {
+        const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        return pixels.some((value, i) => i % 4 === 3 && value > 0);
+      });
+      assert(visible, `${example.key}/${label} comparison is blank`);
+      await preview.screenshot({ path: path.join(output, `${example.key}-preview-${label}.png`), fullPage: true });
+      checks.push(`${example.key}/${label} preview renders without overflow`);
     }
     await preview.close();
   }

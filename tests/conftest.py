@@ -39,6 +39,7 @@ def fake_blender(tmp_path):
 import json
 import sys
 import time
+from types import SimpleNamespace
 from pathlib import Path
 if "--version" in sys.argv:
     print("Blender TEST FIXTURE")
@@ -53,8 +54,15 @@ if "# slow" in script:
     time.sleep(60)
 output = Path(request["output_dir"])
 output.mkdir(parents=True)
-(output / "scene.blend").write_bytes(b"BLENDER-vTEST-fixture")
-(output / "result.json").write_text(json.dumps({"summary": {"objects": [{"name": "Seat"}]}}))
+scene = {}
+if request.get("input_blend"):
+    scene = json.loads(Path(request["input_blend"]).read_text().split("\n", 1)[1])
+# Execute source-only edits against a dictionary scene; geometry tests use real Blender.
+exec(script, {"bpy": SimpleNamespace(context=SimpleNamespace(scene=scene))})
+(output / "scene.blend").write_text("BLENDER-vTEST-fixture\n" + json.dumps(scene))
+summary = {"objects": [{"name": "Seat"}],
+           "pixel_art": json.loads(scene["pixel_art"]) if "pixel_art" in scene else None}
+(output / "result.json").write_text(json.dumps({"summary": summary}))
 print("saved", flush=True)
 """
     )

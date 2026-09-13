@@ -268,6 +268,8 @@ def inspect_sprite(
         "angle": entry["angle"],
         "frame": entry["frame"],
         "filename": entry["filename"],
+        "source_kind": metadata.get("source_kind", "blender-render"),
+        "pixel_features": entry.get("pixel_features", []),
         "size": [width, height],
         "pivot": entry["pivot"],
         "downscale_mode": metadata["settings"].get("downscale_mode", "average"),
@@ -285,9 +287,10 @@ def inspect_sprite(
             "Rows and coordinates are zero-based from the top-left.",
             "rows": rows,
         },
-        "guidance": "Use palette bounds and longest runs to locate small features. Enlarge or "
-        "increase the contrast of important Blender objects, then rerender. Crisp mode avoids "
-        "palette colors created only by averaging; an explicit palette remains authoritative.",
+        "guidance": "Design identifying shapes on the final grid. Edit named PixelArt layers "
+        "in the saved Blender revision; reserve connected pixel clusters and a separating "
+        "gap for each important feature. Review every view and pose at native scale. "
+        "Feature budgets detect loss, not whether a drawing looks good.",
     }
 
 

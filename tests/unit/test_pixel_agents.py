@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 from pydantic import ValidationError
 
 from pixel_art_mcp.imaging.pixels import export_sheet
-from pixel_art_mcp.models import DomainError, RenderOptions
+from pixel_art_mcp.models import RenderOptions
 
 
 @pytest.mark.parametrize(
@@ -135,19 +135,3 @@ def test_installable_package_and_real_high_resolution_comparison(tmp_path, anima
     )
     assert bool(data["offImage"]) == animated
     assert "USED BY PIXEL-AGENTS" in html
-
-
-def test_high_resolution_and_off_frames_count_toward_limits(service, monkeypatch):
-    monkeypatch.setattr(service, "revision", lambda *args: {"id": "r"})
-    with pytest.raises(DomainError, match="High-resolution"):
-        service.submit_render("p", RenderOptions(width=512, height=512, angles=[0], frame_end=5))
-    service.settings.max_render_frames = 2
-    with pytest.raises(DomainError, match="total frame"):
-        service.submit_render(
-            "p",
-            RenderOptions(
-                angles=[0],
-                frame_end=2,
-                pixel_agents={"asset_id": "LAMP", "name": "Lamp", "off_frame": 0},
-            ),
-        )

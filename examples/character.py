@@ -1,61 +1,72 @@
-"""Game character: frames 1-3 walk, 4-5 type, 6-7 read. Use the character profile."""
+"""Native office worker: three walk poses and two distinct typing/reading poses."""
 
 import bpy
 
+from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
-def material(name, color):
-    mat = bpy.data.materials.new(name)
-    mat.diffuse_color = (*color, 1)
-    mat.use_nodes = True
-    mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = mat.diffuse_color
-    return mat
-
-
-skin = material("Skin", (0.64, 0.34, 0.17))
-hair = material("Hair", (0.07, 0.035, 0.025))
-shirt = material("Blue shirt", (0.055, 0.25, 0.58))
-trousers = material("Trousers", (0.055, 0.08, 0.12))
-paper = material("Book pages", (0.85, 0.80, 0.61))
-
-
-def box(name, location, size, mat):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=location)
-    obj = bpy.context.object
-    obj.name = name
-    obj.dimensions = size
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    obj.data.materials.append(mat)
-    return obj
-
-
-box("Head", (0, 0, 1.00), (0.46, 0.36, 0.40), skin)
-box("Hair cap", (0, 0.015, 1.20), (0.49, 0.39, 0.12), hair)
-box("Hair back", (0, 0.18, 1.06), (0.48, 0.08, 0.27), hair)
-for x in (-0.105, 0.105):
-    box(f"Eye {x}", (x, -0.185, 1.02), (0.065, 0.025, 0.06), hair)
-box("Torso", (0, 0, 0.66), (0.40, 0.27, 0.37), shirt)
-arms, legs = [], []
-for side in (-1, 1):
-    arms.append(box(f"Arm {side}", (side * 0.28, 0, 0.65), (0.14, 0.22, 0.36), shirt))
-    box(f"Hand {side}", (side * 0.28, -0.005, 0.45), (0.14, 0.22, 0.12), skin).parent = arms[-1]
-    # Keep parenting in world space so both sleeve and hand move together.
-    hand = bpy.context.object
-    hand.matrix_parent_inverse = arms[-1].matrix_world.inverted()
-    legs.append(box(f"Leg {side}", (side * 0.115, 0, 0.23), (0.18, 0.26, 0.44), trousers))
-book = box("Reading book", (0, -0.29, 0.61), (0.36, 0.11, 0.25), paper)
-for frame in range(1, 8):
-    walking = frame <= 3
-    step = (frame - 2) if walking else 0
-    for i, (arm, leg) in enumerate(zip(arms, legs, strict=True)):
-        sign = -1 if i == 0 else 1
-        leg.location.y = sign * step * 0.09
-        arm.location.y = -sign * step * 0.09 if walking else -0.22
-        arm.rotation_euler.x = 0 if walking else 0.9 + 0.12 * (frame % 2)
-        for obj in (leg, arm):
-            obj.keyframe_insert(data_path="location", frame=frame)
-            obj.keyframe_insert(data_path="rotation_euler", frame=frame)
-    book.hide_render = frame < 6
-    book.keyframe_insert(data_path="hide_render", frame=frame)
-scene = bpy.context.scene
-scene.frame_start, scene.frame_end = 1, 7
-scene.frame_set(1)
+art = PixelArt(
+    {
+        "D": "#28333e",
+        "H": "#543a3c",
+        "h": "#855451",
+        "S": "#d8a083",
+        "L": "#f2c7a3",
+        "C": "#348b90",
+        "T": "#74bdb1",
+        "P": "#465576",
+        "B": "#e6dfc5",
+        "R": "#b96662",
+    },
+    {a: (16, 32) for a in (0, 180, 90)},
+)
+for angle in (0, 180, 90):
+    for frame in range(1, 8):
+        work = frame >= 4
+        step = (1, 0, -1)[frame - 1] if not work else 0
+        body = Canvas(16, 32)
+        if angle == 90:
+            body.rect(5, 17, 6, 7, "D").rect(6, 17, 4, 6, "C")
+            body.rect(6, 17, 2, 1, "T")
+            body.rect(6, 24, 4, 4, "P")
+            body.rect(4 + step, 28, 4, 2, "D").rect(8 - step, 28, 4, 2, "D")
+        else:
+            body.rect(4, 17, 8, 7, "D").rect(5, 17, 6, 6, "C")
+            body.rect(5, 17, 6, 1, "T")
+            body.rect(5, 24, 6, 4, "P").rect(7, 25, 2, 3, "D")
+            body.rect(4, 28 - max(step, 0), 4, 2, "D")
+            body.rect(8, 28 - max(-step, 0), 4, 2, "D")
+        head = Canvas(12, 14)
+        head.rect(3, 0, 6, 1, "H").rect(1, 1, 10, 2, "H")
+        head.rect(0, 3, 12, 5, "H").rect(1, 8, 10, 2, "S")
+        head.rect(2, 10, 8, 1, "S").rect(3, 11, 6, 1, "S")
+        head.rect(5, 12, 2, 2, "S").rect(2, 2, 7, 2, "h")
+        if angle == 180:
+            head.rect(1, 4, 10, 6, "H").rect(2, 4, 7, 4, "h")
+            head.rect(3, 10, 6, 2, "H")
+        elif angle == 90:
+            head.rect(7, 5, 4, 4, "L").rect(6, 9, 4, 2, "L")
+            head.rect(10, 7, 2, 2, "L").rect(9, 6, 1, 2, "D")
+            head.rect(5, 7, 2, 2, "S").rect(8, 10, 2, 1, "H")
+        else:
+            head.rect(2, 5, 8, 5, "L").rect(2, 5, 2, 1, "H")
+            head.rect(3, 7, 1, 2, "D").rect(8, 7, 1, 2, "D")
+            head.rect(5, 9, 2, 1, "S").rect(3, 10, 6, 1, "L")
+            head.rect(5, 10, 2, 1, "H")
+        art.layer("body", angle, body, frame=frame)
+        art.layer("head", angle, head, x=2, y=3, frame=frame, min_pixels=124, connected=True)
+        hands = Canvas(16, 32)
+        if work:
+            y = 20 + frame % 2
+            if angle == 90:
+                hands.rect(10, y, 3, 2, "L").rect(8, y + 1, 3, 2, "S")
+            else:
+                hands.rect(3, y, 3, 2, "L").rect(10, y + (frame % 2), 3, 2, "S")
+            if frame >= 6:
+                hands.rect(5 if angle != 90 else 10, 21, 5 if angle != 90 else 3, 3, "B")
+                hands.rect(7 if angle != 90 else 11, 21, 1, 3, "R")
+        else:
+            hands.rect(3 if angle != 90 else 8, 19 + step, 2, 3, "S")
+            if angle != 90:
+                hands.rect(11, 19 - step, 2, 3, "L")
+        art.layer("hands and work", angle, hands, frame=frame, min_pixels=6)
+art.save(bpy.context.scene)
