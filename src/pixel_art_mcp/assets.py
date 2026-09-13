@@ -124,7 +124,28 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
         )
     )
     layouts = asset_layouts(spec)
-    views = {row["angle"]: (row["width"], row["height"]) for row in layouts}
+    starter = {
+        "version": 1,
+        "base": "native",
+        "palette": {"D": "#293039", "G": "#f3cf65"},
+        "layers": [
+            {
+                "name": "marker",
+                "poses": [
+                    {
+                        "angle": row["angle"],
+                        "frame": None,
+                        "rows": ["DDDDDD", "DGGGGD", "DGDDGD", "DGDDGD", "DGGGGD", "DDDDDD"],
+                        "x": row["width"] // 2 - 3,
+                        "y": row["bottom"] - 6,
+                        "min_pixels": 36,
+                        "connected": True,
+                    }
+                    for row in layouts
+                ],
+            }
+        ],
+    }
     return {
         "kind": kind,
         "preset": selected,
@@ -132,24 +153,72 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
         "specification": spec.model_dump(),
         "layouts": layouts,
         "pixel_authoring": {
-            "import": "from pixel_art_mcp.pixel_art import Canvas, PixelArt",
-            "storage": "PixelArt.save(bpy.context.scene); reload with PixelArt.load(scene)",
-            "coordinates": "Integer native pixels, top-left origin; '.' is transparent.",
-            "views": "Declare exactly the configured layouts. Draw each visible view explicitly.",
-            "layers": "Named, ordered layers. A frame-specific pose overrides its default pose. "
-            "Without a default, the layer is absent at other frames.",
-            "features": "Use min_pixels and connected=True for identifying shapes. Reserve "
-            "space for a connected faucet, two-column gauge, eyes, hands or flame before texture.",
-            "base": "native bypasses rendering; render overlays exact pixels on a Blender body. "
-            "Render layers can anchor to a named object's projected origin. Overlays are not "
-            "depth-tested: omit hidden features in the corresponding views and poses.",
-            "palette": "2..64 distinct symbol-to-hex colors, within the configured color budget. "
-            "This palette is authoritative for the whole job; no per-frame palette fitting.",
-            "example": "art = PixelArt({'D': '#293039', 'G': '#f3cf65'}, "
-            f"{views!r})\n"
-            "for a in map(int, art.views):\n"
-            "    art.layer('tap', a, Canvas.from_rows(['GGG.', '.G..', 'GGGG', '...G', '...G']), "
-            "x=5, y=3, min_pixels=10, connected=True)\nart.save(bpy.context.scene)",
+            "contract_version": 1,
+            "required": True,
+            "tool": "write_pixel_art",
+            "helpers": "Canvas and PixelArt run on the server. Supply JSON, never imports.",
+            "schema": "write_pixel_art.definition describes all fields and limits.",
+            "coordinates": "Native integer pixels, top-left origin; '.' reveals lower layers.",
+            "views": "Use only configured angles. The server derives exact canvas dimensions.",
+            "layers": "Ordered back to front. Exact-frame pose replaces the null-frame default; "
+            "without a default a layer is hidden in unspecified frames. Every view/frame needs "
+            "a resolved pose; native mode also needs visible ink.",
+            "editing": "get_pixel_art returns definition and revision_id. Modify that whole "
+            "definition, then write_pixel_art(expected_revision_id=revision_id). This replaces, "
+            "never merges: omitted layers/poses are deleted. Wait for the job before continuing.",
+            "features": "Reserve connected contrasting clusters, separating gaps and usually "
+            "2px thickness for identifying details before texture. Exaggerate a faucet or gauge; "
+            "simplify nonessential parts. More colors cannot add pixels. Do not enlarge native "
+            "resolution. min_pixels and connected measure visibility after all layers are drawn.",
+            "base": "native authors the complete sprite. render overlays pixels on geometry made "
+            "with execute_blender_python; both require pixel layers. Hybrid anchors name existing "
+            "objects: patches follow projected origins but are not depth-tested, rotated or "
+            "scaled.",
+            "palette": "2..64 distinct alphanumeric-symbol-to-#RRGGBB colors within the configured "
+            "budget. This palette is fixed for every frame/view. Draw outlines explicitly; "
+            "configure_asset.outline must be false.",
+            "example_definition": starter,
+            "example_calls": [
+                {"tool": "create_project", "arguments": {"name": "Pixel starter"}},
+                {
+                    "tool": "configure_asset",
+                    "arguments": {"project_id": "<project.id>", "specification": spec.model_dump()},
+                },
+                {
+                    "tool": "write_pixel_art",
+                    "arguments": {
+                        "project_id": "<project.id>",
+                        "definition": starter,
+                        "expected_revision_id": None,
+                    },
+                },
+                {"tool": "wait_for_job", "arguments": {"job_id": "<write job.id>"}},
+                {"tool": "render_asset", "arguments": {"project_id": "<project.id>"}},
+                {"tool": "wait_for_job", "arguments": {"job_id": "<render job.id>"}},
+                {"tool": "inspect_asset", "arguments": {"job_id": "<render job.id>"}},
+                {
+                    "tool": "inspect_sprite",
+                    "arguments": {
+                        "job_id": "<render job.id>",
+                        "state_id": next(iter(spec.clips)),
+                        "angle": 0,
+                        "frame": next(iter(spec.clips.values())).frames[0],
+                    },
+                },
+                {
+                    "tool": "get_asset_preview",
+                    "arguments": {"job_id": "<render job.id>", "context": True, "scale": 4},
+                },
+                {"tool": "get_pixel_art", "arguments": {"project_id": "<project.id>"}},
+            ],
+            "example_notes": "Replace angle-bracket ID placeholders with prior tool results. "
+            "The starter is a valid small pixel marker, not a finished design; default patches "
+            "are static across all semantic clips. Author the documented distinct poses. "
+            "On nonterminal wait results call wait_for_job again; on failure inspect get_job. "
+            "To edit, change definition.palette.G to #66d6c5, then send the entire definition "
+            "to write_pixel_art with expected_revision_id from get_pixel_art. Render and inspect "
+            "again. Retrieve job.outputs source JSON and Python through get_artifact, no HTTP "
+            "needed.",
         },
         "modeling": [
             "+Z is up; front faces -Y. Model near the origin with named parts.",
@@ -175,11 +244,14 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
         "workflow": [
             "create_project",
             "configure_asset",
-            "execute_blender_python",
+            "write_pixel_art",
+            "wait_for_job",
             "render_asset",
             "wait_for_job",
             "inspect_asset",
             "inspect_sprite",
+            "get_asset_preview",
+            "get_pixel_art",
         ],
         "preview": "Generated context is an approximation; actual webview checked separately.",
     }

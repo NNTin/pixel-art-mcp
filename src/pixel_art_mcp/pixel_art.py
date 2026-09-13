@@ -141,6 +141,72 @@ class PixelArt:
             "layers": self.layers,
         }
 
+    def validate_target(
+        self,
+        layouts: list[dict[str, Any]],
+        frames: list[int],
+        spec: dict[str, Any],
+        object_names: set[str] | None = None,
+    ) -> None:
+        expected = {str(v["angle"]): [v["width"], v["height"]] for v in layouts}
+        if self.views != expected:
+            raise ValueError(f"Pixel views must match the configured canvases: {expected}")
+        if spec["outline"]:
+            raise ValueError("Draw outlines in pixel rows; configure_asset.outline must be false")
+        if len(self.palette) > spec["colors"]:
+            raise ValueError("Pixel palette exceeds configure_asset.colors")
+        if spec.get("palette") and {v.lower() for v in spec["palette"]} != set(
+            self.palette.values()
+        ):
+            raise ValueError("Pixel palette must match configure_asset.palette")
+        if not self.layers:
+            raise ValueError("A pixel-art definition with named layers is required")
+        if not any(
+            c != "."
+            for layer in self.layers
+            for p in layer["poses"]
+            for row in p["rows"]
+            for c in row
+        ):
+            raise ValueError("Pixel layers must contain authored ink, including in render mode")
+        for layer in self.layers:
+            for pose in layer["poses"]:
+                w, h = expected[str(pose["angle"])]
+                if len(pose["rows"]) > h or len(pose["rows"][0]) > w:
+                    raise ValueError(f"Patch in {layer['name']!r} exceeds its view dimensions")
+                if (
+                    pose["anchor"]
+                    and object_names is not None
+                    and pose["anchor"] not in object_names
+                ):
+                    raise ValueError(f"Unknown pixel anchor {pose['anchor']!r}")
+        used_ink = False
+        for layout in layouts:
+            for frame in frames:
+                poses = self.poses(layout["angle"], frame)
+                if not poses:
+                    raise ValueError(
+                        f"Missing pixel pose at angle {layout['angle']}, frame {frame}; add a "
+                        f"default or exact-frame pose"
+                    )
+                ink = any(
+                    c != "."
+                    and (
+                        p["anchor"] is not None
+                        or (
+                            0 <= p["x"] + x < layout["width"] and 0 <= p["y"] + y < layout["height"]
+                        )
+                    )
+                    for p in poses
+                    for y, row in enumerate(p["rows"])
+                    for x, c in enumerate(row)
+                )
+                used_ink |= ink
+                if self.base == "native" and not ink:
+                    raise ValueError(f"Empty native pose at angle {layout['angle']}, frame {frame}")
+        if not used_ink:
+            raise ValueError("Configured frames must use authored ink inside their canvases")
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PixelArt":
         if data.get("version") != 1:

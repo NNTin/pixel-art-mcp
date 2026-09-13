@@ -43,7 +43,7 @@ async def test_scene_revisions_conflicts_and_failed_edit(service, fake_blender):
         assert edited.status == "succeeded"
         assert edited.result_revision_id != completed.result_revision_id
         assert len(service.get_project(project_id).revisions) == 2
-        with pytest.raises(DomainError, match="frame limit"):
+        with pytest.raises(DomainError, match="Generic rendering is unavailable"):
             service.submit_render(project_id, RenderOptions(frame_end=1000))
     finally:
         await worker.stop()

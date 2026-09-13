@@ -103,14 +103,22 @@ async def test_docker_hybrid_badge_follows_object_without_resampling(example_dir
             assert len(ys) > 1
 
 
-async def test_docker_curve_framing_uses_visible_geometry():
+async def test_docker_hybrid_curve_framing_and_missing_anchor():
     url = os.environ.get("PIXEL_E2E_URL")
     if not url:
         pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
-    async with httpx.AsyncClient(base_url=url, timeout=30) as http:
+    async with httpx.AsyncClient(base_url=url, timeout=60) as http:
         client = MCPClient(http)
         await client.initialize()
         project = await client.data("create_project", {"name": "Curve framing regression"})
+        profile = await client.data("get_asset_profile", {"kind": "furniture"})
+        await client.data(
+            "configure_asset",
+            {
+                "project_id": project["id"],
+                "specification": profile["specification"],
+            },
+        )
         creation = await client.data(
             "execute_blender_python",
             {
@@ -119,101 +127,65 @@ async def test_docker_curve_framing_uses_visible_geometry():
                 "script": """import bpy
 bpy.ops.curve.primitive_bezier_circle_add(radius=0.4, location=(0, 0, 0.5))
 ring = bpy.context.object
-ring.name = "Small beveled ring"
+ring.name = "Ring"
 ring.data.bevel_depth = 0.03
 ring.data.bevel_resolution = 2
 """,
             },
         )
-        await client.wait(creation["id"])
+        created = await client.wait(creation["id"])
+        assert (await client.call("render_asset", {"project_id": project["id"]}, allow_error=True))[
+            "isError"
+        ]
+        definition = profile["pixel_authoring"]["example_definition"]
+        definition["base"] = "render"
+        for pose in definition["layers"][0]["poses"]:
+            pose.update(anchor="Missing", x=0, y=0, rows=["GG", "GG"], min_pixels=4)
         job = await client.data(
-            "render_preview",
+            "write_pixel_art",
             {
                 "project_id": project["id"],
-                "angle": 0,
-                # This regresses the auto-fit-to-bounding-box path specifically (a
-                # curve bounding-box bug), not physical-scale framing -- opt out of
-                # the meters_per_tile default explicitly so the expected ortho_scale
-                # stays bbox-derived rather than fixed.
-                "options": {"width": 64, "height": 64, "meters_per_tile": None},
+                "definition": definition,
+                "expected_revision_id": created["result_revision_id"],
             },
         )
-        completed = await client.wait(job["id"])
-        metadata_artifact = next(
-            a for a in completed["artifacts"] if a["filename"] == "spritesheet.json"
+        failed = await client.data("wait_for_job", {"job_id": job["id"]})
+        assert failed["status"] == "failed" and "Unknown pixel anchor" in failed["logs"]
+        scene = await client.data("get_project", {"project_id": project["id"]})
+        assert scene["project"]["current_revision_id"] == created["result_revision_id"]
+        for pose in definition["layers"][0]["poses"]:
+            pose["anchor"] = "Ring"
+        job = await client.data(
+            "write_pixel_art",
+            {
+                "project_id": project["id"],
+                "definition": definition,
+                "expected_revision_id": created["result_revision_id"],
+            },
         )
-        metadata = (await http.get(f"/artifacts/{metadata_artifact['id']}")).json()
-        # Diameter including bevel is 0.86, with 10% padding per side. The legacy
-        # curve's fallback bounds incorrectly produce an ortho scale above 3.
-        assert metadata["camera"]["ortho_scale"] == pytest.approx(0.86 * 1.2, abs=0.015)
-        sprite = next(a for a in completed["artifacts"] if a["kind"] == "frame")
-        png = await http.get(f"/artifacts/{sprite['id']}")
-        with Image.open(io.BytesIO(png.content)) as im:
-            bounds = im.getbbox()
-            assert bounds is not None
-            assert 50 <= bounds[2] - bounds[0] <= 55
-
-
-async def test_docker_fixed_physical_scale_camera_is_independent_of_bounding_box():
-    """meters_per_tile pins camera zoom to an absolute physical scale instead of
-    auto-fitting to each object's own bounding box, so unrelated jobs sharing the
-    same meters_per_tile come out at correctly relative real-world sizes -- e.g. a
-    small candle and a tall street lamp. Verified with two spheres of very different
-    radii: their ortho_scale must be identical and deterministic (not derived from
-    either sphere's bounds), and the larger sphere must occupy a visibly larger
-    fraction of its own canvas than the smaller one -- proving neither independently
-    auto-filled its own frame the way the default (unset) mode would."""
-    url = os.environ.get("PIXEL_E2E_URL")
-    if not url:
-        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
-    async with httpx.AsyncClient(base_url=url, timeout=30) as http:
-        client = MCPClient(http)
-        await client.initialize()
-        widths = {}
-        for label, radius in [("small", 0.05), ("large", 0.4)]:
-            project = await client.data("create_project", {"name": f"Physical scale {label}"})
-            creation = await client.data(
-                "execute_blender_python",
-                {
-                    "project_id": project["id"],
-                    "expected_revision_id": None,
-                    "script": f"import bpy\n"
-                    f"bpy.ops.mesh.primitive_uv_sphere_add(radius={radius}, "
-                    f"location=(0, 0, {radius}))\n",
-                },
-            )
-            await client.wait(creation["id"])
-            job = await client.data(
-                "render_preview",
-                {
-                    "project_id": project["id"],
-                    "angle": 0,
-                    "options": {
-                        "width": 64,
-                        "height": 64,
-                        "meters_per_tile": 1.0,
-                        "padding": 0.0,
+        await client.wait(job["id"])
+        completed = await client.wait(
+            (
+                await client.data(
+                    "render_asset",
+                    {
+                        "project_id": project["id"],
                     },
+                )
+            )["id"]
+        )
+        metadata = (
+            await client.data(
+                "get_artifact",
+                {
+                    "artifact_id": completed["outputs"]["spritesheet.json"]["id"],
                 },
             )
-            completed = await client.wait(job["id"])
-            metadata_artifact = next(
-                a for a in completed["artifacts"] if a["filename"] == "spritesheet.json"
-            )
-            metadata = (await http.get(f"/artifacts/{metadata_artifact['id']}")).json()
-            # height=64px, meters_per_tile=1.0, padding=0, 16px/tile -> target view height
-            # = 64*1.0/16 = 4.0m; a square canvas gives ortho_scale == 4.0, identical and
-            # deterministic for both spheres regardless of their own (very different) bounds.
-            assert metadata["camera"]["ortho_scale"] == pytest.approx(4.0, abs=0.01)
-            sprite = next(a for a in completed["artifacts"] if a["kind"] == "frame")
-            png = await http.get(f"/artifacts/{sprite['id']}")
-            with Image.open(io.BytesIO(png.content)) as im:
-                bounds = im.getbbox()
-                assert bounds is not None
-                widths[label] = bounds[2] - bounds[0]
-        # The physical-scale claim itself, not just metadata plumbing: the 0.4m-radius
-        # sphere must render meaningfully wider (in pixels) than the 0.05m-radius one.
-        assert widths["large"] > widths["small"] * 2
+        )["metadata"]
+        # A 0.86-unit visible diameter should nearly span the 14px usable canvas width.
+        # Including curve control geometry incorrectly shrinks the visible ring.
+        assert 15 < metadata["camera"]["pixels_per_unit"] < 18
+        assert metadata["source_kind"] == "blender-render"
 
 
 @pytest.mark.parametrize(

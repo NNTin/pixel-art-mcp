@@ -19,15 +19,19 @@ optional rendered geometry supplies broad volume beneath exact-pixel identifying
    }
    ```
 
-3. Use `execute_blender_python` to author named pixel layers and poses, then `wait_for_job`.
+3. Use `write_pixel_art` to author typed named pixel layers and poses, then `wait_for_job`.
+   `get_asset_profile.pixel_authoring` contains a complete JSON starter and tool-call examples.
+   The server invokes the helpers; clients need no Python import or source files.
    Reserve space for identifying features first. Keep locomotion in place and follow the
    configured layouts; real-world dimensions do not determine game size.
 4. Call `render_asset({"project_id":"PROJECT_UUID"})`, then `wait_for_job`.
 5. Read `inspect_asset({"job_id":"JOB_UUID"})`. For exact pixels call `inspect_sprite`;
    its `state_id` selects a clip, `frame` is a Blender source frame, and `angle` selects the view.
-6. Download `job.outputs["sprites.zip"]` with `get_artifact`. Extract and open `preview.html`.
-   Change named Blender objects or replace the configuration, then rerender. All output files
-   are generated; do not repair exported PNGs, metadata, or HTML by hand.
+6. Use `get_asset_preview` for inline image content: select clip, source frame, direction, integer
+   scale and approximate context. Use `get_pixel_art` to retrieve source, then send the complete
+   modified definition to `write_pixel_art` with its revision as `expected_revision_id`.
+   `get_artifact` returns PNG/JSON/source text inline. ZIPs and the offline player are optional
+   human downloads, not required client tools. Do not repair generated output PNGs by hand.
 
 `configure_asset` replaces the configuration and returns an immutable configuration ID and
 resolved per-direction layouts. `get_project` returns the current configuration. Each render
@@ -37,7 +41,10 @@ All clips, including off poses, share a palette, scale, and stable framing.
 
 ## Native pixel authoring
 
-The helper is available inside every Blender script, without third-party image libraries:
+The primary API is typed JSON through `write_pixel_art`; see [the MCP contract](tools.md).
+`render_asset` rejects missing or invalid definitions; generic render tools are removed.
+The following is an advanced developer example of the helper used internally by the server.
+Independent MCP agents do not need to discover or execute this import:
 
 ```python
 import bpy
@@ -154,7 +161,7 @@ empty/partial/full barrel configurations.
 `shading: "game"` uses three broad directional shade bands from authored base colors and textures,
 with unlit emissive materials. `studio` and `scene` retain conventional lighting alternatives.
 The default shared palette has 16 colors; use `colors` or an explicit `palette` to simplify it.
-`outline: true` adds a one-pixel silhouette outline and reserves its margin during camera fitting.
+Automatic `outline` must remain false because pixel helpers are mandatory; draw outlines in rows.
 These changes only affect the render copy, leaving the saved scene editable.
 
 Every target exports individual frames, supersampled source comparisons, `spritesheet.json`,

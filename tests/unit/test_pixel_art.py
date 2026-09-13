@@ -30,16 +30,13 @@ PALETTE = {"D": "#293039", "G": "#f3cf65"}
 )
 def test_profile_code_example_uses_its_actual_consumer_layouts(kind, preset):
     profile = get_asset_profile(kind, preset)
-    scene = {}
-    exec(
-        profile["pixel_authoring"]["example"],
-        {
-            "PixelArt": PixelArt,
-            "Canvas": Canvas,
-            "bpy": SimpleNamespace(context=SimpleNamespace(scene=scene)),
-        },
-    )
-    assert PixelArt.load(scene).views == {
+    from pixel_art_mcp.authoring import PixelDefinition
+
+    definition = PixelDefinition.model_validate(profile["pixel_authoring"]["example_definition"])
+    art = definition.to_art(profile["layouts"])
+    options = resolve_asset(AssetSpec.model_validate(profile["specification"]))
+    art.validate_target(options.asset_layouts, options.frames(), options.asset.model_dump())
+    assert art.views == {
         str(row["angle"]): [row["width"], row["height"]] for row in profile["layouts"]
     }
 

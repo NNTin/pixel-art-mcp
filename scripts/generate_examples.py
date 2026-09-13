@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import base64
 import html
 import json
 from pathlib import Path
@@ -66,6 +67,19 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
                     )
                 )
                 revision = modeled["result_revision_id"]
+            # Exercise the public typed authoring contract for every advanced Python example.
+            source = await call("get_pixel_art", {"project_id": project["id"]})
+            modeled = await wait(
+                await call(
+                    "write_pixel_art",
+                    {
+                        "project_id": project["id"],
+                        "definition": source["definition"],
+                        "expected_revision_id": source["revision_id"],
+                    },
+                )
+            )
+            revision = modeled["result_revision_id"]
             print(f"{key}: rendering", flush=True)
             rendered = await wait(
                 await call("render_asset", {"project_id": project["id"], "revision_id": revision})
@@ -74,6 +88,23 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
             grid = await call("inspect_sprite", {"job_id": rendered["id"]})
             folder = output / key
             folder.mkdir(exist_ok=True)
+            clip_id = next(reversed(config["specification"]["clips"]))
+            for context in (False, True):
+                preview = await client.call_tool(
+                    "get_asset_preview",
+                    {
+                        "job_id": rendered["id"],
+                        "clip_id": clip_id,
+                        "angle": 0,
+                        "scale": 4 if context else 8,
+                        "context": context,
+                    },
+                )
+                if preview.isError:
+                    raise RuntimeError(str(preview.content))
+                block = next(c for c in preview.content if c.type == "image")
+                name = "mcp-context.png" if context else "mcp-preview.png"
+                (folder / name).write_bytes(base64.b64decode(block.data))
             for artifact in [rendered["outputs"]["sprites.zip"], *modeled["artifacts"]]:
                 await call("get_artifact", {"artifact_id": artifact["id"]})
                 response = await http.get(f"/artifacts/{artifact['id']}")

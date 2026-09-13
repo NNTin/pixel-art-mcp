@@ -4,14 +4,18 @@ A local MCP service for creating **Pixel Agents furniture, characters, and pets*
 consumer's native pixel resolution. Author recognizable shapes on the final grid, save named
 layers and animation poses in Blender revisions, and export installable packages.
 
-`PixelArt` and `Canvas` support native pixel drawing or exact-pixel finishing layers anchored to
-rendered Blender objects. Important features are designed explicitly, not recovered by adding
+`write_pixel_art` accepts a typed pixel definition and runs the mandatory `PixelArt` and `Canvas`
+helpers on the server. No client-side imports or filesystem tools are needed. It supports native
+drawing or exact-pixel finishing layers anchored to rendered Blender objects. Important features
+are designed explicitly, not recovered by adding
 colors or shrinking a detailed model. A shared palette and local color voting keep rendered
 surfaces stable; authored pixels bypass resampling entirely. Feature diagnostics check visibility,
 connectivity and clipping, while offline previews support the necessary visual review.
 
-For Pixel Agents, use `get_asset_profile` → `configure_asset` → `execute_blender_python` →
-`render_asset` → `inspect_asset`. [Game asset profiles](docs/game-assets.md) give furniture,
+Use `get_asset_profile` → `create_project` → `configure_asset` → `write_pixel_art` → `wait_for_job`
+→ `render_asset` → `wait_for_job` → `inspect_asset` / `inspect_sprite` / `get_asset_preview`.
+Use `get_pixel_art` to retrieve and revise the complete source. Profiles include full JSON starters
+and tool-call examples inline. [Game asset profiles](docs/game-assets.md) give furniture,
 characters, and pets readable sizes, stable placement, shared palettes, and the consumer's actual
 pose sequences. Every render produces an installable package, exact pixel inspection, and offline
 context previews. Named furniture clips become selectable variants such as empty/partial/full barrels.
@@ -19,9 +23,14 @@ context previews. Named furniture clips become selectable variants such as empty
 The development webview harness checks generated packages against a read-only Pixel Agents checkout;
 Node and Chromium are not production dependencies.
 
-The AI lives in your MCP client. It interprets reference images, writes Blender Python, and calls
-`execute_blender_python`. This service executes the code and saves editable `.blend` revisions.
+The AI lives in your MCP client. It interprets reference images and authors exact native pixels.
+`execute_blender_python` remains available for advanced hybrid geometry; geometry alone cannot
+render. Generic `render_preview` and `render_sprites` tools have been removed. Every successful
+write saves an editable `.blend` revision; failures preserve the prior revision.
 No AI API key, automatic semantic redraw, or image-to-3D service is involved.
+
+After upgrading, refresh cached client tool lists. `get_capabilities` reports
+`authoring_contract_version: 1` and `pixel_authoring_required: true`.
 
 Read [what we are building](docs/overview.md) for the project goals and Mermaid diagrams of the
 MCP integration and rendering pipeline.

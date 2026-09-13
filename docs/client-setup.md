@@ -30,15 +30,17 @@ before writing modeling code. Small images can also be uploaded through the base
 ## Suggested first prompt
 
 > Use the Pixel Art Blender MCP server. Inspect the reference image in this project and create
-> a stylized 3D chair using execute_blender_python. Name the seat, legs, and backrest. Render a
-> preview and inspect it before exporting transparent 64x64 sprites at 0, 45, and 90 degrees.
+> a native Pixel Agents chair. Discover the chair profile, configure it, then use write_pixel_art
+> to draw distinct seat, legs and backrest layers. Render and inspect every view with MCP previews.
 
 Follow up with “Make the backrest taller and change the wood to blue.” The agent should load the
-project's current revision, modify named objects using Python, wait for completion, and render
+project's current definition with get_pixel_art, replace it with write_pixel_art, wait, and render
 the revised scene. It should not claim it modified the model before the job succeeds.
 
 ## Troubleshooting
 
+- After upgrading, refresh cached tools. Capabilities must report `pixel_authoring_required: true`
+  and `authoring_contract_version: 1`; the tools include `write_pixel_art` and `get_asset_preview`.
 - Check `/health/ready` and `docker compose logs pixel-art-mcp` if modeling is unavailable.
 - Inspect `get_job` for script tracebacks and rendering failures; upload/prompt errors do not need
   a service restart.

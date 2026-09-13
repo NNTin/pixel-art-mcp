@@ -10,6 +10,7 @@ from typing import Any, BinaryIO
 from PIL import Image
 
 from pixel_art_mcp.async_utils import finish_thread
+from pixel_art_mcp.authoring import validated_art
 from pixel_art_mcp.blender import __file__ as blender_package_file
 from pixel_art_mcp.imaging.pet import angle_widths
 from pixel_art_mcp.imaging.pixels import export_sheet
@@ -137,6 +138,8 @@ class Worker:
                 "references": references,
                 "threads": service.settings.blender_threads,
                 "options": render_options,
+                "authoring_options": job["params"].get("authoring_options"),
+                "pixel_art_required": job["params"].get("pixel_art_required", False),
             }
             request_path = scratch / "request.json"
             request_path.write_text(json.dumps(request), encoding="utf-8")
@@ -182,6 +185,14 @@ class Worker:
             result = json.loads(result_path.read_text(encoding="utf-8"))
             new_revision = None
             if job["operation"] == "script":
+                data = result["summary"].get("pixel_art")
+                authoring_options = job["params"].get("authoring_options")
+                if data is not None:
+                    if authoring_options is None:
+                        raise DomainError("Call configure_asset before authoring pixel layers")
+                    validated_art(data, authoring_options)
+                elif job["params"].get("pixel_art_required"):
+                    raise DomainError("An edit cannot remove the required pixel-art definition")
                 blend = raw / "scene.blend"
                 if not blend.is_file() or blend.stat().st_size < 12:
                     raise ProcessFailure("Script did not produce a saved Blender scene")

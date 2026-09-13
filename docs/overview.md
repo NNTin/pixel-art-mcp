@@ -1,112 +1,72 @@
-# From prompts to sprite sheets
+# Pixel Agents assets from MCP
 
-## What we are trying to achieve
-
-Pixel Art MCP lets a person describe an object to an AI agent and iteratively turn that description
-into a usable pixel-art sprite sheet. Optional uploaded photographs or drawings help the agent
-match a real object's shape, proportions, and colors. The result should support both rotation
-views and animation, without requiring the person to manually model and render every sprite.
+Pixel Art MCP lets an independent agent create, inspect and refine Pixel Agents furniture,
+characters and pets at the consumer's native pixel density. Optional reference images guide
+shape and palette. Identifying features are designed on the final grid, not recovered by shrinking
+a detailed model or adding colors.
 
 For example:
 
-> Create a stylized wooden chair resembling this photo. Make its backrest taller, add a gentle
-> rocking animation, and export transparent 64x64 sprites at 0, 45, and 90 degrees for eight frames.
+> Create a wooden rain barrel at 16x32. Make its faucet and water gauge distinct connected shapes,
+> keep a separating wood gap, and animate rain above the body. Inspect all views in context.
 
-The intended journey is to describe, preview, refine, and export. The agent builds an editable
-Blender scene, examines rendered previews, and modifies the same model until the user is satisfied.
-An export can contain a single static sprite, multiple directions, animation frames, or the
-combination of directions and animation. PNG sprites and a packed sheet are accompanied by JSON
-metadata describing frame rectangles, pivots, directions, and playback timing, plus a ZIP download.
+The AI lives in the MCP client. The server does not call an image-generation API. An agent needs
+only the tools it discovers from this server: no source checkout, hidden imports, shell or browser.
 
-## Why use Blender?
+## Discovery and authoring
 
-A 3D model provides one consistent source for every view. To show a chair from 0°, 45°, and 90°,
-the renderer moves an orthographic camera around that model; it does not rotate a flat image or
-ask the AI to independently redraw each direction. Geometry and materials remain shared, and
-features hidden in one view can become visible in another.
-
-Animation adds a time dimension to the same scene. The agent can keyframe location, rotation, and
-scale using Blender Python. The renderer samples those frames from each requested direction.
-This makes a material or shape edit apply across the whole export, instead of requiring separate
-edits to every sprite. The current workflow targets stylized objects and simple transform animation;
-it does not promise automatic or exact 3D reconstruction from a photograph.
-
-## MCP integration: the agent creates and modifies the model
-
-MCP (Model Context Protocol) exposes the service's operations as tools to an AI client. The AI
-lives in that client, not in the Docker service. It interprets the prompt and reference images,
-writes Blender Python, and calls `execute_blender_python` to create or modify geometry, materials,
-and keyframes. The server executes that code and saves a new `.blend` revision on success.
+`get_asset_profile` provides exact canvases, consumer pose semantics, design rules, a complete
+typed JSON starter, and executable tool-call examples. `write_pixel_art` exposes the entire
+versioned schema and invokes mandatory `Canvas`/`PixelArt` helpers on the server.
+Each successful write saves source in a new Blender revision.
 
 ```mermaid
 flowchart TD
-    Input["User prompt + optional reference images"] --> Agent["AI agent in an MCP client<br/>Interprets input and writes Python"]
-
-    subgraph Docker["Pixel Art MCP Docker service"]
-        MCP["MCP tools endpoint<br/>Streamable HTTP: /mcp"]
-        Queue["Persistent job queue"]
-        Worker["Job worker<br/>Blender and pixel export"]
-        Data["Project and job data<br/>References, revisions and artifacts"]
-        MCP -->|"Submit modeling or rendering job"| Queue
-        Queue --> Worker
-        Worker -->|"Save revisions and results"| Data
-        MCP <-->|"Store inputs and read results"| Data
-    end
-
-    Agent -->|"Upload, execute Python, inspect, render, poll"| MCP
-    MCP -->|"Job status, scene data and images for refinement"| Agent
-    Agent -->|"Present previews and download links"| User["User reviews or downloads sprites"]
+    User["Prompt and optional reference"] --> Agent["Independent MCP agent"]
+    Agent --> Discover["get_asset_profile and tools/list"]
+    Discover --> Configure["create_project and configure_asset"]
+    Configure --> Write["write_pixel_art: complete typed source"]
+    Write --> Wait["wait_for_job"]
+    Wait --> Render["render_asset and wait_for_job"]
+    Render --> Inspect["inspect_asset, inspect_sprite, get_asset_preview"]
+    Inspect --> Edit["get_pixel_art: source plus revision"]
+    Edit --> Write
+    Inspect --> User
 ```
 
-The agent uses `create_project` and `add_reference_image` to prepare the workspace, then
-`get_reference_image` to examine the uploaded image. Local files can alternatively be uploaded
-through the HTTP multipart endpoint. Modeling and rendering return job IDs immediately; the
-agent polls `get_job`, checks whether the job succeeded, and uses `inspect_scene` or `get_artifact`
-to examine the result before making another edit. `render_preview` supports quick visual feedback;
-`render_sprites` produces the final directional or animated export.
+Edits are complete replacements guarded by an expected revision. Failed or stale edits preserve
+the current revision. Both text-only and vision-capable agents can inspect their results entirely
+through MCP. PNG, JSON and bounded source text are returned inline; installable ZIPs are available
+for the human consumer.
 
-The longer-term integration goal includes ChatGPT acting as the MCP client. The current release
-is local-only: a remotely hosted client cannot reach this service's localhost address directly.
-Remote deployment and authentication are not implemented yet. See [client setup](client-setup.md)
-for the supported connection and upload workflow.
+## Native and hybrid rendering
 
-## Rendering pipeline: one scene, many directions and frames
+Native mode paints exact pixels from named ordered per-view/per-frame layers. Static defaults
+are reused; exact frame patches override them. The palette is fixed for the whole asset. Native
+pixels are never antialiased, dithered, supersampled or requantized.
 
-After the agent creates or edits a model, rendering starts from a saved scene revision. The export
-does not modify that revision. The renderer computes shared framing across all requested views
-and time samples, then renders each direction/frame combination and converts the results to pixels.
+Hybrid mode optionally supplies broad Blender geometry under required pixel layers. The advanced
+`execute_blender_python` tool prepares that geometry. Anchored patches follow projected object
+origins, but are screen-space overlays, not depth-tested decals or automatic multi-view redraws.
 
 ```mermaid
 flowchart TD
-    Python["Agent-written Blender Python<br/>Create or modify the model"] --> Scene["Saved Blender scene<br/>Geometry, materials and animation"]
-    Scene --> Bounds["Evaluate all requested views and frames<br/>Compute shared orthographic scale and pivot"]
-    Options["Export options<br/>Angles, animation frames and sprite size"] --> Bounds
-    Bounds --> Render["Render each direction and time frame<br/>CPU Cycles, supersampled transparent PNG"]
-    Render --> Downsample["Downsample to sprite resolution<br/>Threshold alpha"]
-    Downsample --> Palette["Apply one shared palette across all sprites<br/>No dithering"]
-    Palette --> Pack["Pack sprite sheet<br/>Rows = directions, columns = animation frames"]
-    Pack --> PNG["Individual PNG sprites<br/>Sprite-sheet PNG"]
-    Pack --> JSON["JSON metadata<br/>Rectangles, pivots, angles and timing"]
-    Pack --> Bundle["Enlarged preview<br/>ZIP bundle"]
+    Source["Versioned required pixel definition"] --> Validate["Validate target sizes and poses"]
+    Config["Pixel Agents target configuration"] --> Validate
+    Validate --> Native["Native: exact pixel grid"]
+    Validate --> Hybrid["Hybrid: geometry render using authored palette"]
+    Native --> Composite["Composite named pixel layers"]
+    Hybrid --> Composite
+    Composite --> Inspect["Feature visibility and readability diagnostics"]
+    Inspect --> Package["Consumer manifest and PNG package"]
+    Inspect --> Preview["MCP images, text grids and offline player"]
 ```
 
-By default, the service renders at four times the target resolution, downsamples to 16×16 pixels,
-uses transparency and a shared 32-color palette, and exports four cardinal directions at 5 fps.
-Tile counts select small (16×16), tall (16×32, 16×48), wide (32×16), or larger canvases; explicit
-pixel dimensions override tile sizing, including non-multiples of 16.
-Animation is opt-in through a frame range; a static export uses one time sample. A supplied custom
-palette can replace automatic palette fitting.
+The goal is legibility at existing resolution. A faucet may need a 10-pixel glyph instead of a
+physically accurate mesh. Texture and minor hardware yield space to identifying features.
+Diagnostics measure visibility and connectivity, not whether a viewer recognizes the object.
+Every export requires visual review; contextual previews are explicitly approximate.
+A development-only harness checks packages in a read-only copy of the real consumer.
 
-The optional pixel-agents package exports the application's existing furniture manifest and PNG
-structure without changing its code. Its fixed 5 fps and agent-activated off/on animation rules
-are reflected in the tool schema and validation. The offline HTML preview compares the actual
-low-resolution sprites with higher-resolution source renders and highlights the resolution used
-by pixel-agents. Floor footprints remain separate from sprite canvas dimensions.
-
-Rotation and animation are independent dimensions. Three directions and eight animation frames
-produce 24 sprites: a sheet with three rows and eight columns. At 64x64 pixels per sprite, that
-sheet is 512x192 pixels. Shared scale and pivot keep placement consistent while retaining motion
-such as rocking or bobbing; the renderer does not recenter each frame independently.
-
-See [tool usage](tools.md) for concrete modeling and export calls, and [architecture](architecture.md)
-for revision consistency, storage, execution limits, and component responsibilities.
+See [tool usage](tools.md), [target profiles](game-assets.md), and
+[architecture](architecture.md) for the complete contract and execution boundaries.

@@ -1,5 +1,46 @@
 # Implementation validation
 
+## Mandatory MCP authoring contract (2026-09-13)
+
+The current interface is `configure_asset`, `write_pixel_art`, `get_pixel_art`, `render_asset`,
+and MCP-native inspection/preview. Helpers run server-side; clients need no source checkout,
+imports, shell, browser or HTTP downloads. The generic rendering tools are removed. Historical
+validation notes below describe earlier interfaces, not the current tool contract.
+
+- 202 unit/HTTP integration tests, 12 Docker MCP end-to-end tests and two real-Blender tests pass.
+  Cold-client tests create, edit, render and inspect furniture, characters and pets using only
+  MCP discovery and inline profile JSON examples. They do not read repository examples or fetch
+  artifact URLs. Coverage includes whole replacement, stale revisions, queued conflicts,
+  configuration snapshots, palette/pose/size limits, failed edits and hybrid anchor validation.
+- Ruff lint/format and strict mypy pass. Automatic outlines are rejected in the target schema;
+  every render requires authored source. Geometry-only, all-transparent and unused-ink definitions
+  cannot bypass the source contract. Invalid whole-document writes leave prior revisions intact.
+- All nine Python examples were regenerated, round-tripped through `get_pixel_art` /
+  `write_pixel_art`, rendered and inspected: 231 frames, zero advisory findings. Outputs and MCP
+  PNG previews are under `tmp/typed-assets/`. The rain barrel's frame PNGs are byte-identical to
+  the previous native-art outputs; the typed contract preserves native pixel resolution and art.
+- The read-only Pixel Agents harness passes 274 package/consumer/desktop/mobile checks, with
+  screenshots and an unchanged-consumer check in `tmp/typed-assets/webview/report.json`.
+  The MCP rain barrel images and desktop/mobile previews were also visually inspected.
+- The connected `pixel-art-mcp` deployment was updated to the tested image without active jobs
+  or changing its `pixel_art_mcp_data` volume. Live capabilities report
+  `authoring_contract_version: 1`, `pixel_authoring_required: true`; live `tools/list` includes
+  the typed authoring/read/preview tools and excludes generic render tools. Clients must refresh
+  cached tool definitions after upgrading.
+
+Reproduce the MCP-only acceptance test with:
+
+```sh
+PIXEL_E2E_URL=http://localhost:8000 uv run pytest tests/e2e/test_cold_client.py -q
+uv run python scripts/generate_examples.py --base-url http://localhost:8000 --output tmp/typed-assets
+node scripts/check_webview.mjs --consumer ../pixel-index/vendor/pixel-agents --assets tmp/typed-assets
+```
+
+Mechanical checks do not certify artistic quality. Every export still requires visual review;
+MCP placement context is schematic, not the actual consumer renderer.
+
+## Historical validation
+
 The implementation covers the agreed single-owner local service: full Blender Python creation
 and modification, reference uploads, saved revisions, asynchronous jobs, multi-angle views,
 transform animation, and PNG/JSON/ZIP sprite exports. No server-side AI provider is required.

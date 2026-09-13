@@ -126,19 +126,6 @@ def test_invalid_states_rejected_before_render(change):
         RenderOptions.model_validate(values)
 
 
-def test_overlapping_source_ranges_count_full_output_for_limits(service, monkeypatch):
-    options = state_options(
-        states=[
-            {"id": f"s{i}", "name": f"State {i}", "frame_start": 1, "frame_end": 2, "off_frame": 0}
-            for i in range(16)
-        ]
-    )
-    monkeypatch.setattr(service, "revision", lambda *_: {"id": "r"})
-    service.settings.max_sheet_pixels = 4000
-    with pytest.raises(DomainError, match="pixel limit"):
-        service.submit_render("p", options)
-
-
 def test_generic_static_monochrome_states(tmp_path):
     options = RenderOptions(
         width=8,

@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image
 
 from pixel_art_mcp.assets import clip_duration_ms, clip_playback
+from pixel_art_mcp.authoring import validated_art
 from pixel_art_mcp.imaging.character import export_character
 from pixel_art_mcp.imaging.context import export_context
 from pixel_art_mcp.imaging.features import composite_features
@@ -23,7 +24,6 @@ from pixel_art_mcp.models import (
     PixelAgentsOptions,
     RenderOptions,
 )
-from pixel_art_mcp.pixel_art import PixelArt
 
 
 def write_json(path: Path, data: Any) -> None:
@@ -259,14 +259,10 @@ def export_asset(
 ) -> None:
     spec, layouts = options.asset, options.asset_layouts
     assert spec is not None and layouts is not None
-    art = PixelArt.from_dict(manifest["pixel_art"]) if manifest.get("pixel_art") else None
-    if art:
-        colors = list(art.palette.values())
-        if len(colors) > spec.colors:
-            raise DomainError("Authored palette exceeds the configured color budget")
-        if spec.palette and set(spec.palette) != set(colors):
-            raise DomainError("Configured palette differs from the authored pixel palette")
-        options = options.model_copy(update={"palette": colors})
+    if not manifest.get("pixel_art"):
+        raise DomainError("Render output has no required pixel-art definition")
+    art = validated_art(manifest["pixel_art"], options.model_dump())
+    options = options.model_copy(update={"palette": list(art.palette.values())})
     entries = manifest["frames"]
     expected = [(row["angle"], f) for row in layouts for f in options.frames()]
     if [(e["angle"], e["frame"]) for e in entries] != expected:
@@ -294,36 +290,20 @@ def export_asset(
                 "fix anchor or enlarge canvas"
             )
         sources.append(source)
-    if art and art.base == "native":
+    if art.base == "native":
         rendered = [Image.new("RGBA", size) for size in sizes]
         palette = list(art.palette.values())
     else:
         rendered, palette = pixelate(sources, options, sizes=sizes)
-    if art:
-        for index, (entry, im) in enumerate(zip(entries, rendered, strict=True)):
-            rendered[index], entry["pixel_features"] = composite_features(
-                im, entry["pixel_layers"], art.palette
-            )
-            if art.base == "native":
-                sources[index] = rendered[index].resize(
-                    sources[index].size, Image.Resampling.NEAREST
-                )
-    if spec.outline:
-        color = min(palette, key=lambda c: sum(bytes.fromhex(c[1:])))
-        for i, im in enumerate(rendered):
-            alpha = im.getchannel("A")
-            expanded = alpha.filter(ImageFilter.MaxFilter(3))
-            border = ImageChops.subtract(expanded, alpha)
-            outlined = Image.new("RGBA", im.size, color)
-            outlined.putalpha(border)
-            outlined.alpha_composite(im)
-            transparent = outlined.getchannel("A").point(lambda alpha: 255 if alpha == 0 else 0)
-            outlined.paste((0, 0, 0, 0), mask=transparent)
-            rendered[i] = outlined
+    for index, (entry, im) in enumerate(zip(entries, rendered, strict=True)):
+        rendered[index], entry["pixel_features"] = composite_features(
+            im, entry["pixel_layers"], art.palette
+        )
+        if art.base == "native":
+            sources[index] = rendered[index].resize(sources[index].size, Image.Resampling.NEAREST)
     cells = {(int(e["angle"]), e["frame"]): im for e, im in zip(entries, rendered, strict=True)}
     output.mkdir(parents=True, exist_ok=True)
-    if art:
-        write_json(output / "pixel-art.json", art.to_dict())
+    write_json(output / "pixel-art.json", art.to_dict())
     (output / "frames").mkdir()
     (output / "comparison").mkdir()
     max_width, max_height = max(s[0] for s in sizes), max(s[1] for s in sizes)
@@ -391,8 +371,8 @@ def export_asset(
     package = package_asset(output, spec, layouts, cells)
     metadata = {
         "schema_version": 1,
-        "source_kind": "native-grid" if art and art.base == "native" else "blender-render",
-        "pixel_art": "pixel-art.json" if art else None,
+        "source_kind": "native-grid" if art.base == "native" else "blender-render",
+        "pixel_art": "pixel-art.json",
         "project_id": project_id,
         "revision_id": revision_id,
         "configuration_id": options.asset_configuration_id,

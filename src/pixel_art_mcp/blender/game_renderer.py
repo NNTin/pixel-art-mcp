@@ -101,15 +101,12 @@ def game_materials():
 def render_game(scene, options, output, evaluated_corners, camera_basis, progress):
     spec, layouts = options["asset"], options["asset_layouts"]
     frames = options["frame_sequence"]
-    art = PixelArt.load(scene) if "pixel_art" in scene else None
-    if art:
-        expected = {str(row["angle"]): [row["width"], row["height"]] for row in layouts}
-        if art.views != expected:
-            raise ValueError(f"Pixel art views must match configured target: {expected}")
-        if spec["outline"]:
-            raise ValueError("Author native outlines explicitly when using pixel layers")
-        if art.base == "native":
-            return native_render(scene, options, output, art, progress)
+    if "pixel_art" not in scene:
+        raise ValueError("Call write_pixel_art before rendering")
+    art = PixelArt.load(scene)
+    art.validate_target(layouts, frames, spec, {obj.name for obj in scene.objects})
+    if art.base == "native":
+        return native_render(scene, options, output, art, progress)
     bases = [camera_basis(row["angle"], options["elevation"]) for row in layouts]
     bounds = [[math.inf, -math.inf, math.inf, -math.inf] for _ in layouts]
     object_bounds = [{} for _ in layouts]
@@ -169,7 +166,7 @@ def render_game(scene, options, output, evaluated_corners, camera_basis, progres
         scene.collection.objects.link(sun)
     manifest = {
         "blender_version": bpy.app.version_string,
-        "pixel_art": art.to_dict() if art else None,
+        "pixel_art": art.to_dict(),
         "frames": [],
         "camera": {
             "projection": "orthographic",
@@ -214,7 +211,7 @@ def render_game(scene, options, output, evaluated_corners, camera_basis, progres
             filename = f"view_{row:02d}_frame_{frame:06d}.png"
             scene.render.filepath = str(output / filename)
             bpy.ops.render.render(write_still=True)
-            patches = art.poses(layout["angle"], frame) if art else []
+            patches = art.poses(layout["angle"], frame)
             for patch in patches:
                 if patch["anchor"]:
                     obj = scene.objects.get(patch["anchor"])

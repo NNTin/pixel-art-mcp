@@ -13,6 +13,12 @@ from uuid import UUID
 from pixel_art_mcp import __version__
 from pixel_art_mcp.assets import get_asset_profile, normalize_asset, resolve_asset
 from pixel_art_mcp.async_utils import finish_thread
+from pixel_art_mcp.authoring import (
+    AUTHORING_VERSION,
+    PixelArtSource,
+    PixelDefinition,
+    validated_art,
+)
 from pixel_art_mcp.config import Settings
 from pixel_art_mcp.jobs.log_condense import condense_log
 from pixel_art_mcp.models import (
@@ -44,29 +50,39 @@ class Service:
         return {
             "schema_version": 1,
             "version": __version__,
+            "pixel_authoring_required": True,
+            "authoring_contract_version": AUTHORING_VERSION,
             "mcp_sdk_version": importlib.metadata.version("mcp"),
             "blender_version": self.blender_version,
             "worker_ready": self.worker_ready,
             "transport": "streamable-http",
             "authentication": "none",
-            "modeling": "native PixelArt layers and optional Blender geometry (trusted Python)",
+            "modeling": "write_pixel_art accepts typed pixel data; helpers run on the server",
             "asset_workflow": [
                 "get_asset_profile",
+                "create_project",
                 "configure_asset",
+                "write_pixel_art",
+                "wait_for_job",
+                "get_pixel_art",
                 "render_asset",
+                "wait_for_job",
                 "inspect_asset",
+                "inspect_sprite",
+                "get_asset_preview",
             ],
             "asset_profiles": {
-                kind: get_asset_profile(kind) for kind in ("furniture", "character", "pet")
+                kind: {"presets": get_asset_profile(kind)["presets"], "tool": "get_asset_profile"}
+                for kind in ("furniture", "character", "pet")
             },
-            "render_defaults": RenderOptions().model_dump(),
             "export_features": {
-                "preview_options": "same as render_sprites; angle/frame override options",
+                "preview_options": "get_asset_preview selects clip, angle, frame, scale and "
+                "context via MCP",
                 "animation_format": "image/apng",
                 "animation_layout": "one transparent loop per direction, at export resolution",
                 "offline_player": "preview.html; play/pause, scrub, zoom, background",
-                "sizing": "16px tiles: 1x1 small, 1x2 tall, 2x1 wide. width/height override tiles.",
-                "pixel_agents": "Optional furniture manifest + PNG package; cardinal views, 5 fps, "
+                "sizing": "Native canvases and rotated footprints from configure_asset",
+                "pixel_agents": "Required target manifest + PNG package; furniture uses 5 fps, "
                 "off/on states. Animation only runs near an active agent, as supported by the app.",
                 "comparison": "Authored grid or unmodified source render beside final sprites",
                 "text_inspection": "Palette-index grid, color/cluster metrics, and comparison for "
@@ -79,9 +95,16 @@ class Service:
                 "player and one pixel-agents ZIP containing separate selectable variants.",
             },
             "limits": {
-                key: value
-                for key, value in self.settings.model_dump().items()
-                if key.startswith("max_") or key.endswith("timeout")
+                **{
+                    key: value
+                    for key, value in self.settings.model_dump().items()
+                    if key.startswith("max_") or key.endswith("timeout")
+                },
+                "max_pixel_layers": 128,
+                "max_poses_per_layer": 256,
+                "max_authored_cells": 262_144,
+                "max_preview_pixels": 4_194_304,
+                "max_inline_artifact_bytes": 1_048_576,
             },
         }
 
@@ -133,6 +156,46 @@ class Service:
             AssetSpec.model_validate(configuration["specification"]), configuration["id"]
         )
         return self.submit_render(project_id, options, revision_id)
+
+    def write_pixel_art(
+        self,
+        project_id: str,
+        definition: PixelDefinition,
+        expected_revision_id: str | None,
+    ) -> Job:
+        configuration = self.asset_configuration(project_id)
+        if configuration is None:
+            raise DomainError("Call configure_asset before write_pixel_art")
+        options = resolve_asset(
+            AssetSpec.model_validate(configuration["specification"]), configuration["id"]
+        )
+        assert options.asset_layouts is not None
+        try:
+            data = definition.to_art(options.asset_layouts).to_dict()
+        except ValueError as exc:
+            raise DomainError(f"Invalid pixel-art definition: {exc}") from exc
+        validated_art(data, options.model_dump())
+        # A generated script uses the same worker/revision transaction as geometry edits.
+        script = (
+            "import json\nfrom pixel_art_mcp.pixel_art import PixelArt\n"
+            f"art = PixelArt.from_dict(json.loads({json.dumps(data)!r}))\n"
+            "art.save(bpy.context.scene)\n"
+        )
+        return self.submit_script(project_id, script, expected_revision_id, require_pixel_art=True)
+
+    def get_pixel_art(self, project_id: str, revision_id: str | None = None) -> PixelArtSource:
+        revision = self.revision(project_id, revision_id)
+        data = revision["summary"].get("pixel_art")
+        if data is None:
+            raise DomainError("Revision has no pixel art; call write_pixel_art", 409)
+        configuration = self.asset_configuration(project_id)
+        return PixelArtSource(
+            project_id=UUID(project_id),
+            revision_id=UUID(revision["id"]),
+            definition=PixelDefinition.from_art(data),
+            authored_views=data["views"],
+            configuration_id=UUID(configuration["id"]) if configuration else None,
+        )
 
     def export_root(self, job_id: str) -> Path:
         job = self.job(job_id)
@@ -266,13 +329,22 @@ class Service:
         project = self.store.project(project_id)
         revision_id = revision_id or project["current_revision_id"]
         if revision_id is None:
-            raise DomainError("Project has no scene; call execute_blender_python first", 409)
+            raise DomainError(
+                "Project has no revision; call configure_asset then write_pixel_art", 409
+            )
         revision = self.store.record(revision_id, "revision")
         if revision["project_id"] != project_id:
             raise DomainError("Revision does not belong to this project", 404)
         return revision
 
-    def submit_script(self, project_id: str, script: str, expected_revision_id: str | None) -> Job:
+    def submit_script(
+        self,
+        project_id: str,
+        script: str,
+        expected_revision_id: str | None,
+        *,
+        require_pixel_art: bool = False,
+    ) -> Job:
         project = self.store.project(project_id)
         if expected_revision_id != project["current_revision_id"]:
             raise DomainError(
@@ -284,7 +356,28 @@ class Service:
             compile(script, "submitted.py", "exec")
         except SyntaxError as exc:
             raise DomainError(f"Python syntax error at line {exc.lineno}: {exc.msg}") from exc
-        return self._submit(project_id, "script", expected_revision_id, {"script": script})
+        configuration = self.asset_configuration(project_id)
+        options = (
+            resolve_asset(
+                AssetSpec.model_validate(configuration["specification"]), configuration["id"]
+            )
+            if configuration
+            else None
+        )
+        if expected_revision_id:
+            require_pixel_art |= bool(
+                self.revision(project_id, expected_revision_id)["summary"].get("pixel_art")
+            )
+        return self._submit(
+            project_id,
+            "script",
+            expected_revision_id,
+            {
+                "script": script,
+                "pixel_art_required": require_pixel_art,
+                "authoring_options": options.model_dump() if options else None,
+            },
+        )
 
     def submit_render(
         self,
@@ -293,7 +386,17 @@ class Service:
         revision_id: str | None = None,
         preview: bool = False,
     ) -> Job:
+        if options.asset is None:
+            raise DomainError(
+                "Generic rendering is unavailable; use configure_asset and render_asset"
+            )
         revision = self.revision(project_id, revision_id)
+        definition = revision["summary"].get("pixel_art")
+        if definition is None:
+            raise DomainError(
+                "Pixel art is required; call write_pixel_art before render_asset", 409
+            )
+        validated_art(definition, options.model_dump())
         frame_count = len(options.render_frames()) * len(options.angles)
         if frame_count > self.settings.max_render_frames:
             raise DomainError("Render exceeds the configured total frame limit")
