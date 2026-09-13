@@ -18,6 +18,15 @@ jobs:
       - run: uv run --frozen mypy src/pixel_art_mcp
       - run: uv run --frozen pytest -m 'not blender and not e2e'
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node scripts/check_mermaid.mjs
+
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30

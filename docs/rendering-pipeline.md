@@ -26,7 +26,7 @@ sequenceDiagram
     Service->>Service: validate + PixelDefinition.to_art(layouts)
     Service->>Worker: submit_script(save script)
     Worker->>Blender: request.json (script, input_blend, options)
-    Blender->>Blender: exec script; art.save(scene)
+    Blender->>Blender: exec script, then art.save(scene)
     Blender->>Blender: PixelArt.load(scene).validate_target(...)
     Blender-->>Worker: scene.blend + result.json
     Worker->>Worker: publish(new revision, artifacts) [1 SQLite txn]
