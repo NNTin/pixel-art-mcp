@@ -21,8 +21,8 @@ on:
     inputs:
       bypass_default_branch_check:
         description: >-
-          Run the examples gallery and status-site build on this branch even though it isn't
-          the default branch. Never deploys to Pages off the default branch regardless.
+          Run the examples gallery, build the status site, and deploy it to GitHub Pages
+          from this branch even though it isn't the default branch.
         required: false
         type: boolean
         default: false
@@ -210,10 +210,7 @@ jobs:
   deploy-status-site:
     name: Deploy current status site
     needs: build-status-site
-    # Always gated to the default branch, with no bypass: bypass_default_branch_check only
-    # lets a manual run build the gallery/site artifacts on another branch for inspection,
-    # never lets it publish to the repo's one live Pages site.
-    if: ${{ github.ref_name == github.event.repository.default_branch }}
+    if: ${{ github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
