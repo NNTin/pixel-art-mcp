@@ -92,6 +92,18 @@ for this repository** (Settings → Pages → Source: GitHub Actions) for the de
 succeed — a one-time setup step for a repo admin, not something this workflow can do for
 itself.
 
+This is also where the [example asset gallery](game-assets.md#reproduce-examples-and-webview-checks)
+(every example in `examples/asset-specs.json`, generated through the real MCP rendering
+pipeline — [NNTin/pixel-art-mcp#15](https://github.com/NNTin/pixel-art-mcp/issues/15)) gets
+published, under `examples/` alongside the contract dashboard at the site root. Both are built
+and deployed together in this one workflow because a repository has exactly one GitHub Pages
+site: two workflows independently calling `actions/deploy-pages` would each overwrite the
+other's content instead of coexisting. The `generate-examples-gallery` job runs the same
+Docker Compose service the `docker` CI job uses, drives it through
+`scripts/generate_examples.py` with no `--only` filter (every example, not a subset), and
+`build-status-site` folds its output in before generating the dashboard HTML — which links
+to it when present.
+
 ### How to read a result
 
 - **Staging passes** → the zips this repo generates match what's actually deployed there.

@@ -231,12 +231,19 @@ def render_check_table(environments: list[dict[str, Any]]) -> str:
     """
 
 
-def render_html(snapshot: dict[str, Any]) -> str:
+def render_html(snapshot: dict[str, Any], *, examples_gallery_available: bool) -> str:
     environments = list(snapshot["environments"].values())
     overall = STATUS_PRESENTATION[snapshot["overall"]]
     branch = snapshot["default_branch"]
     run = snapshot["run"]
     short_commit = branch["commit"][:7]
+    gallery_link = (
+        '<p class="lede"><a href="examples/index.html">Example asset gallery</a> — every '
+        "example in examples/asset-specs.json, generated through the real MCP rendering "
+        "pipeline.</p>"
+        if examples_gallery_available
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -293,6 +300,7 @@ def render_html(snapshot: dict[str, Any]) -> str:
       pixel-index's production and staging APIs — do the custom-asset zips pixel-art-mcp generates still
       match what those environments accept? No authenticated upload is performed; see
       <a href="https://github.com/{escape(snapshot["repository"]["name"])}/blob/{escape(branch["name"])}/docs/contract-testing.md">docs/contract-testing.md</a>.</p>
+      {gallery_link}
       <div class="stale-banner" role="alert"><strong>This result is stale.</strong> The expected refresh window has passed; follow the workflow link before relying on it.</div>
     </header>
 
@@ -405,7 +413,11 @@ def generate_site(
         output_dir / "api" / "v1" / "badges" / "overall.json",
         badge_document("pixel-index contract", snapshot["overall"]),
     )
-    (output_dir / "index.html").write_text(render_html(snapshot), encoding="utf-8")
+    examples_gallery_available = (output_dir / "examples" / "index.html").is_file()
+    (output_dir / "index.html").write_text(
+        render_html(snapshot, examples_gallery_available=examples_gallery_available),
+        encoding="utf-8",
+    )
     return snapshot
 
 
