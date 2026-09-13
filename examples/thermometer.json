@@ -1,0 +1,336 @@
+{
+  "version": 1,
+  "base": "native",
+  "palette": {
+    "D": "#253541",
+    "S": "#7998a1",
+    "W": "#e5f0e7",
+    "M": "#afc8c8",
+    "B": "#366475",
+    "R": "#e4474e",
+    "H": "#ff938a",
+    "T": "#3e545b"
+  },
+  "layers": [
+    {
+      "name": "enamel-case",
+      "poses": [
+        {
+          "angle": 0,
+          "x": 2,
+          "y": 2,
+          "min_pixels": 100,
+          "connected": true,
+          "rows": [
+            "..DDDDDDDD..",
+            ".DWWWWWWWSD.",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            "DWWWWWWWWMSD",
+            ".DMMMMMMMSD.",
+            "..DDDDDDDD.."
+          ]
+        },
+        {
+          "angle": 90,
+          "x": 6,
+          "y": 2,
+          "min_pixels": 80,
+          "connected": true,
+          "rows": [
+            ".DD.",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            "DMSD",
+            ".DD."
+          ]
+        },
+        {
+          "angle": 180,
+          "x": 2,
+          "y": 2,
+          "min_pixels": 200,
+          "connected": true,
+          "rows": [
+            "..DDDDDDDD..",
+            ".DMMMMMMMSD.",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            "DMMMMMMMMSSD",
+            ".DSSSSSSSSD.",
+            "..DDDDDDDD.."
+          ]
+        },
+        {
+          "angle": 270,
+          "x": 6,
+          "y": 2,
+          "min_pixels": 80,
+          "connected": true,
+          "rows": [
+            ".DD.",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            "DSMD",
+            ".DD."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "glass-channel",
+      "poses": [
+        {
+          "angle": 0,
+          "x": 3,
+          "y": 5,
+          "min_pixels": 45,
+          "rows": [
+            "..MM..",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            ".MBBM.",
+            "MMBBMM",
+            "MBBBBM",
+            "MBBBBM",
+            "MBBBBM",
+            ".MMMM."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "graduations",
+      "poses": [
+        {
+          "angle": 0,
+          "x": 9,
+          "y": 7,
+          "min_pixels": 11,
+          "rows": [
+            "TT",
+            "..",
+            ".T",
+            "..",
+            "TT",
+            "..",
+            ".T",
+            "..",
+            "TT",
+            "..",
+            ".T",
+            "..",
+            "TT"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "red-column-and-bulb",
+      "poses": [
+        {
+          "angle": 0,
+          "x": 4,
+          "y": 18,
+          "min_pixels": 22,
+          "connected": true,
+          "rows": [
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            "RRRR",
+            "RHRR",
+            "RRRR"
+          ]
+        },
+        {
+          "angle": 0,
+          "frame": 2,
+          "x": 4,
+          "y": 13,
+          "min_pixels": 32,
+          "connected": true,
+          "rows": [
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            "RRRR",
+            "RHRR",
+            "RRRR"
+          ]
+        },
+        {
+          "angle": 0,
+          "frame": 3,
+          "x": 4,
+          "y": 8,
+          "min_pixels": 42,
+          "connected": true,
+          "rows": [
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            ".RR.",
+            "RRRR",
+            "RHRR",
+            "RRRR"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "back-mount",
+      "poses": [
+        {
+          "angle": 180,
+          "x": 6,
+          "y": 5,
+          "min_pixels": 16,
+          "connected": true,
+          "rows": [
+            "DDDD",
+            "DSSD",
+            "DSSD",
+            "DDDD"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "back-fastener",
+      "poses": [
+        {
+          "angle": 180,
+          "x": 7,
+          "y": 26,
+          "min_pixels": 2,
+          "connected": true,
+          "rows": [
+            "TT"
+          ]
+        }
+      ]
+    }
+  ]
+}

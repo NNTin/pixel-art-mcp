@@ -55,7 +55,7 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
                 {"project_id": project["id"], "specification": example["specification"]},
             )
             revision = None
-            for filename in example["scripts"]:
+            for filename in example.get("scripts", []):
                 modeled = await wait(
                     await call(
                         "execute_blender_python",
@@ -67,15 +67,19 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
                     )
                 )
                 revision = modeled["result_revision_id"]
-            # Exercise the public typed authoring contract for every advanced Python example.
-            source = await call("get_pixel_art", {"project_id": project["id"]})
+            if "definition" in example:
+                definition = json.loads((ROOT / "examples" / example["definition"]).read_text())
+            else:
+                # Round-trip advanced Python examples through the public typed contract too.
+                source = await call("get_pixel_art", {"project_id": project["id"]})
+                definition = source["definition"]
             modeled = await wait(
                 await call(
                     "write_pixel_art",
                     {
                         "project_id": project["id"],
-                        "definition": source["definition"],
-                        "expected_revision_id": source["revision_id"],
+                        "definition": definition,
+                        "expected_revision_id": revision,
                     },
                 )
             )

@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from pixel_art_mcp.assets import get_asset_profile, normalize_asset, resolve_asset
+from pixel_art_mcp.authoring import PixelDefinition
 from pixel_art_mcp.imaging.asset_export import export_asset
 from pixel_art_mcp.imaging.features import composite_features
 from pixel_art_mcp.imaging.inspection import inspect_sprite
@@ -30,7 +31,6 @@ PALETTE = {"D": "#293039", "G": "#f3cf65"}
 )
 def test_profile_code_example_uses_its_actual_consumer_layouts(kind, preset):
     profile = get_asset_profile(kind, preset)
-    from pixel_art_mcp.authoring import PixelDefinition
 
     definition = PixelDefinition.model_validate(profile["pixel_authoring"]["example_definition"])
     art = definition.to_art(profile["layouts"])
@@ -91,12 +91,18 @@ def test_invalid_authoring(operation):
 
 def load_example(monkeypatch, key):
     data = json.loads((ROOT / "examples/asset-specs.json").read_text())[key]
+    options = resolve_asset(AssetSpec.model_validate(data["specification"]))
+    if "definition" in data:
+        definition = PixelDefinition.model_validate_json(
+            (ROOT / "examples" / data["definition"]).read_text()
+        )
+        return definition.to_art(options.asset_layouts), options
     scene = {}
     monkeypatch.setitem(sys.modules, "bpy", SimpleNamespace(context=SimpleNamespace(scene=scene)))
     for script in data["scripts"]:
         path = ROOT / "examples" / script
         exec(compile(path.read_text(), str(path), "exec"), {})
-    return PixelArt.load(scene), resolve_asset(AssetSpec.model_validate(data["specification"]))
+    return PixelArt.load(scene), options
 
 
 @pytest.mark.parametrize(
@@ -108,6 +114,7 @@ def load_example(monkeypatch, key):
         "oil-lamp",
         "rain-barrel",
         "street-lamp",
+        "thermometer",
         "character",
         "pet",
     ],
@@ -131,6 +138,42 @@ def test_examples_respect_native_layouts_and_feature_budgets(monkeypatch, key):
                 features,
             )
             assert set(image.getchannel("A").get_flattened_data()) <= {0, 255}
+
+
+def test_thermometer_keeps_readable_column_scale_and_directional_casing(monkeypatch):
+    art, options = load_example(monkeypatch, "thermometer")
+    art.validate_target(options.asset_layouts, options.frames(), options.asset.model_dump())
+    assert options.asset.placement == options.asset.category == "wall"
+    assert options.asset.clips.keys() == {"cold", "room", "hot"}
+    front = []
+    for frame, top, budget in [(1, 18, 22), (2, 13, 32), (3, 8, 42)]:
+        image, features = composite_features(
+            Image.new("RGBA", (16, 32)), art.poses(0, frame), art.palette
+        )
+        front.append(image)
+        by_name = {feature["name"]: feature for feature in features}
+        fluid = by_name["red-column-and-bulb"]
+        assert fluid["visible_pixels"] == budget and fluid["components"] == 1
+        assert fluid["bounds"][1] == top
+        assert by_name["graduations"]["visible_pixels"] == 11
+        red = (*bytes.fromhex(art.palette["R"][1:]), 255)
+        enamel = (*bytes.fromhex(art.palette["W"][1:]), 255)
+        for y in range(top, 23):
+            assert image.getpixel((5, y)) == image.getpixel((6, y)) == red
+        # A full native column of enamel separates glass from tick marks.
+        assert all(image.getpixel((8, y)) == enamel for y in range(7, 20))
+    assert len({im.tobytes() for im in front}) == 3
+    assert len({im.crop((0, 23, 16, 32)).tobytes() for im in front}) == 1
+    for angle in (90, 180, 270):
+        images = [
+            composite_features(Image.new("RGBA", (16, 32)), art.poses(angle, f), art.palette)[0]
+            for f in options.frames()
+        ]
+        assert len({im.tobytes() for im in images}) == 1
+        assert all(
+            p[:3] != tuple(bytes.fromhex(art.palette["R"][1:]))
+            for p in images[0].get_flattened_data()
+        )
 
 
 def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):

@@ -167,6 +167,23 @@
       "asset_id": "OFFICE_WORKER"
     }
   },
+  "thermometer": {
+    "definition": "thermometer.json",
+    "specification": {
+      "kind": "furniture",
+      "name": "Thermometer",
+      "asset_id": "THERMOMETER",
+      "preset": "chair",
+      "placement": "wall",
+      "category": "wall",
+      "colors": 8,
+      "clips": {
+        "cold": {"name": "Cold", "frames": [1]},
+        "room": {"name": "Room", "frames": [2]},
+        "hot": {"name": "Hot", "frames": [3]}
+      }
+    }
+  },
   "pet": {
     "scripts": [
       "pet.py"

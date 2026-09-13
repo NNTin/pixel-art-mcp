@@ -22,7 +22,7 @@ async def generate_example(client, example_dir, key):
         },
     )
     revision = None
-    for script in example["scripts"]:
+    for script in example.get("scripts", []):
         queued = await client.data(
             "execute_blender_python",
             {
@@ -33,8 +33,55 @@ async def generate_example(client, example_dir, key):
         )
         modeled = await client.wait(queued["id"])
         revision = modeled["result_revision_id"]
+    if "definition" in example:
+        queued = await client.data(
+            "write_pixel_art",
+            {
+                "project_id": project["id"],
+                "expected_revision_id": revision,
+                "definition": json.loads((example_dir / example["definition"]).read_text()),
+            },
+        )
+        await client.wait(queued["id"])
     queued = await client.data("render_asset", {"project_id": project["id"]})
     return project, await client.wait(queued["id"], timeout=300)
+
+
+async def test_thermometer_json_example_roundtrip(example_dir):
+    url = os.environ.get("PIXEL_E2E_URL")
+    if not url:
+        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
+    async with httpx.AsyncClient(base_url=url, timeout=60) as http:
+        client = MCPClient(http)
+        await client.initialize()
+        project, result = await generate_example(client, example_dir, "thermometer")
+        source = await client.data("get_pixel_art", {"project_id": project["id"]})
+        assert source["definition"]["base"] == "native"
+        assert source["authored_views"] == {str(a): [16, 32] for a in (0, 90, 180, 270)}
+        report = await client.data("inspect_asset", {"job_id": result["id"]})
+        assert len(report["frames"]) == 12 and report["findings"] == []
+        for clip, frame, count in [("cold", 1, 22), ("room", 2, 32), ("hot", 3, 42)]:
+            sprite = await client.data(
+                "inspect_sprite",
+                {
+                    "job_id": result["id"],
+                    "state_id": clip,
+                    "angle": 0,
+                    "frame": frame,
+                },
+            )
+            fluid = next(f for f in sprite["pixel_features"] if f["name"] == "red-column-and-bulb")
+            assert fluid["visible_pixels"] == count and fluid["components"] == 1
+        metadata = (
+            await client.data(
+                "get_artifact",
+                {
+                    "artifact_id": result["outputs"]["spritesheet.json"]["id"],
+                },
+            )
+        )["metadata"]
+        assert metadata["source_kind"] == "native-grid"
+        assert len(metadata["frames"]) == 12
 
 
 async def test_docker_reference_and_saved_pixel_layer_edit(png, example_dir):
