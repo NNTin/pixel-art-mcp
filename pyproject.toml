@@ -40,7 +40,6 @@ markers = ["blender: requires a real Blender executable", "e2e: requires a runni
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend-exclude = ["vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -55,7 +54,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-exclude = ["src/pixel_art_mcp/blender/runner.py", "examples/", "vendor/"]
+exclude = ["src/pixel_art_mcp/blender/runner.py", "examples/"]
 
 [[tool.mypy.overrides]]
 module = ["pixel_art_mcp.blender.runner", "pixel_art_mcp.blender.game_renderer"]
