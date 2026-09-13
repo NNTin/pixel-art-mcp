@@ -18,6 +18,14 @@ on:
   schedule:
     - cron: "0 */8 * * *"
   workflow_dispatch:
+    inputs:
+      bypass_default_branch_check:
+        description: >-
+          Run the examples gallery and status-site build on this branch even though it isn't
+          the default branch. Never deploys to Pages off the default branch regardless.
+        required: false
+        type: boolean
+        default: false
   pull_request:
     paths:
       - "contracts/pixel_index/**"
@@ -107,7 +115,7 @@ jobs:
     # All examples in examples/asset-specs.json (NNTin/pixel-art-mcp#15): a real MCP client
     # authors/renders/downloads every one of them through the Dockerized service, the same
     # pipeline docs/game-assets.md documents for local development.
-    if: ${{ github.ref_name == github.event.repository.default_branch }}
+    if: ${{ github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -147,7 +155,7 @@ jobs:
   build-status-site:
     name: Build current status site
     needs: [verify-contract, generate-examples-gallery]
-    if: ${{ always() && github.ref_name == github.event.repository.default_branch }}
+    if: ${{ always() && (github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true) }}
     runs-on: ubuntu-latest
 
     steps:
@@ -202,6 +210,10 @@ jobs:
   deploy-status-site:
     name: Deploy current status site
     needs: build-status-site
+    # Always gated to the default branch, with no bypass: bypass_default_branch_check only
+    # lets a manual run build the gallery/site artifacts on another branch for inspection,
+    # never lets it publish to the repo's one live Pages site.
+    if: ${{ github.ref_name == github.event.repository.default_branch }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
