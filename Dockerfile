@@ -38,7 +38,6 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 COPY examples ./examples
-COPY vendor/pixel-art-fixer/python ./vendor/pixel-art-fixer/python
 RUN uv sync --frozen --no-dev --no-editable \
     && useradd --uid 10001 --create-home app \
     && mkdir /data \

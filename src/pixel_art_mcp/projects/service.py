@@ -49,7 +49,7 @@ class Service:
             "worker_ready": self.worker_ready,
             "transport": "streamable-http",
             "authentication": "none",
-            "modeling": "full Blender Python (trusted scripts)",
+            "modeling": "native PixelArt layers and optional Blender geometry (trusted Python)",
             "asset_workflow": [
                 "get_asset_profile",
                 "configure_asset",
@@ -68,11 +68,13 @@ class Service:
                 "sizing": "16px tiles: 1x1 small, 1x2 tall, 2x1 wide. width/height override tiles.",
                 "pixel_agents": "Optional furniture manifest + PNG package; cardinal views, 5 fps, "
                 "off/on states. Animation only runs near an active agent, as supported by the app.",
-                "comparison": "Source render beside highlighted game-resolution PNGs",
+                "comparison": "Authored grid or unmodified source render beside final sprites",
                 "text_inspection": "Palette-index grid, color/cluster metrics, and comparison for "
                 "agents without image or vision support",
-                "downscaling": "crisp source-derived palette by default; legacy average palette "
-                "remains selectable",
+                "downscaling": "One shared palette and local alpha-weighted color voting; "
+                "native pixel layers bypass conversion entirely",
+                "pixel_layers": "Named per-view/per-frame layers saved in Blender revisions; "
+                "optional projected object anchors; final visibility and connectivity checks",
                 "states": "Named states share framing/palette; one generated HTML comparison "
                 "player and one pixel-agents ZIP containing separate selectable variants.",
             },

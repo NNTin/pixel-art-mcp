@@ -1,15 +1,13 @@
 import json
 import math
 import zipfile
+from collections import Counter
 from collections.abc import Iterable, Iterator
 from itertools import repeat
 from pathlib import Path
 from typing import Any, cast
 
-import cv2
-import numpy as np
 from PIL import Image
-from pixelfixer.reconstruct import two_stage_pack
 
 from pixel_art_mcp.imaging.character import export_character
 from pixel_art_mcp.imaging.gif import save_animated_gif
@@ -64,26 +62,34 @@ def sample_source_colors(
     ]
 
 
-def _two_stage_downscale(source: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """Downscale via pixel-art-fixer's two-stage packing (vendor/pixel-art-fixer, see #11)
-    instead of a plain box blur. A small adaptive quantization decides crisp per-cell
-    placement first, then each cell is colored from the original pixels that share its
-    winning label -- so flat regions and edges survive the downscale instead of every
-    cell being mashed into one blended, muddy average.
+def _cell_vote(source: Image.Image, size: tuple[int, int], palette: Image.Image) -> Image.Image:
+    """Classify once against the job palette, then vote locally with alpha weights.
 
-    Alpha still comes from a box average, kept separate so it stays governed by
-    options.alpha_threshold below rather than two_stage_pack's own fixed 50% vote.
+    No per-frame clustering: changing a flame cannot recolor an unchanged barrel.
+    Ties use palette order, never frame content or random state.
     """
-    if source.size == size:
-        return source.copy()
-    boxed = source.resize(size, Image.Resampling.BOX)
-    # two_stage_pack's k-means clustering draws on OpenCV's global RNG, which is not
-    # controlled by any seed argument -- reset it so repeated calls on the same input
-    # are reproducible instead of drifting with however many prior kmeans calls ran.
-    cv2.setRNGSeed(42)
-    low = two_stage_pack(np.asarray(source, dtype=np.uint8), size[0], size[1])
-    result = Image.fromarray(low[:, :, :3], "RGB").convert("RGBA")
-    result.putalpha(boxed.getchannel("A"))
+    if source.width % size[0] or source.height % size[1]:
+        raise DomainError("Crisp conversion requires integer supersampling")
+    sx, sy = source.width // size[0], source.height // size[1]
+    labels = source.convert("RGB").quantize(palette=palette, dither=Image.Dither.NONE)
+    label_data, alpha_data = labels.tobytes(), source.getchannel("A").tobytes()
+    output = Image.new("P", size)
+    palette_data = palette.getpalette()
+    assert palette_data is not None
+    output.putpalette(palette_data)
+    indices = []
+    for y in range(size[1]):
+        for x in range(size[0]):
+            votes: Counter[int] = Counter()
+            for dy in range(sy):
+                offset = (y * sy + dy) * source.width + x * sx
+                for i in range(offset, offset + sx):
+                    if alpha_data[i]:
+                        votes[label_data[i]] += alpha_data[i]
+            indices.append(min(votes, key=lambda k: (-votes[k], k)) if votes else 0)
+    output.putdata(indices)
+    result = output.convert("RGBA")
+    result.putalpha(source.getchannel("A").resize(size, Image.Resampling.BOX))
     return result
 
 
@@ -96,7 +102,7 @@ def pixelate(
     """Downscale + quantize to one shared palette. `sizes`, one (width, height) pair
     per frame, overrides the uniform (options.width, options.height) target -- used by
     pet export, whose right-facing row renders at double width (see imaging/pet.py)."""
-    resized = []
+    sources = []
     source_samples: list[tuple[int, int, int]] = []
     expected_frames = max(1, len(options.angles) * len(options.render_frames()))
     sample_budget = max(1, 262_144 // expected_frames)
@@ -107,27 +113,27 @@ def pixelate(
             source_samples.extend(
                 sample_source_colors(source, sample_budget, options.alpha_threshold)
             )
-        im = (
-            _two_stage_downscale(source, size)
-            if options.downscale_mode == "crisp"
-            else source.resize(size, Image.Resampling.BOX)
-        )
-        alpha = im.getchannel("A").point(lambda a: 255 if a >= options.alpha_threshold else 0)
-        im.putalpha(alpha)
-        resized.append(im)
+        sources.append((source, size))
     colors = (
         palette_from_samples(source_samples, options)
         if options.downscale_mode == "crisp" and options.palette is None
-        else shared_palette(resized, options)
+        else shared_palette(
+            [im.resize(size, Image.Resampling.BOX) for im, size in sources], options
+        )
     )
     palette = Image.new("P", (1, 1))
     padded = colors + [colors[0]] * (256 - len(colors))
     palette.putpalette([channel for color in padded for channel in color])
     outputs = []
-    for im in resized:
+    for source, size in sources:
+        im = (
+            _cell_vote(source, size, palette)
+            if options.downscale_mode == "crisp"
+            else source.resize(size, Image.Resampling.BOX)
+        )
         quantized = im.convert("RGB").quantize(palette=palette, dither=Image.Dither.NONE)
         result = quantized.convert("RGBA")
-        alpha = im.getchannel("A")
+        alpha = im.getchannel("A").point(lambda a: 255 if a >= options.alpha_threshold else 0)
         result.putalpha(alpha)
         # Transparent RGB is canonical, avoiding color fringes in consuming engines.
         result.paste((0, 0, 0, 0), mask=alpha.point(lambda a: 255 - a))

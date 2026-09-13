@@ -6,6 +6,52 @@ import bpy
 from camera_fit import fit_asset_views
 from mathutils import Euler
 
+from pixel_art_mcp.pixel_art import PixelArt
+
+
+def native_render(scene, options, output, art, progress):
+    manifest = {
+        "blender_version": bpy.app.version_string,
+        "pixel_art": art.to_dict(),
+        "frames": [],
+        "camera": {"projection": "native-grid", "views": [], "alignment": "authored pixels"},
+    }
+    for row, layout in enumerate(options["asset_layouts"]):
+        w, h = layout["width"], layout["height"]
+        pivot = [w / 2, layout["bottom"]]
+        manifest["camera"]["views"].append({**layout, "pivot": pivot, "objects": []})
+        image = bpy.data.images.new(
+            "NativePixelBase",
+            width=w * options["supersampling"],
+            height=h * options["supersampling"],
+            alpha=True,
+        )
+        image.pixels[:] = [0.0] * (len(image.pixels))
+        image.file_format = "PNG"
+        try:
+            for frame in options["frame_sequence"]:
+                filename = f"view_{row:02d}_frame_{frame:06d}.png"
+                image.filepath_raw = str(output / filename)
+                image.save()
+                manifest["frames"].append(
+                    {
+                        "filename": filename,
+                        "angle": layout["angle"],
+                        "frame": frame,
+                        "pivot": pivot,
+                        "size": [w, h],
+                        "pixel_layers": art.poses(layout["angle"], frame),
+                    }
+                )
+                progress(
+                    "rendering",
+                    len(manifest["frames"]),
+                    len(options["frame_sequence"]) * len(options["asset_layouts"]),
+                )
+        finally:
+            bpy.data.images.remove(image)
+    return manifest
+
 
 def game_materials():
     """Replace render-time shading, retaining authored color/texture and emissive materials."""
@@ -55,6 +101,15 @@ def game_materials():
 def render_game(scene, options, output, evaluated_corners, camera_basis, progress):
     spec, layouts = options["asset"], options["asset_layouts"]
     frames = options["frame_sequence"]
+    art = PixelArt.load(scene) if "pixel_art" in scene else None
+    if art:
+        expected = {str(row["angle"]): [row["width"], row["height"]] for row in layouts}
+        if art.views != expected:
+            raise ValueError(f"Pixel art views must match configured target: {expected}")
+        if spec["outline"]:
+            raise ValueError("Author native outlines explicitly when using pixel layers")
+        if art.base == "native":
+            return native_render(scene, options, output, art, progress)
     bases = [camera_basis(row["angle"], options["elevation"]) for row in layouts]
     bounds = [[math.inf, -math.inf, math.inf, -math.inf] for _ in layouts]
     object_bounds = [{} for _ in layouts]
@@ -114,6 +169,7 @@ def render_game(scene, options, output, evaluated_corners, camera_basis, progres
         scene.collection.objects.link(sun)
     manifest = {
         "blender_version": bpy.app.version_string,
+        "pixel_art": art.to_dict() if art else None,
         "frames": [],
         "camera": {
             "projection": "orthographic",
@@ -158,6 +214,17 @@ def render_game(scene, options, output, evaluated_corners, camera_basis, progres
             filename = f"view_{row:02d}_frame_{frame:06d}.png"
             scene.render.filepath = str(output / filename)
             bpy.ops.render.render(write_still=True)
+            patches = art.poses(layout["angle"], frame) if art else []
+            for patch in patches:
+                if patch["anchor"]:
+                    obj = scene.objects.get(patch["anchor"])
+                    if obj is None:
+                        raise ValueError(f"Unknown pixel layer anchor {patch['anchor']!r}")
+                    point = obj.evaluated_get(
+                        bpy.context.evaluated_depsgraph_get()
+                    ).matrix_world.translation
+                    patch["x"] += math.floor(w / 2 + (point.dot(right) - fit["cx"]) * ppu + 0.5)
+                    patch["y"] += math.floor(h / 2 - (point.dot(up) - fit["cy"]) * ppu + 0.5)
             manifest["frames"].append(
                 {
                     "filename": filename,
@@ -165,6 +232,7 @@ def render_game(scene, options, output, evaluated_corners, camera_basis, progres
                     "frame": frame,
                     "pivot": pivot,
                     "size": [w, h],
+                    "pixel_layers": patches,
                 }
             )
             progress("rendering", len(manifest["frames"]), len(frames) * len(layouts))

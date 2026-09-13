@@ -123,12 +123,34 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
             {"kind": kind, "name": "Example", "asset_id": "EXAMPLE", "preset": selected}
         )
     )
+    layouts = asset_layouts(spec)
+    views = {row["angle"]: (row["width"], row["height"]) for row in layouts}
     return {
         "kind": kind,
         "preset": selected,
         "presets": [key for key, value in PROFILES.items() if value["kind"] == kind],
         "specification": spec.model_dump(),
-        "layouts": asset_layouts(spec),
+        "layouts": layouts,
+        "pixel_authoring": {
+            "import": "from pixel_art_mcp.pixel_art import Canvas, PixelArt",
+            "storage": "PixelArt.save(bpy.context.scene); reload with PixelArt.load(scene)",
+            "coordinates": "Integer native pixels, top-left origin; '.' is transparent.",
+            "views": "Declare exactly the configured layouts. Draw each visible view explicitly.",
+            "layers": "Named, ordered layers. A frame-specific pose overrides its default pose. "
+            "Without a default, the layer is absent at other frames.",
+            "features": "Use min_pixels and connected=True for identifying shapes. Reserve "
+            "space for a connected faucet, two-column gauge, eyes, hands or flame before texture.",
+            "base": "native bypasses rendering; render overlays exact pixels on a Blender body. "
+            "Render layers can anchor to a named object's projected origin. Overlays are not "
+            "depth-tested: omit hidden features in the corresponding views and poses.",
+            "palette": "2..64 distinct symbol-to-hex colors, within the configured color budget. "
+            "This palette is authoritative for the whole job; no per-frame palette fitting.",
+            "example": "art = PixelArt({'D': '#293039', 'G': '#f3cf65'}, "
+            f"{views!r})\n"
+            "for a in map(int, art.views):\n"
+            "    art.layer('tap', a, Canvas.from_rows(['GGG.', '.G..', 'GGGG', '...G', '...G']), "
+            "x=5, y=3, min_pixels=10, connected=True)\nart.save(bpy.context.scene)",
+        },
         "modeling": [
             "+Z is up; front faces -Y. Model near the origin with named parts.",
             "Game sizing fits the silhouette, independently of meters. Exaggerate thin features.",

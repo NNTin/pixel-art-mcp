@@ -40,6 +40,21 @@ def test_custom_palette_and_transparent_frames():
     assert images[0].getbbox() is None
 
 
+def test_crisp_stationary_pixels_do_not_change_when_remote_region_animates():
+    frames = []
+    for offset in range(8):
+        image = Image.new("RGBA", (64, 128))
+        draw = ImageDraw.Draw(image)
+        for x in range(8, 56):
+            draw.line((x, 50, x, 115), fill=(100 + x, 80 + x, 40 + x, 255))
+        draw.rectangle((8 + offset * 4, 4, 14 + offset * 4, 12), fill=(70, 220, 250, 255))
+        frames.append(image)
+    options = RenderOptions(width=16, height=32, supersampling=4, colors=6)
+    images, _ = pixelate(frames, options)
+    assert len({image.crop((0, 16, 16, 32)).tobytes() for image in images}) == 1
+    assert len({image.crop((0, 0, 16, 8)).tobytes() for image in images}) > 1
+
+
 def test_crisp_downscale_uses_source_colors_instead_of_inventing_average_colors():
     source = Image.new("RGBA", (16, 16), (255, 0, 0, 255))
     for x in range(1, 16, 2):

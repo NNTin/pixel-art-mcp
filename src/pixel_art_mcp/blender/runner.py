@@ -10,7 +10,10 @@ import bpy
 from mathutils import Euler, Vector
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parents[2]))
 import camera_fit  # noqa: E402
+
+from pixel_art_mcp.pixel_art import PixelArt  # noqa: E402
 
 
 def progress(stage, completed, total):
@@ -46,6 +49,7 @@ def scene_summary():
             for obj in list(scene.objects)[:1000]
         ],
         "objects_truncated": len(scene.objects) > 1000,
+        "pixel_art": PixelArt.load(scene).to_dict() if "pixel_art" in scene else None,
         "materials": [
             {"name": mat.name, "diffuse_color": list(mat.diffuse_color)}
             for mat in list(bpy.data.materials)[:256]
@@ -136,6 +140,9 @@ def render(request, output):
         from game_renderer import render_game
 
         return render_game(scene, options, output, evaluated_corners, camera_basis, progress)
+
+    if "pixel_art" in scene:
+        raise ValueError("PixelArt sources require configure_asset and render_asset")
 
     camera_data = bpy.data.cameras.new("PixelExportCamera")
     camera_data.type = "ORTHO"

@@ -1,18 +1,14 @@
 # Pixel Art MCP
 
-A local Docker service for turning natural-language prompts and optional reference images into
-pixel-art sprite sheets with multiple viewing directions and animation frames.
+A local MCP service for creating **Pixel Agents furniture, characters, and pets** at the
+consumer's native pixel resolution. Author recognizable shapes on the final grid, save named
+layers and animation poses in Blender revisions, and export installable packages.
 
-Describe an object, ask for changes, and export consistent views of the same model: for example,
-a chair viewed at 0°, 45°, and 90°, or an animated object rendered from eight directions. Blender
-provides the editable 3D geometry, materials, and animation; the pixel-art converter turns its
-renders into transparent sprites and packs them into a sheet with playback metadata.
-Animated exports include transparent APNG loops for each direction and a self-contained browser
-player for checking playback, individual frames, and backgrounds. See the
-[animated oil lamp example](docs/tools.md#animated-oil-lamp-example) for a complete modeling recipe.
-Clients without vision can call `inspect_sprite` for a palette-index text grid, color descriptions,
-cluster metrics, and comparisons between render jobs. Source-derived palettes are used by default
-so supersampled colors remain distinct instead of turning into muddy downscale averages.
+`PixelArt` and `Canvas` support native pixel drawing or exact-pixel finishing layers anchored to
+rendered Blender objects. Important features are designed explicitly, not recovered by adding
+colors or shrinking a detailed model. A shared palette and local color voting keep rendered
+surfaces stable; authored pixels bypass resampling entirely. Feature diagnostics check visibility,
+connectivity and clipping, while offline previews support the necessary visual review.
 
 For Pixel Agents, use `get_asset_profile` → `configure_asset` → `execute_blender_python` →
 `render_asset` → `inspect_asset`. [Game asset profiles](docs/game-assets.md) give furniture,
@@ -20,13 +16,12 @@ characters, and pets readable sizes, stable placement, shared palettes, and the 
 pose sequences. Every render produces an installable package, exact pixel inspection, and offline
 context previews. Named furniture clips become selectable variants such as empty/partial/full barrels.
 
-Generic exports retain their configurable canvas, views, physical scale, and animation options.
 The development webview harness checks generated packages against a read-only Pixel Agents checkout;
 Node and Chromium are not production dependencies.
 
 The AI lives in your MCP client. It interprets reference images, writes Blender Python, and calls
-`execute_blender_python`. This service executes the code, saves `.blend` revisions, and renders
-consistent views. No AI API key or image-to-3D service is required.
+`execute_blender_python`. This service executes the code and saves editable `.blend` revisions.
+No AI API key, automatic semantic redraw, or image-to-3D service is involved.
 
 Read [what we are building](docs/overview.md) for the project goals and Mermaid diagrams of the
 MCP integration and rendering pipeline.

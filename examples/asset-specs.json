@@ -163,7 +163,8 @@
     ],
     "specification": {
       "kind": "character",
-      "name": "Office Worker"
+      "name": "Office Worker",
+      "asset_id": "OFFICE_WORKER"
     }
   },
   "pet": {

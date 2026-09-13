@@ -11,129 +11,96 @@ from PIL import Image
 pytestmark = pytest.mark.e2e
 
 
-async def test_docker_reference_model_edit_preview_and_sheet(png, example_dir):
+async def generate_example(client, example_dir, key):
+    example = json.loads((example_dir / "asset-specs.json").read_text())[key]
+    project = await client.data("create_project", {"name": "Native test / " + key})
+    await client.data(
+        "configure_asset",
+        {
+            "project_id": project["id"],
+            "specification": example["specification"],
+        },
+    )
+    revision = None
+    for script in example["scripts"]:
+        queued = await client.data(
+            "execute_blender_python",
+            {
+                "project_id": project["id"],
+                "expected_revision_id": revision,
+                "script": (example_dir / script).read_text(),
+            },
+        )
+        modeled = await client.wait(queued["id"])
+        revision = modeled["result_revision_id"]
+    queued = await client.data("render_asset", {"project_id": project["id"]})
+    return project, await client.wait(queued["id"], timeout=300)
+
+
+async def test_docker_reference_and_saved_pixel_layer_edit(png, example_dir):
     url = os.environ.get("PIXEL_E2E_URL")
     if not url:
         pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
-    async with httpx.AsyncClient(base_url=url, timeout=30) as http:
-        ready = await http.get("/health/ready")
-        assert ready.status_code == 200, ready.text
+    async with httpx.AsyncClient(base_url=url, timeout=60) as http:
         client = MCPClient(http)
         await client.initialize()
-        project = await client.data("create_project", {"name": "Docker chair"})
-        project_id = project["id"]
+        project, result = await generate_example(client, example_dir, "modify-chair")
         uploaded = await http.post(
-            f"/projects/{project_id}/references",
+            f"/projects/{project['id']}/references",
             files={"file": ("reference.png", png, "image/png")},
         )
-        assert uploaded.status_code == 201, uploaded.text
+        assert uploaded.status_code == 201
         reference = await client.call(
             "get_reference_image", {"reference_id": uploaded.json()["id"]}
         )
         assert any(c["type"] == "image" for c in reference["content"])
-        creation = await client.data(
-            "execute_blender_python",
+        preview = await client.call(
+            "get_artifact",
             {
-                "project_id": project_id,
-                "script": (example_dir / "chair.py").read_text(),
-                "expected_revision_id": None,
+                "artifact_id": result["outputs"]["preview.png"]["id"],
             },
         )
-        created = await client.wait(creation["id"])
-        edit = await client.data(
-            "execute_blender_python",
-            {
-                "project_id": project_id,
-                "script": (example_dir / "modify_chair.py").read_text(),
-                "expected_revision_id": created["result_revision_id"],
-            },
-        )
-        await client.wait(edit["id"])
-        preview_job = await client.data("render_preview", {"project_id": project_id})
-        preview = await client.wait(preview_job["id"])
-        preview_id = next(a["id"] for a in preview["artifacts"] if a["filename"] == "preview.png")
-        rendered = await client.call("get_artifact", {"artifact_id": preview_id})
-        assert any(c["type"] == "image" for c in rendered["content"])
-        render_job = await client.data(
-            "render_sprites",
-            {"project_id": project_id, "options": {"angles": [0, 45, 90], "samples": 8}},
-        )
-        result = await client.wait(render_job["id"], timeout=300)
-        archive_id = next(a["id"] for a in result["artifacts"] if a["filename"] == "sprites.zip")
-        downloaded = await http.get(f"/artifacts/{archive_id}")
-        assert downloaded.status_code == 200
+        assert any(c["type"] == "image" for c in preview["content"])
+        downloaded = await http.get(result["outputs"]["sprites.zip"]["download_url"])
+        with zipfile.ZipFile(io.BytesIO(downloaded.content)) as archive:
+            art = json.loads(archive.read("pixel-art.json"))
+            assert art["palette"]["C"] == "#aa466b"
+            assert any(layer["name"] == "backrest" for layer in art["layers"])
+            metadata = json.loads(archive.read("spritesheet.json"))
+            assert metadata["size"] == [16, 128]
+            assert metadata["source_kind"] == "native-grid"
+            assert all(not f["issues"] for e in metadata["frames"] for f in e["pixel_features"])
+            assert len({archive.read(e["filename"]) for e in metadata["frames"]}) == 4
+
+
+async def test_docker_hybrid_badge_follows_object_without_resampling(example_dir):
+    url = os.environ.get("PIXEL_E2E_URL")
+    if not url:
+        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
+    async with httpx.AsyncClient(base_url=url, timeout=60) as http:
+        client = MCPClient(http)
+        await client.initialize()
+        _, result = await generate_example(client, example_dir, "bobbing-cube")
+        downloaded = await http.get(result["outputs"]["sprites.zip"]["download_url"])
         with zipfile.ZipFile(io.BytesIO(downloaded.content)) as archive:
             metadata = json.loads(archive.read("spritesheet.json"))
-            assert metadata["size"] == [16, 48]
-            frame_bytes = []
-            for frame in metadata["frames"]:
-                with Image.open(io.BytesIO(archive.read(frame["filename"]))) as im:
-                    assert im.size == (16, 16)
-                    assert im.getbbox() is not None
-                    frame_bytes.append(im.tobytes())
-            assert len(set(frame_bytes)) == 3
-
-        animation = await client.data("create_project", {"name": "Docker animation"})
-        job = await client.data(
-            "execute_blender_python",
-            {
-                "project_id": animation["id"],
-                "script": (example_dir / "bobbing_cube.py").read_text(),
-                "expected_revision_id": None,
-            },
-        )
-        await client.wait(job["id"])
-        job = await client.data(
-            "render_sprites",
-            {
-                "project_id": animation["id"],
-                "options": {"angles": [0, 90], "frame_end": 3, "samples": 8},
-            },
-        )
-        exported = await client.wait(job["id"], timeout=300)
-        metadata_id = next(
-            a["id"] for a in exported["artifacts"] if a["filename"] == "spritesheet.json"
-        )
-        metadata = (await http.get(f"/artifacts/{metadata_id}")).json()
-        assert len(metadata["frames"]) == 6
-        assert len({tuple(frame["pivot"]) for frame in metadata["frames"]}) == 1
-        animations = [a for a in exported["artifacts"] if a["kind"] == "animation"]
-        assert len(animations) == 2
-        assert all(a["media_type"] == "image/apng" for a in animations)
-        assert all(a["width"] == a["height"] == 16 for a in animations)
-        for row, artifact in enumerate(animations):
-            downloaded = await http.get(f"/artifacts/{artifact['id']}")
-            assert downloaded.headers["content-type"] == "image/apng"
-            with Image.open(io.BytesIO(downloaded.content)) as apng:
-                assert apng.n_frames == 3 and apng.info["loop"] == 0
-                for column in range(3):
-                    apng.seek(column)
-                    frame = metadata["frames"][row * 3 + column]
-                    frame_artifact = next(
-                        a
-                        for a in exported["artifacts"]
-                        if a["filename"] == frame["filename"].split("/")[-1]
-                    )
-                    png = await http.get(f"/artifacts/{frame_artifact['id']}")
-                    with Image.open(io.BytesIO(png.content)) as original:
-                        assert apng.convert("RGBA").tobytes() == original.tobytes()
-        player = next(a for a in exported["artifacts"] if a["filename"] == "preview.html")
-        assert player["kind"] == "player"
-        html = (await http.get(f"/artifacts/{player['id']}")).text
-        assert "data:image/png;base64," in html and "__PLAYER_DATA__" not in html
-        preview_job = await client.data(
-            "render_preview",
-            {
-                "project_id": animation["id"],
-                "options": {"angles": [0, 90], "frame_end": 3, "samples": 8},
-            },
-        )
-        preview = await client.wait(preview_job["id"], timeout=300)
-        sheet = next(a for a in exported["artifacts"] if a["filename"] == "spritesheet.png")
-        preview_sheet = next(a for a in preview["artifacts"] if a["filename"] == "spritesheet.png")
-        assert (await http.get(f"/artifacts/{sheet['id']}")).content == (
-            await http.get(f"/artifacts/{preview_sheet['id']}")
-        ).content
+            art = json.loads(archive.read("pixel-art.json"))
+            assert metadata["source_kind"] == "blender-render"
+            assert len(metadata["frames"]) == 32
+            ys = set()
+            for entry in metadata["frames"]:
+                patch = entry["pixel_layers"][0]
+                feature = entry["pixel_features"][0]
+                assert feature["visible_pixels"] == 21 and feature["components"] == 1
+                assert not feature["issues"]
+                ys.add(patch["y"])
+                with Image.open(io.BytesIO(archive.read(entry["filename"]))) as sprite:
+                    for y, row in enumerate(patch["rows"]):
+                        for x, symbol in enumerate(row):
+                            if symbol != ".":
+                                expected = (*bytes.fromhex(art["palette"][symbol][1:]), 255)
+                                assert sprite.getpixel((patch["x"] + x, patch["y"] + y)) == expected
+            assert len(ys) > 1
 
 
 async def test_docker_curve_framing_uses_visible_geometry():
@@ -249,138 +216,43 @@ async def test_docker_fixed_physical_scale_camera_is_independent_of_bounding_box
         assert widths["large"] > widths["small"] * 2
 
 
-async def test_docker_pixel_agents_tall_lamp_package(example_dir):
+@pytest.mark.parametrize(
+    "key,archive_name",
+    [
+        ("oil-lamp", "pixel-agents.zip"),
+        ("pet", "pixel-agents-pet.zip"),
+        ("rain-barrel", "pixel-agents.zip"),
+    ],
+)
+async def test_native_animated_packages(example_dir, key, archive_name):
     url = os.environ.get("PIXEL_E2E_URL")
     if not url:
         pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
-    async with httpx.AsyncClient(base_url=url, timeout=30) as http:
+    async with httpx.AsyncClient(base_url=url, timeout=60) as http:
         client = MCPClient(http)
         await client.initialize()
-        project = await client.data("create_project", {"name": "Tall furniture export"})
-        creation = await client.data(
-            "execute_blender_python",
-            {
-                "project_id": project["id"],
-                "expected_revision_id": None,
-                "script": (example_dir / "oil_lamp.py").read_text(),
-            },
-        )
-        await client.wait(creation["id"])
-        job = await client.data(
-            "render_sprites",
-            {
-                "project_id": project["id"],
-                "options": {
-                    "tile_height": 2,
-                    "frame_end": 2,
-                    "samples": 4,
-                    "supersampling": 2,
-                    "pixel_agents": {
-                        "asset_id": "TEST_LAMP",
-                        "name": "Test Lamp",
-                        "can_place_on_surfaces": True,
-                        "footprint_h": 1,
-                        "off_frame": 0,
-                    },
-                },
-            },
-        )
-        result = await client.wait(job["id"], timeout=300)
-        artifact = next(a for a in result["artifacts"] if a["filename"] == "sprites.zip")
-        downloaded = await http.get(f"/artifacts/{artifact['id']}")
+        _, result = await generate_example(client, example_dir, key)
+        downloaded = await http.get(result["outputs"]["sprites.zip"]["download_url"])
         with zipfile.ZipFile(io.BytesIO(downloaded.content)) as archive:
+            assert archive.testzip() is None
             metadata = json.loads(archive.read("spritesheet.json"))
-            assert metadata["size"] == [32, 128]
-            assert metadata["settings"]["fps"] == 5
-            assert len(metadata["frames"]) == 8
-            assert all(frame["duration_ms"] == 200 for frame in metadata["frames"])
-            with Image.open(io.BytesIO(archive.read(metadata["comparison"]["image"]))) as high:
-                assert high.size == (64, 256)
-            html = archive.read("preview.html").decode()
-            assert "USED BY PIXEL-AGENTS" in html and "REFERENCE RENDER" in html
-            with zipfile.ZipFile(io.BytesIO(archive.read("pixel-agents.zip"))) as target:
-                root = "assets/furniture/TEST_LAMP/"
-                manifest = json.loads(target.read(root + "manifest.json"))
-                assert len(target.namelist()) == 13  # Four directions × (off + two on) + JSON
-                assert manifest["groupType"] == "rotation"
-                assert [g["orientation"] for g in manifest["members"]] == [
-                    "front",
-                    "right",
-                    "back",
-                    "left",
-                ]
-                for state in manifest["members"]:
-                    off, on = state["members"]
-                    assert off["state"] == "off" and on["state"] == "on"
-                    assert off["footprintH"] == 1 and off["height"] == 32
-                    assert [f["frame"] for f in on["members"]] == [0, 1]
-                    with Image.open(io.BytesIO(target.read(root + off["file"]))) as off_png:
-                        with Image.open(
-                            io.BytesIO(target.read(root + on["members"][0]["file"]))
-                        ) as on_png:
-                            assert off_png.size == on_png.size == (16, 32)
-                            assert off_png.getbbox() is not None
-                            assert off_png.tobytes() != on_png.tobytes()
-
-
-async def test_docker_pixel_agents_pet_package(example_dir):
-    """The real verification for blender/runner.py's per-angle render width: pet's
-    right-facing (90deg) row must come back at double the down/up rows' width, all
-    from one Blender invocation. Nothing in this repo can check that without Blender."""
-    url = os.environ.get("PIXEL_E2E_URL")
-    if not url:
-        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
-    async with httpx.AsyncClient(base_url=url, timeout=30) as http:
-        client = MCPClient(http)
-        await client.initialize()
-        project = await client.data("create_project", {"name": "Pet export"})
-        creation = await client.data(
-            "execute_blender_python",
-            {
-                "project_id": project["id"],
-                "expected_revision_id": None,
-                "script": (example_dir / "oil_lamp.py").read_text(),
-            },
-        )
-        await client.wait(creation["id"])
-        job = await client.data(
-            "render_sprites",
-            {
-                "project_id": project["id"],
-                "options": {
-                    "tile_width": 1,
-                    "tile_height": 2,
-                    "angles": [0, 90, 180],
-                    "samples": 4,
-                    "supersampling": 1,
-                    "states": [
-                        {"id": "walk", "name": "Walk", "frame_start": 1, "frame_end": 3},
-                        {"id": "idle", "name": "Idle", "frame_start": 5, "frame_end": 7},
-                    ],
-                    "pet": {"asset_id": "TEST_PET", "name": "Test Pet"},
-                },
-            },
-        )
-        result = await client.wait(job["id"], timeout=300)
-        artifact = next(a for a in result["artifacts"] if a["filename"] == "sprites.zip")
-        downloaded = await http.get(f"/artifacts/{artifact['id']}")
-        with zipfile.ZipFile(io.BytesIO(downloaded.content)) as archive:
-            metadata = json.loads(archive.read("spritesheet.json"))
-            assert metadata["pet"]["walk_frames"] == [1, 2, 3]
-            assert metadata["pet"]["idle_frames"] == [5, 6, 7]
-            with zipfile.ZipFile(io.BytesIO(archive.read("pixel-agents-pet.zip"))) as target:
-                root = "TEST_PET/"
-                assert sorted(target.namelist()) == [root + "manifest.json", root + "pet.png"]
-                manifest = json.loads(target.read(root + "manifest.json"))
-                assert manifest == {"id": "TEST_PET", "name": "Test Pet"}
-                with Image.open(io.BytesIO(target.read(root + "pet.png"))) as pet:
-                    assert pet.size == (96, 96)
-                    pet = pet.convert("RGBA")
-                    # Down/up rows (y<64) are real content only in their left 16px per
-                    # frame; the right row (y>=64) fills the full 32px-wide frames --
-                    # the whole point of the per-angle width change under test.
-                    assert pet.crop((0, 0, 96, 64)).getbbox() is not None
-                    assert pet.crop((0, 64, 96, 96)).getbbox() is not None
+            report = json.loads(archive.read("asset-report.json"))
+            assert report["status"] == "checks_passed" and report["visual_review_required"]
+            assert metadata["source_kind"] == "native-grid"
+            assert all(not f["issues"] for e in metadata["frames"] for f in e["pixel_features"])
+            with zipfile.ZipFile(io.BytesIO(archive.read(archive_name))) as target:
+                assert target.testzip() is None
+                if key == "pet":
+                    with Image.open(io.BytesIO(target.read("GOLDEN_DOG/pet.png"))) as pet:
+                        assert pet.size == (96, 96)
+                        assert pet.crop((0, 64, 96, 96)).getbbox()
+            if key == "rain-barrel":
+                images = []
+                for entry in metadata["frames"]:
+                    if entry["angle"] == 0 and entry["frame"] in range(9):
+                        with Image.open(io.BytesIO(archive.read(entry["filename"]))) as im:
+                            images.append(im.crop((0, 18, 16, 32)).tobytes())
+                assert len(images) == 9 and len(set(images)) == 1
 
 
 @pytest.mark.parametrize(
@@ -409,7 +281,6 @@ async def test_game_asset_workflow_in_docker(example_dir, kind, script, preset):
                     "name": "Fixture",
                     "preset": preset,
                     "samples": 8,
-                    "outline": True,
                 },
             },
         )
@@ -454,9 +325,10 @@ async def test_game_asset_workflow_in_docker(example_dir, kind, script, preset):
             assert zipped.testzip() is None
             metadata = json.loads(zipped.read("spritesheet.json"))
             assert metadata["asset"]["name"] == "Fixture"
-            assert metadata["asset"]["outline"] is True
+            assert metadata["asset"]["outline"] is False
             assert metadata["configuration_id"] == config["id"]
-            assert len({v["pixels_per_unit"] for v in metadata["camera"]["views"]}) == 1
+            assert metadata["camera"]["projection"] == "native-grid"
+            assert "pixel-art.json" in zipped.namelist()
             for frame in metadata["frames"]:
                 with Image.open(io.BytesIO(zipped.read(frame["filename"]))) as image:
                     bounds = image.getchannel("A").getbbox()

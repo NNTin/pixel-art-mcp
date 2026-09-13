@@ -123,6 +123,18 @@ try {
       await preview.selectOption('#activation', 'on');
       await preview.selectOption('#interaction', 'seated');
     }
+    for (const [label, width] of [['desktop', 1440], ['mobile', 390]]) {
+      await preview.setViewportSize({ width, height: 900 });
+      await preview.waitForTimeout(100);
+      assert(await preview.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${example.key}/${label} overflow`);
+      const visible = await preview.locator('#comparison').evaluate(canvas => {
+        const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        return pixels.some((value, i) => i % 4 === 3 && value > 0);
+      });
+      assert(visible, `${example.key}/${label} comparison is blank`);
+      await preview.screenshot({ path: path.join(output, `${example.key}-preview-${label}.png`), fullPage: true });
+      checks.push(`${example.key}/${label} preview renders without overflow`);
+    }
     await preview.close();
   }
   const after = git('status', '--porcelain', '--untracked-files=all');

@@ -17,7 +17,7 @@ canvas{image-rendering:pixelated;max-width:100%;height:auto;background:#343e42;b
 <button id="play">Play</button><label>Pose <input id="pose" type="range" min="0" value="0"></label>
 <label>Zoom <select id="zoom"><option>2</option><option selected>4</option><option>6</option></select></label>
 <div class="panels"><figure><figcaption>Placement context — exported pixels</figcaption><canvas id="context"></canvas></figure>
-<figure><figcaption>Sprite · source render</figcaption><canvas id="comparison"></canvas></figure></div>
+<figure><figcaption id="source-label">Sprite · source render</figcaption><canvas id="comparison"></canvas></figure></div>
 <p id="details"></p><p><a id="package">Installable package</a> · <a href="asset-report.json">Diagnostics</a> · <a href="sprites.zip">All outputs</a></p>
 <small>Gold outlines show occupied ground tiles. Upper background rows remain walkable. Character walking plays poses 0,1,2,1; work poses include the webview's 6px sitting offset. Pet left walking mirrors right; sideways idle uses down/up idle.</small>
 <script>
@@ -35,6 +35,7 @@ async function start(){
 const reference=await load(data.reference);
 const cells=new Map();
 await Promise.all(data.cells.map(async cell=>cells.set(`${cell.angle}:${cell.frame}`,{...cell,png:await load(cell.image),source:await load(cell.high)})));
+document.getElementById('source-label').textContent=data.source_kind==='native-grid'?'Sprite · authored grid':'Sprite · source render';
 function draw(){
  const clipId=$('clip').value,clip=spec.clips[clipId], requested=Number($('direction').value);
  let angle=requested,mirror=false;

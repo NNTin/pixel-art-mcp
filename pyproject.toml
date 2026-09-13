@@ -13,7 +13,6 @@ dependencies = [
   "httpx>=0.28.1,<1",
   "mcp==1.29.1",
   "pillow==12.1.1",
-  "pixelfixer",
   "pydantic>=2.12.5,<3",
   "pydantic-settings>=2.12,<3",
   "python-multipart>=0.0.22,<1",
@@ -31,11 +30,6 @@ packages = ["src/pixel_art_mcp"]
 
 [tool.uv]
 environments = ["sys_platform == 'linux'"]
-
-[tool.uv.sources]
-# vendor/pixel-art-fixer is a git submodule (NNTin/pixel-art-fixer), not a PyPI release --
-# see #11. Only its Python package (two_stage_pack reconstruction) is used.
-pixelfixer = { path = "vendor/pixel-art-fixer/python" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -66,7 +60,3 @@ exclude = ["src/pixel_art_mcp/blender/runner.py", "examples/", "vendor/"]
 [[tool.mypy.overrides]]
 module = ["pixel_art_mcp.blender.runner", "pixel_art_mcp.blender.game_renderer"]
 ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = ["pixelfixer.*", "cv2.*"]
-ignore_missing_imports = true
