@@ -5,6 +5,12 @@ name: Contract Checks
 # environments accept? No commit is vendored or pinned -- each run asks the live
 # environment which commit it's running and validates against that directly. See
 # docs/contract-testing.md and contracts/pixel_index/.
+#
+# This workflow also owns the repo's one GitHub Pages deployment, so the example asset
+# gallery (issue #15: every example in examples/asset-specs.json goes through the real MCP
+# rendering pipeline) is built and published here too, alongside the contract dashboard, in
+# a single combined deploy -- two independent Pages deploys would each overwrite the other's
+# content. See docs/game-assets.md#reproduce-examples-and-webview-checks.
 
 on:
   push:
@@ -12,6 +18,14 @@ on:
   schedule:
     - cron: "0 */8 * * *"
   workflow_dispatch:
+    inputs:
+      bypass_default_branch_check:
+        description: >-
+          Run the examples gallery, build the status site, and deploy it to GitHub Pages
+          from this branch even though it isn't the default branch.
+        required: false
+        type: boolean
+        default: false
   pull_request:
     paths:
       - "contracts/pixel_index/**"
@@ -96,10 +110,52 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  generate-examples-gallery:
+    name: Generate example asset gallery
+    # All examples in examples/asset-specs.json (NNTin/pixel-art-mcp#15): a real MCP client
+    # authors/renders/downloads every one of them through the Dockerized service, the same
+    # pipeline docs/game-assets.md documents for local development.
+    if: ${{ github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.18"
+          python-version: "3.12"
+
+      - run: uv sync --frozen
+
+      - run: docker compose up --build --wait --wait-timeout 120
+
+      - name: Generate every example through MCP
+        run: |
+          uv run --frozen python scripts/generate_examples.py \
+            --base-url http://localhost:8000 \
+            --output "${{ runner.temp }}/examples-gallery"
+
+      - if: always()
+        run: docker compose logs --no-color
+
+      - if: always()
+        run: docker compose down
+
+      - name: Upload example gallery artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: examples-gallery
+          path: ${{ runner.temp }}/examples-gallery
+          if-no-files-found: error
+          retention-days: 1
+
   build-status-site:
     name: Build current status site
-    needs: verify-contract
-    if: ${{ always() && github.ref_name == github.event.repository.default_branch }}
+    needs: [verify-contract, generate-examples-gallery]
+    if: ${{ always() && (github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true) }}
     runs-on: ubuntu-latest
 
     steps:
@@ -117,6 +173,17 @@ jobs:
           pattern: pixel-index-contract-result-*
           path: ${{ runner.temp }}/pixel-index-contract-results
           merge-multiple: true
+
+      # A failed gallery generation still lets the contract dashboard deploy, just without
+      # an updated `examples/` section, rather than resurrecting a stale one or blocking
+      # the whole site on it -- the failure is itself visible in the Actions run. Downloaded
+      # before generate_status_site.py runs so it can link to examples/index.html when present.
+      - name: Download example gallery
+        if: ${{ needs.generate-examples-gallery.result == 'success' }}
+        uses: actions/download-artifact@v5
+        with:
+          name: examples-gallery
+          path: ${{ runner.temp }}/contract-site/examples
 
       - name: Generate status site
         env:
@@ -143,6 +210,7 @@ jobs:
   deploy-status-site:
     name: Deploy current status site
     needs: build-status-site
+    if: ${{ github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
