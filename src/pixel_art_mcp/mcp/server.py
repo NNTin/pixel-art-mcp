@@ -40,21 +40,33 @@ from pixel_art_mcp.projects.service import Service
 
 INSTRUCTIONS = """Create Pixel Agents assets using only these MCP tools. No local files, Python
 imports, browser, shell, or external downloads are needed to author and inspect an asset.
-Start with get_asset_profile(kind, preset): it returns native layouts, semantic poses, design
+Start with get_asset_profile(kind, preset, ground_width, ground_depth, background_tiles):
+it returns native layouts, semantic poses, design
 rules, a complete JSON starter definition, and ordered tool calls with ID placeholders.
 Call create_project, configure_asset, write_pixel_art, wait_for_job, render_asset, wait_for_job,
 inspect_asset, inspect_sprite and get_asset_preview. The write_pixel_art schema defines the
 entire versioned pixel format. The server invokes Canvas and PixelArt helpers automatically;
 they are mandatory for every render. Generic geometry-only render tools are not available.
+Furniture ground sizes are occupied 16px tiles, not sprite dimensions. Set background_tiles
+for nonblocking height. Omit width/height to derive front/back and rotated canvases, e.g.
+3x4 ground tiles plus 1 background row gives 48x80 front/back and 64x64 sides.
 
 Author at the configured native resolution: top-left integer coordinates, '.' transparency,
 2..64 distinct palette colors, ordered named layers, explicit directional poses. A null frame
 is the view default; an exact frame replaces that default patch. Reuse static body layers.
-Draw identifying features as connected contrasting clusters with separating gaps, usually at
-least 2 pixels wide, before adding texture. Do not enlarge the canvas to squeeze in details.
+Each pose supplies exactly one of rows or drawing. Prefer drawing for large features: width,
+height and ordered rect/line/stamp commands. Use repeat with dx/dy for repeated motifs and
+mirror_x to reflect a completed patch. Lines have inclusive endpoints; rectangles use width
+and height, not ending coordinates. Dots in stamps reveal underlying pixels. All copies must
+fit the patch. Source reads canonical rows. Draw identifying features as connected contrasting
+clusters with separating gaps, usually at least 2 pixels wide, before adding texture.
+Do not increase pixel density to squeeze in detail; choose the object's actual tile footprint.
 Use min_pixels and connected for advisory visibility checks. Draw outlines explicitly.
 No supersampling, dithering, antialiasing or palette fitting changes native authored pixels.
 
+Begin with a small valid foundation in ALL configured views, write it, and wait for success.
+Then add one named feature per edit_pixel_art(set_layer) call and inspect incremental renders.
+Avoid long repeated-character rows and monolithic rewrites when a small edit fails.
 write_pixel_art replaces the WHOLE definition atomically. Pass expected_revision_id=null only
 for an empty project; otherwise use the revision from get_pixel_art or get_project. Wait until
 the write succeeds before rendering or editing again. Failed edits retain the previous revision.
@@ -131,13 +143,25 @@ def create_mcp(service: Service) -> FastMCP:
     async def get_asset_profile(
         kind: Literal["furniture", "character", "pet"],
         preset: str | None = None,
+        ground_width: Annotated[StrictInt, Field(ge=1, le=16)] | None = None,
+        ground_depth: Annotated[StrictInt, Field(ge=1, le=16)] | None = None,
+        background_tiles: Annotated[StrictInt, Field(ge=0, le=31)] | None = None,
     ) -> dict[str, Any]:
         """Read first: native sizes, pose semantics, design rules and complete JSON examples.
 
         The starter is inline and self-contained; no repository examples or Python imports needed.
         Read write_pixel_art's input schema for every field, bound and replacement rule.
+        Furniture tile fields resolve custom layouts and a matching starter before configuration.
+        For a 3x4 occupied footprint use ground_width=3, ground_depth=4, background_tiles=1:
+        front/back 48x80, sides 64x64; the extra sprite row is nonblocking, not occupied ground.
         """
-        return describe_asset_profile(kind, preset)
+        return describe_asset_profile(
+            kind,
+            preset,
+            ground_width=ground_width,
+            ground_depth=ground_depth,
+            background_tiles=background_tiles,
+        )
 
     @server.tool(annotations=WRITE)
     async def configure_asset(project_id: UUID, specification: AssetSpec) -> dict[str, Any]:
@@ -145,6 +169,8 @@ def create_mcp(service: Service) -> FastMCP:
 
         Replaces the project's configuration, without editing its Blender scene. Returns the
         resolved per-direction canvases and placement footprints. Use before modeling/rendering.
+        Ground sizes are occupied 16px tiles; background_tiles adds nonblocking height.
+        Omit width/height to derive valid canvases automatically from these tile fields.
         """
         return service.configure_asset(str(project_id), specification)
 
@@ -160,6 +186,11 @@ def create_mcp(service: Service) -> FastMCP:
 
         Configure first. Read get_asset_profile for a complete JSON starter, native layouts and
         animation semantics. No Python imports needed: the server builds Canvas/PixelArt for you.
+        Each pose supplies exactly one of rows (small motifs) or drawing (numeric commands).
+        drawing has width/height and ordered rect/line/stamp commands with optional repeat/dx/dy
+        and mirror_x. Use these for long shapes instead of counting repeated characters.
+        Begin with a simple base in every configured direction, then edit_pixel_art(set_layer)
+        one feature at a time. Source reads return canonical rows for either input form.
         Validation rejects invalid symbols, dimensions, views, palette or missing frame coverage.
         Layers are drawn in list order. Exact-frame patches replace null-frame defaults.
         A successful job saves a new .blend revision; wait_for_job before rendering/editing.
@@ -254,6 +285,8 @@ def create_mcp(service: Service) -> FastMCP:
         """Read all-frame readability, alignment, animation and named-object pixel diagnostics.
 
         Findings are advisory except invalid packages, empty sprites or definite clipping.
+        disconnected_silhouette flags multiple edge-connected opaque regions for review, not
+        automatic rejection: connect structural parts but allow intentional detached effects.
         Use inspect_sprite for a selected clip's exact pixel grid and color analysis.
         """
         return service.inspect_asset(str(job_id))

@@ -20,6 +20,12 @@ The inline profile starter is a valid static marker, not a finished design. It d
 whole protocol, including every required direction. Adapt its rows to the object and add distinct
 semantic poses. Clients need not see the repository's Python examples.
 
+For larger furniture, pass `ground_width`, `ground_depth`, and `background_tiles` to the profile.
+Use the same fields in `configure_asset` and omit pixel width/height. A 3x4 occupied footprint
+with one nonblocking background row gives front/back 48x80 and sides 64x64, still 16px per tile.
+If background tiles are omitted, the preset's headroom is preserved; an explicit height instead
+derives that count. Conflicting explicit dimensions fail with the expected dimensions.
+
 For generic 16x32 furniture use `preset: prop`, not `chair`. `prop` defaults to `category: decor`;
 set the object's real placement/category explicitly (a thermometer uses `wall` for both).
 `chair` and `desk` retain their semantic category defaults. None of these profiles adds pixels
@@ -54,6 +60,7 @@ fragment; include all configured views as demonstrated by the profile):
   The palette must fit the configured color budget and match an explicit configured palette.
 - Rows: nonempty equal-width strings. Each symbol is one native pixel, never resampled.
   Canvas sizes come from `configure_asset`; patches cannot exceed them.
+- Each pose supplies exactly one of `rows` or `drawing`. Use numeric drawing for large shapes.
 - Coordinates: integer top-left origin, x right, y down. Partial clipping produces diagnostics.
 - Layers: unique names, ordered back to front. Dots reveal previous layers, not erase them.
 - Poses: one per angle/frame. Null frame is a default; an exact frame replaces the entire default
@@ -63,6 +70,39 @@ fragment; include all configured views as demonstrated by the profile):
   artistic quality. Prioritize connected contrasting identifying shapes before decorative texture.
 - Bounds: at most 128 layers, 256 poses per layer, and 262144 authored cells total. Reuse defaults.
   The generated script must also fit `get_capabilities.limits.max_script_bytes`.
+
+### Numeric drawing
+
+This pose fragment draws a 40x6 base without counting repeated characters:
+
+```json
+{
+  "angle": 0, "x": 4, "y": 72,
+  "drawing": {
+    "width": 40, "height": 6,
+    "commands": [
+      {"op":"rect","x":0,"y":0,"width":40,"height":6,"color":"D"},
+      {"op":"rect","x":1,"y":1,"width":38,"height":4,"color":"G"}
+    ]
+  }
+}
+```
+
+Coordinates inside `drawing` are relative to its transparent patch. `rect` uses width/height;
+`line` uses inclusive `x1,y1,x2,y2` endpoints and integer Bresenham pixels; `stamp` uses a small
+rectangular `rows` motif whose dots reveal existing pixels. Commands paint in list order.
+Every command accepts `repeat` (1..128, default 1) and per-copy `dx`/`dy` (default 0).
+All copies must stay inside the patch, including negative offsets. `mirror_x: true` mirrors the
+completed patch, not its placement. At most 256 commands per pose and 1048576 paint operations
+per definition are allowed, in addition to the authored-cell limit. No antialiasing or resampling.
+`get_pixel_art` returns canonical rows for either input form. Row validation errors identify
+zero-based row indices and expected/actual widths; malformed strings are never padded silently.
+
+Start by writing only a small foundation in every view and wait for success. Add one feature
+per `edit_pixel_art(set_layer)` call using that job's `result_revision_id`; reading all source is
+unnecessary when appending a known layer. Render at milestones and inspect all directions.
+The [cat-tree example](../examples/cat_tree.json) and its `incremental` generation mode exercise
+this sequence. A failed edit does not require reconstructing already-saved features.
 
 ## Edit and resume
 
@@ -114,6 +154,10 @@ grid, palette, bounds, clusters, named feature visibility and optional matching-
 Here `state_id` selects a clip and angles select **authored** views. No vision is required.
 `inspect_asset` covers all frames. Always review every pose and direction; `checks_passed`
 means mechanical checks passed, not a quality guarantee.
+
+`inspect_asset` includes per-frame silhouette counts and a `disconnected_silhouette` advisory
+when more than one edge-connected opaque region exists. Check structural attachments visually;
+intentional detached effects are allowed and do not invalidate the package.
 
 Connectivity uses four edge-sharing neighbors, not diagonals. `opaque_connected_components`
 counts silhouette regions regardless of color; `opaque_singleton_components` counts isolated

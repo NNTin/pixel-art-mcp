@@ -134,6 +134,9 @@ class Service:
                 "max_inline_artifact_bytes": MAX_INLINE_ARTIFACT_BYTES,
                 "max_artifact_chunk_bytes": MAX_ARTIFACT_CHUNK_BYTES,
                 "max_pixel_edit_operations": 128,
+                "max_drawing_commands_per_pose": 256,
+                "max_drawing_repetitions": 128,
+                "max_drawing_paint_operations": 1_048_576,
             },
         }
 

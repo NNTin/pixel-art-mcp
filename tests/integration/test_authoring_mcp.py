@@ -8,6 +8,34 @@ from pixel_art_mcp.app import create_app
 from pixel_art_mcp.authoring import PixelEdits
 
 
+async def test_http_custom_profile_validation(settings):
+    app = create_app(settings)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://localhost"
+        ) as http,
+    ):
+        response = await http.get(
+            "/asset-profiles/furniture",
+            params={
+                "ground_width": 3,
+                "ground_depth": 4,
+                "background_tiles": 1,
+            },
+        )
+        assert response.status_code == 200
+        assert [(r["width"], r["height"]) for r in response.json()["layouts"]] == [
+            (48, 80),
+            (64, 64),
+            (48, 80),
+            (64, 64),
+        ]
+        assert (await http.get("/asset-profiles/furniture?ground_width=17")).status_code == 422
+        assert (await http.get("/asset-profiles/furniture?background_tiles=-1")).status_code == 422
+        assert (await http.get("/asset-profiles/character?background_tiles=1")).status_code == 422
+
+
 async def test_source_roundtrip_atomic_replacement_and_reconfiguration(settings, fake_blender):
     settings.blender_binary = fake_blender
     app = create_app(settings)

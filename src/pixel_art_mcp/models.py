@@ -213,10 +213,43 @@ class AssetSpec(Model):
     )
     placement: Literal["floor", "surface", "wall"] = "floor"
     category: FurnitureCategory = "decor"
-    ground_width: int | None = Field(default=None, ge=1, le=16)
-    ground_depth: int = Field(default=1, ge=1, le=16)
-    width: int | None = Field(default=None, ge=16, le=512)
-    height: int | None = Field(default=None, ge=16, le=512)
+    ground_width: int | None = Field(
+        default=None,
+        ge=1,
+        le=16,
+        description="Occupied ground columns in 16px tiles. Front pixel width is ground_width * "
+        "16; defaults from preset.",
+    )
+    ground_depth: int = Field(
+        default=1,
+        ge=1,
+        le=16,
+        description="Occupied ground rows in tiles, not sprite height. Rotated views swap ground "
+        "width/depth.",
+    )
+    background_tiles: int | None = Field(
+        default=None,
+        ge=0,
+        le=31,
+        description="Nonblocking sprite rows above occupied ground. Front "
+        "height=(ground_depth+background_tiles)*16; sides swap ground width/depth. Omit to "
+        "preserve preset headroom, or derive from explicit height.",
+    )
+    width: int | None = Field(
+        default=None,
+        ge=16,
+        le=512,
+        description="Optional front width in pixels; must equal ground_width * 16. Prefer tile "
+        "fields.",
+    )
+    height: int | None = Field(
+        default=None,
+        ge=16,
+        le=512,
+        description="Optional front sprite height in pixels, a multiple of 16 >= ground_depth*16. "
+        "Extra rows are nonblocking background. Prefer background_tiles; do not increase pixel "
+        "density.",
+    )
     anchor_object: str | None = Field(default=None, min_length=1, max_length=120)
     clips: dict[str, AssetClip] = Field(default_factory=dict, max_length=16)
     colors: int = Field(default=16, ge=2, le=64, description="Maximum authored palette size.")
@@ -256,6 +289,8 @@ class AssetSpec(Model):
         if preset not in allowed:
             raise ValueError(f"Invalid preset for {self.kind}: {preset}")
         if self.kind != "furniture":
+            if self.background_tiles is not None:
+                raise ValueError("background_tiles applies only to furniture")
             if self.placement != "floor" or self.ground_width is not None or self.ground_depth != 1:
                 raise ValueError("Placement and ground tiles apply only to furniture")
             if self.width not in (None, 16) or self.height not in (None, 32):

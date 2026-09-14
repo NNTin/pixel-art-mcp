@@ -3,19 +3,14 @@
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
+from pydantic import Field, StrictBool, StrictInt, model_validator
 
+from pixel_art_mcp.drawing import PixelDrawing, PixelModel, PixelRow, Symbol
 from pixel_art_mcp.models import AssetSpec, DomainError, Model
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 AUTHORING_VERSION = 1
-Symbol = Annotated[str, Field(pattern=r"^[A-Za-z0-9]$")]
 Color = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]
-PixelRow = Annotated[str, Field(min_length=1, max_length=512, pattern=r"^[A-Za-z0-9.]+$")]
-
-
-class PixelModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
 
 
 class PixelPose(PixelModel):
@@ -24,11 +19,18 @@ class PixelPose(PixelModel):
     angle: Literal[0, 90, 180, 270] = Field(
         description="0 front/down, 90 right, 180 back/up, 270 left. Use only configured views."
     )
-    rows: list[PixelRow] = Field(
+    rows: list[PixelRow] | None = Field(
+        default=None,
         min_length=1,
         max_length=512,
         description="Equal-width pixel rows, top to bottom. Letters/digits refer to palette "
-        "symbols; '.' is transparent. A transparent pose explicitly hides a layer.",
+        "symbols; '.' is transparent. Supply exactly one of rows or drawing. Prefer drawing "
+        "for large shapes; literal rows are suited to small motifs.",
+    )
+    drawing: PixelDrawing | None = Field(
+        default=None,
+        description="Numeric rect/line/stamp commands using mandatory Canvas helpers. Alternative "
+        "to rows, not additional pixels. Source reads return canonical raster rows.",
     )
     frame: StrictInt | None = Field(
         default=None,
@@ -76,8 +78,17 @@ class PixelPose(PixelModel):
 
     @model_validator(mode="after")
     def rectangular(self) -> "PixelPose":
-        Canvas.from_rows(self.rows)
+        if (self.rows is None) == (self.drawing is None):
+            raise ValueError("Supply exactly one of rows or drawing")
+        if self.rows is not None:
+            Canvas.from_rows(self.rows)
         return self
+
+    def canvas(self) -> Canvas:
+        if self.drawing is not None:
+            return self.drawing.canvas()
+        assert self.rows is not None
+        return Canvas.from_rows(self.rows)
 
 
 class PixelLayer(PixelModel):
@@ -135,19 +146,25 @@ class PixelDefinition(PixelModel):
         if len({color.lower() for color in self.palette.values()}) != len(self.palette):
             raise ValueError("Palette colors must be distinct")
         pixels = 0
+        paint_operations = 0
         for layer in self.layers:
             for pose in layer.poses:
                 if pose.anchor is not None and self.base != "render":
                     raise ValueError("Object anchors require base=render")
-                pixels += sum(map(len, pose.rows))
-                if any(
-                    symbol != "." and symbol not in self.palette
-                    for row in pose.rows
-                    for symbol in row
-                ):
+                if pose.drawing is not None:
+                    pixels += pose.drawing.width * pose.drawing.height
+                    paint_operations += pose.drawing.cost()
+                    symbols = pose.drawing.symbols()
+                else:
+                    assert pose.rows is not None
+                    pixels += sum(map(len, pose.rows))
+                    symbols = set("".join(pose.rows)) - {"."}
+                if symbols - self.palette.keys():
                     raise ValueError(f"Unknown palette symbol in layer {layer.name!r}")
         if pixels > 262_144:
             raise ValueError("Definition exceeds 262144 authored pixel cells; reuse default poses")
+        if paint_operations > 1_048_576:
+            raise ValueError("Definition exceeds 1048576 drawing paint operations")
         return self
 
     def to_art(self, layouts: list[dict[str, Any]]) -> PixelArt:
@@ -158,8 +175,8 @@ class PixelDefinition(PixelModel):
             for pose in layer.poses:
                 art.layer(
                     layer.name,
-                    canvas=Canvas.from_rows(pose.rows),
-                    **pose.model_dump(exclude={"rows"}),
+                    canvas=pose.canvas(),
+                    **pose.model_dump(exclude={"rows", "drawing"}),
                 )
         return art
 

@@ -137,9 +137,24 @@ def asset_report(output: Path, metadata: dict[str, Any]) -> dict[str, Any]:
                 "contact_offset": layouts[entry["angle"]]["bottom"] - y - h,
                 "center_offset": round(x + w / 2 - width / 2, 2),
                 "singleton_color_clusters": analysis["color_singleton_components"],
+                "opaque_connected_components": analysis["opaque_connected_components"],
+                "opaque_singleton_components": analysis["opaque_singleton_components"],
+                "color_components": analysis["color_components"],
                 "pixel_features": entry.get("pixel_features", []),
             }
         )
+        if analysis["opaque_connected_components"] > 1:
+            findings.append(
+                {
+                    "code": "disconnected_silhouette",
+                    "angle": entry["angle"],
+                    "frame": entry["frame"],
+                    "components": analysis["opaque_connected_components"],
+                    "suggestion": "Review detached regions in the preview. Connect structural "
+                    "parts such as posts, platforms and bases; intentional detached effects "
+                    "can remain. Four-neighbor connectivity does not count diagonal contact.",
+                }
+            )
         for feature in entry.get("pixel_features", []):
             for code in feature["issues"]:
                 findings.append(

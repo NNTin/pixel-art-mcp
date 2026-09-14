@@ -184,6 +184,21 @@
       }
     }
   },
+  "cat-tree": {
+    "definition": "cat_tree.json",
+    "incremental": true,
+    "specification": {
+      "kind": "furniture",
+      "name": "Large Cat Tree",
+      "asset_id": "LARGE_CAT_TREE",
+      "placement": "floor",
+      "category": "decor",
+      "ground_width": 3,
+      "ground_depth": 4,
+      "background_tiles": 1,
+      "colors": 8
+    }
+  },
   "pet": {
     "scripts": [
       "pet.py"

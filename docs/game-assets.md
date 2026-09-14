@@ -103,6 +103,7 @@ pixel art direction, not a promise that every small detail can survive at this f
 | Preset | Front canvas | Default occupied ground | Upper background rows |
 | --- | --- | --- | --- |
 | small | 16×16 | 1×1 | 0 |
+| prop | 16×32 | 1×1 | 1 |
 | chair | 16×32 | 1×1 | 1 |
 | tall | 16×64 | 1×1 | 3 |
 | desk | 48×32 | 3×1 | 1 |
@@ -110,7 +111,11 @@ pixel art direction, not a promise that every small detail can survive at this f
 | pet | 16×32, right 32×32 | bottom-center anchor | — |
 
 Furniture canvas width equals `ground_width * 16`; width and height must be tile multiples.
-`ground_depth` counts occupied rows. `height / 16 - ground_depth` becomes `backgroundTiles`.
+`ground_depth` counts occupied rows. Prefer `background_tiles` and omit `width`/`height`:
+front height becomes `(ground_depth + background_tiles) * 16`. Omitted background tiles preserve
+preset headroom. An explicit `height` instead derives `height / 16 - ground_depth` background
+rows; if both fields are supplied they must agree. A 3x4 cat tree with one background row is
+48x80 front/back and 64x64 on its sides, without increasing the native tile pixel density.
 When rotated, ground width/depth swap while the upper background-row count stays the same.
 A desk therefore has a 16×64 side canvas and a 1×4 manifest footprint, with one walkable top row.
 The `chair` and `desk` presets also select the corresponding consumer category by default.
