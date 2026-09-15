@@ -39,24 +39,23 @@ the current revision. Both text-only and vision-capable agents can inspect their
 through MCP. PNG, JSON and bounded source text are returned inline; installable ZIPs are available
 for the human consumer.
 
-## Native and hybrid rendering
+## Native rendering
 
-Native mode paints exact pixels from named ordered per-view/per-frame layers. Static defaults
+Every asset paints exact pixels from named ordered per-view/per-frame layers. Static defaults
 are reused; exact frame patches override them. The palette is fixed for the whole asset. Native
 pixels are never antialiased, dithered, supersampled or requantized.
 
-Hybrid mode optionally supplies broad Blender geometry under required pixel layers. The advanced
-`execute_blender_python` tool prepares that geometry. Anchored patches follow projected object
-origins, but are screen-space overlays, not depth-tested decals or automatic multi-view redraws.
+The advanced `execute_blender_python` tool is available for computing a pixel-art definition
+with Python instead of a static JSON payload (e.g. building layers from a loop). Any Blender
+geometry it creates has no effect on the render: only the saved `pixel_art` definition is ever
+exported.
 
 ```mermaid
 flowchart TD
     Source["Versioned required pixel definition"] --> Validate["Validate target sizes and poses"]
     Config["Pixel Agents target configuration"] --> Validate
     Validate --> Native["Native: exact pixel grid"]
-    Validate --> Hybrid["Hybrid: geometry render using authored palette"]
     Native --> Composite["Composite named pixel layers"]
-    Hybrid --> Composite
     Composite --> Inspect["Feature visibility and readability diagnostics"]
     Inspect --> Package["Consumer manifest and PNG package"]
     Inspect --> Preview["MCP images, text grids and offline player"]

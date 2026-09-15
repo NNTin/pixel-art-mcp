@@ -32,7 +32,7 @@ then uses the existing script job/revision transaction. No second mutable source
 
 1. Configure the asset, then write source with the current expected revision, null only initially.
 2. Submission captures configuration and revision. The worker rechecks the revision when it starts.
-3. Blender loads the previous scene, executes the write, validates canvas/pose/palette/anchor
+3. Blender loads the previous scene, executes the write, validates canvas/pose/palette
    requirements and saves the result. The application validates the returned definition again.
 4. Publication of revision pointer, artifacts and successful job state is one SQLite transaction
    after files move into persistent storage. Concurrent queued edits cannot silently overwrite.
@@ -51,13 +51,10 @@ as artifacts. There is no scheduled retention/deletion.
 ## Rendering and inspection
 
 `assets.py` resolves immutable target specifications into native canvases, clips and package
-settings. `blender/game_renderer.py` handles two paths:
+settings. `blender/game_renderer.py` resolves exact patches for each native view/frame onto a
+blank transparent canvas per view/frame, bypassing Cycles and quantization entirely.
 
-- Native: resolve exact patches for each native view/frame, bypassing Cycles and quantization.
-- Hybrid: evaluate geometry bounds across all frames/views, fit one stable scale, render broad
-  colors, and project optional named-object origins for integer-snapped pixel overlays.
-
-`imaging/asset_export.py` composites required layers after any geometry conversion. The authored
+`imaging/asset_export.py` composites required layers onto that blank canvas. The authored
 palette is authoritative throughout. `features.py` measures final ownership, visibility,
 clipping and connectivity. Structural invalidity and empty output fail; artistic findings remain
 advisory and `visual_review_required` is always true.
@@ -96,7 +93,8 @@ Existing records need no migration; authoring versioning is separate from SQLite
 
 Unit tests cover schema validation, helper target rules, package pixels and preview mapping.
 Integration tests exercise MCP schemas, source retrieval, replacement, queued conflicts,
-configuration snapshots and failed-edit rollback. Real-Blender tests cover evaluated geometry.
-Cold-client Docker tests use only MCP tool discovery and inline profile examples to create, edit,
-render and inspect all three asset kinds, without reading repository examples or HTTP artifacts.
-Python examples additionally regress advanced helper usage and hybrid geometry.
+configuration snapshots and failed-edit rollback. A real-Blender test covers a scripted edit and
+render round-trip. Cold-client Docker tests use only MCP tool discovery and inline profile
+examples to create, edit, render and inspect all three asset kinds, without reading repository
+examples or HTTP artifacts. Python examples additionally regress `execute_blender_python`'s
+programmatic authoring path.

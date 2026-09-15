@@ -1,8 +1,8 @@
 # Pixel Agents asset workflow
 
 Use this workflow for furniture, characters, and pets. Blender remains the editable source,
-including named native pixel layers. The server derives placement metadata, packages and previews;
-optional rendered geometry supplies broad volume beneath exact-pixel identifying features.
+including named native pixel layers. The server derives placement metadata, packages and
+previews from the exact authored pixel grid.
 
 ## Model, render, inspect, refine
 
@@ -89,17 +89,11 @@ Reload `PixelArt.load(bpy.context.scene)` in a later revision to change its pale
 See `modify_chair.py`. Every native export includes `pixel-art.json`, and inspection exposes
 the resolved feature bounds, visible pixels, clipping, overwritten pixels and components.
 
-For a hybrid asset, use `base="render"` and optionally `anchor="ObjectName"` on a layer. Its
-`x,y` become integer offsets from that object's evaluated, projected origin each frame. The
-cube example demonstrates this. These are screen-space finishing layers, **not depth-tested
-decals**: omit hidden features in other views/poses. Offsets do not rotate or scale with geometry.
-Use +Z up and front -Y for rendered geometry. No automatic multi-view reconstruction is implied.
-
 Declare exactly the canvas sizes returned by `configure_asset`. The authored palette is fixed
-for the complete job, must fit `colors`, and must match `palette` if configured. Native mode
-does not run Cycles or downscale artwork. Its source comparison is labeled **authored grid**,
-not a higher-detail source render. Hybrid source comparisons show the unmodified Blender render.
-Automatic `outline` is rejected with pixel layers; draw outlines explicitly on the native grid.
+for the complete job, must fit `colors`, and must match `palette` if configured. Rendering never
+runs Cycles or downscales artwork: its source comparison is always labeled **authored grid**,
+an upscaled copy of the exact exported pixels, not a higher-detail source render. Automatic
+`outline` is rejected with pixel layers; draw outlines explicitly on the native grid.
 
 The rain barrel's 12x13 mouth/opening dominates the top of its 16x32 canvas, matching the
 top-down 3/4 camera; its compressed body starts immediately below at y=14. Its faucet is a
@@ -143,10 +137,6 @@ content to sit higher on a desk tile. Place small props on a tile over the visib
 upper background tile of a desk can be empty. More detailed props may need `height: 32`, as in
 the oil-lamp example. Review them in context before choosing their canvas.
 
-The default alignment uses each view's union of visible geometry. Optional `anchor_object` names
-an object or empty whose origin should be a stable ground-contact point; two pixels are reserved
-below that anchor. It is evaluated at the first source frame. Moving poses retain their motion.
-
 ## Semantic clips and consumer playback
 
 `clips` maps lowercase identifiers to `{frames, name?, off_frame?}`. Frames are explicit source
@@ -176,13 +166,10 @@ an active agent facing the furniture. There is no always-on animation or automat
 between named variants. See [asset-specs.json](../examples/asset-specs.json) for the lamp and
 empty/partial/full barrel configurations.
 
-## Shading, diagnostics, and artifacts
+## Diagnostics and artifacts
 
-`shading: "game"` uses three broad directional shade bands from authored base colors and textures,
-with unlit emissive materials. `studio` and `scene` retain conventional lighting alternatives.
 The default shared palette has 16 colors; use `colors` or an explicit `palette` to simplify it.
 Automatic `outline` must remain false because pixel helpers are mandatory; draw outlines in rows.
-These changes only affect the render copy, leaving the saved scene editable.
 
 Every target exports individual frames, supersampled source comparisons, `spritesheet.json`,
 `asset-specification.json`, `asset-report.json`, `context.png`, and an offline `preview.html`.
@@ -191,14 +178,13 @@ including the installable `pixel-agents.zip`, `pixel-agents-character.zip`, or `
 `job.outputs` names top-level artifacts; every artifact's `export_path` preserves its relative
 path so nested frames with identical filenames can be distinguished.
 
-Diagnostics report occupied bounds, margins, center/contact offsets, color fragmentation,
-changed animation pixels, and named-object projected dimensions. Small silhouettes, weak contrast
-against the dark preview floor, fragmented colors, and imperceptible animation are advisory.
-Projected object bounds cannot establish visibility or occlusion; a hidden bulb can have a large
-bounding box. Empty sprites, invalid canvases/packages, and geometry touching the raw render
-boundary fail the export. `checks_passed` means no detected issues, not an artistic-quality
-guarantee; `visual_review_required` is always true. Native feature clipping, lost pixel budgets
-and disconnected required features produce review findings even when the package is valid.
+Diagnostics report occupied bounds, margins, center/contact offsets, color fragmentation, and
+changed animation pixels. Small silhouettes, weak contrast against the dark preview floor,
+fragmented colors, and imperceptible animation are advisory. Empty sprites and invalid
+canvases/packages fail the export. `checks_passed` means no detected issues, not an
+artistic-quality guarantee; `visual_review_required` is always true. Feature clipping, lost
+pixel budgets and disconnected required features produce review findings even when the package
+is valid.
 
 The offline preview approximates a 16-pixel grid, reference agent, desktop, wall, seating,
 directions, activation, and playback. It does not embed the consumer or require Node/Chromium in

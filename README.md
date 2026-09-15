@@ -5,12 +5,11 @@ consumer's native pixel resolution. Author recognizable shapes on the final grid
 layers and animation poses in Blender revisions, and export installable packages.
 
 `write_pixel_art` accepts a typed pixel definition and runs the mandatory `PixelArt` and `Canvas`
-helpers on the server. No client-side imports or filesystem tools are needed. It supports native
-drawing or exact-pixel finishing layers anchored to rendered Blender objects. Important features
-are designed explicitly, not recovered by adding
-colors or shrinking a detailed model. A shared palette and local color voting keep rendered
-surfaces stable; authored pixels bypass resampling entirely. Feature diagnostics check visibility,
-connectivity and clipping, while offline previews support the necessary visual review.
+helpers on the server. No client-side imports or filesystem tools are needed. Important features
+are designed explicitly, not recovered by adding colors or shrinking a detailed model. Authored
+pixels bypass resampling entirely: every visible pixel is painted exactly as drawn, never
+antialiased, dithered or requantized. Feature diagnostics check visibility, connectivity and
+clipping, while offline previews support the necessary visual review.
 
 Use `get_asset_profile` → `create_project` → `configure_asset` → `write_pixel_art` → `wait_for_job`
 → `render_asset` → `wait_for_job` → `inspect_asset` / `inspect_sprite` / `get_asset_preview`.
@@ -29,8 +28,9 @@ The development webview harness checks generated packages against a read-only Pi
 Node and Chromium are not production dependencies.
 
 The AI lives in your MCP client. It interprets reference images and authors exact native pixels.
-`execute_blender_python` remains available for advanced hybrid geometry; geometry alone cannot
-render. Generic `render_preview` and `render_sprites` tools have been removed. Every successful
+`execute_blender_python` remains available for computing a pixel-art definition with Python
+instead of a static JSON payload; any Blender geometry it builds has no effect on the render.
+Generic `render_preview` and `render_sprites` tools have been removed. Every successful
 write saves an editable `.blend` revision; failures preserve the prior revision.
 No AI API key, automatic semantic redraw, or image-to-3D service is involved.
 
@@ -54,7 +54,7 @@ targets Linux x86-64 and pins Blender 4.5.13 LTS with CPU Cycles; no GPU or disp
 See [client setup](docs/client-setup.md), [tool usage](docs/tools.md), and
 [architecture](docs/architecture.md) for the workflow and operating constraints.
 See [rendering pipeline](docs/rendering-pipeline.md) for how a render actually executes: the
-Blender subprocess boundary, the native/hybrid split, and downscaling.
+Blender subprocess boundary and native pixel compositing.
 See [validation status](docs/validation.md) for the completed Docker rendering and playback checks.
 See [contract testing](docs/contract-testing.md) for how the pixel-agents/character/pet exports
 are checked live against pixel-index's real staging and production APIs, and by a real upload
