@@ -92,18 +92,22 @@ for angle in (0, 90, 180, 270):
             # then another 2-row taper. Sits low enough (y=6, not y=2) to
             # overlap the body's own H highlight collar, which is wider than
             # the mouth and frames it in wood on both sides.
+            #
+            # Rows below `waterline` are wet (C); above it, dry (D, with the
+            # same M rim as the empty state where exposed against open
+            # background). Partial and full must show different water lines
+            # -- filling the whole mouth for both looked identical and hid
+            # which state was which.
+            waterline = {0: 7, 1: 3, 2: 0}[level]
             opening = Canvas(12, 7)
             for x, y in MOUTH:
-                # Only rim the part exposed against open background (y<4); the
-                # lower rows overlap the body and are already framed by its H
-                # collar peeking out on both sides -- an M rim there would
-                # cover that collar instead of letting it show.
-                opening.rect(x, y, 1, 1, "M" if (x, y) in MOUTH_RIM and y < 4 else "D")
-            if level:
-                opening = Canvas(12, 7)
-                for x, y in MOUTH:
+                if y < waterline:
+                    opening.rect(x, y, 1, 1, "M" if (x, y) in MOUTH_RIM and y < 4 else "D")
+                else:
                     opening.rect(x, y, 1, 1, "C")
-                opening.rect(2 + (phase % 2), 0, 5, 2, "L")
+            if level:
+                glint_y = max(waterline, 0)
+                opening.rect(2 + (phase % 2), glint_y, 5, min(2, 7 - glint_y), "L")
             art.layer(
                 "opening", angle, opening, x=2, y=6, frame=frame, min_pixels=45, connected=True
             )

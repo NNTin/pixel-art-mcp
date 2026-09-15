@@ -196,6 +196,22 @@ def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
         assert gauge["visible_pixels"] == 28 and gauge["components"] == 1
 
 
+def test_barrel_opening_water_line_distinguishes_empty_partial_and_full(monkeypatch):
+    # Regression: partial and full both filled the whole mouth with water,
+    # so they were pixel-identical at the opening and only the body's small
+    # gauge showed which state was active.
+    art, options = load_example(monkeypatch, "rain-barrel")
+    mouth_bounds = (2, 6, 14, 13)  # x0, y0, x1, y1 -- above the body's collar rows
+    for angle in (0, 90, 180, 270):
+        mouths = [
+            composite_features(Image.new("RGBA", (16, 32)), art.poses(angle, f), art.palette)[
+                0
+            ].crop(mouth_bounds)
+            for f in (0, 10, 20)
+        ]
+        assert len({im.tobytes() for im in mouths}) == 3, (angle, "empty/partial/full")
+
+
 def test_barrel_opening_does_not_merge_into_the_webview_floor(monkeypatch):
     # Regression: an earlier redraw enlarged the empty-state mouth to a flat
     # solid fill in the barrel's darkest color, which is close enough in luma
