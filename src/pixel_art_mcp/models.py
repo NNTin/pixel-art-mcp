@@ -267,7 +267,15 @@ class AssetSpec(Model):
         default=False,
         description="Must be false. Draw outlines explicitly in required pixel layers.",
     )
-    elevation: float = Field(default=35.264, ge=0, le=70)
+    elevation: float = Field(
+        default=0.0,
+        ge=0,
+        le=70,
+        description="Hybrid ('render' base) camera pitch in degrees; 0 is a flat, eye-level "
+        "front/back/side elevation matching pixel-agents' own flat sprite views and native "
+        "pixel authoring. Raising it tilts the camera down for an isometric-style look that "
+        "will not match how pixel-agents actually renders the asset.",
+    )
     samples: int = Field(default=32, ge=1, le=256)
     supersampling: int = Field(
         default=4,
@@ -374,7 +382,13 @@ class RenderOptions(Model):
         max_length=32,
         description="Camera views in degrees. pixel-agents: 0=front, 90=right, 180=back, 270=left.",
     )
-    elevation: float = Field(default=35.264, ge=-85, le=85)
+    elevation: float = Field(
+        default=0.0,
+        ge=-85,
+        le=85,
+        description="Camera pitch in degrees; 0 is flat eye-level, matching pixel-agents' own "
+        "flat front/back/side sprite views.",
+    )
     frame_start: int = Field(default=1, ge=0, le=100_000)
     frame_end: int = Field(default=1, ge=0, le=100_000)
     frame_step: int = Field(default=1, ge=1)
