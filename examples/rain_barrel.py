@@ -47,6 +47,19 @@ surround = Canvas.from_rows(["DDDDD.", ".DDD..", "DDDDDD", ".DDDDD", "...DDD", "
 # down by the same 4 rows so it still sits against the body correctly.
 BODY_TOP = 14
 SHIFT = 4
+# The mouth's D fill (barrel-body dark) is only 13 luma units from the webview
+# floor's own dark tile color, and now dominates most of the sprite -- solid D
+# reads as a hole punched through the sprite into the background rather than
+# an opening. Trace a lighter metal-rim highlight (M, already the barrel's
+# hoop-band color) one pixel in from the mouth's outline so it stays a single
+# connected surface but no longer merges with the floor.
+MOUTH = (
+    {(x, y) for x in range(1, 11) for y in range(0, 4)}
+    | {(x, y) for x in range(0, 12) for y in range(4, 9)}
+    | {(x, y) for x in range(1, 11) for y in range(9, 13)}
+)
+DELTAS = ((1, 0), (-1, 0), (0, 1), (0, -1))
+MOUTH_RIM = {p for p in MOUTH if any((p[0] + dx, p[1] + dy) not in MOUTH for dx, dy in DELTAS)}
 for angle in (0, 90, 180, 270):
     art.layer("barrel", angle, body, y=BODY_TOP)
     # Controls belong to the front: the side has a projecting spout, the rear plain staves.
@@ -73,7 +86,8 @@ for angle in (0, 90, 180, 270):
             # A wide, mostly-full mouth (dominant top surface): a 4-row taper,
             # a 5-row wide band, then another 4-row taper -- see it from above.
             opening = Canvas(12, 13)
-            opening.rect(1, 0, 10, 4, "D").rect(0, 4, 12, 5, "D").rect(1, 9, 10, 4, "D")
+            for x, y in MOUTH:
+                opening.rect(x, y, 1, 1, "M" if (x, y) in MOUTH_RIM else "D")
             if level:
                 opening = Canvas(12, 13)
                 opening.rect(1, 0, 10, 4, "C").rect(0, 4, 12, 5, "C").rect(1, 9, 10, 4, "C")

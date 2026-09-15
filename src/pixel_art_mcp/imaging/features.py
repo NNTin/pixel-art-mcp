@@ -5,19 +5,29 @@ from typing import Any
 from PIL import Image
 
 
-def component_count(points: set[tuple[int, int]]) -> int:
+def connected_components(points: set[tuple[int, int]]) -> list[set[tuple[int, int]]]:
     remaining = points.copy()
-    count = 0
+    components = []
     while remaining:
         pending = [remaining.pop()]
-        count += 1
+        component = set(pending)
         while pending:
             x, y = pending.pop()
             for neighbor in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
                 if neighbor in remaining:
                     remaining.remove(neighbor)
+                    component.add(neighbor)
                     pending.append(neighbor)
-    return count
+        components.append(component)
+    return components
+
+
+def component_count(points: set[tuple[int, int]]) -> int:
+    return len(connected_components(points))
+
+
+def largest_component_size(points: set[tuple[int, int]]) -> int:
+    return max((len(component) for component in connected_components(points)), default=0)
 
 
 def composite_features(

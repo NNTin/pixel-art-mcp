@@ -9,7 +9,8 @@ from PIL import Image
 from pixel_art_mcp.assets import get_asset_profile, normalize_asset, resolve_asset
 from pixel_art_mcp.authoring import PixelDefinition
 from pixel_art_mcp.imaging.asset_export import export_asset
-from pixel_art_mcp.imaging.features import composite_features
+from pixel_art_mcp.imaging.context import BACKGROUND_COLOR, luma
+from pixel_art_mcp.imaging.features import composite_features, largest_component_size
 from pixel_art_mcp.imaging.inspection import inspect_sprite
 from pixel_art_mcp.models import AssetSpec
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
@@ -193,6 +194,34 @@ def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
         gauge = next(f for f in features if f["name"] == "level gauge")
         assert faucet["visible_pixels"] == 10 and faucet["components"] == 1
         assert gauge["visible_pixels"] == 28 and gauge["components"] == 1
+
+
+def test_barrel_opening_does_not_merge_into_the_webview_floor(monkeypatch):
+    # Regression: an earlier redraw enlarged the empty-state mouth to a flat
+    # solid fill in the barrel's darkest color, which is close enough in luma
+    # to the webview floor tile that the mouth visually vanished into the
+    # background instead of reading as an opening (see asset_report's
+    # low_context_contrast check, which flags exactly this pattern).
+    art, options = load_example(monkeypatch, "rain-barrel")
+    background_luma = luma(BACKGROUND_COLOR)
+    for angle in (0, 90, 180, 270):
+        for frame in (0, 1, 5, 8):  # the dark "empty" state; "partial"/"full" use water blue.
+            image, _ = composite_features(
+                Image.new("RGBA", (16, 32)), art.poses(angle, frame), art.palette
+            )
+            opaque = similar = 0
+            similar_points = set()
+            for y in range(image.height):
+                for x in range(image.width):
+                    pixel = image.getpixel((x, y))
+                    if not pixel[3]:
+                        continue
+                    opaque += 1
+                    if abs(luma(pixel[:3]) - background_luma) < 16:
+                        similar += 1
+                        similar_points.add((x, y))
+            assert similar / opaque <= 0.85, (angle, frame)
+            assert largest_component_size(similar_points) / opaque <= 0.4, (angle, frame)
 
 
 def test_export_keeps_exact_pixels_and_reports_lost_features(tmp_path):

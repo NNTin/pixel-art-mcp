@@ -96,7 +96,11 @@ an upscaled copy of the exact exported pixels, not a higher-detail source render
 `outline` is rejected with pixel layers; draw outlines explicitly on the native grid.
 
 The rain barrel's 12x13 mouth/opening dominates the top of its 16x32 canvas, matching the
-top-down 3/4 camera; its compressed body starts immediately below at y=14. Its faucet is a
+top-down 3/4 camera; its compressed body starts immediately below at y=14. Its empty-state
+mouth traces a one-pixel metal-rim highlight around the dark interior fill -- the interior
+color alone sits close enough in luma to the webview's own floor tile that a flat, unrimmed
+fill reads as a hole into the background instead of an opening (`asset_report`'s
+`low_context_contrast` finding catches this class of mistake). Its faucet is a
 connected 10-pixel gold glyph; the gauge is a 4x7 frame with a 2x5 interior. A wood gap
 separates them. The opening and fill are broad clusters; rain moves independently above the
 body. Screws, threads and repeated wood texture yield space to these identifying features.
