@@ -16,7 +16,6 @@ from pixel_art_mcp.imaging.gif import save_animated_gif
 from pixel_art_mcp.imaging.inspection import inspect_sprite
 from pixel_art_mcp.imaging.pet import MAX_PET_PNG_BYTES
 from pixel_art_mcp.imaging.pixel_agents import export_pixel_agents
-from pixel_art_mcp.imaging.pixels import pixelate
 from pixel_art_mcp.models import (
     AssetSpec,
     DomainError,
@@ -293,29 +292,14 @@ def export_asset(
             if opened.size != tuple(v * options.supersampling for v in size):
                 raise DomainError("Blender returned wrong asset canvas dimensions")
             source = opened.convert("RGBA")
-        bounds = source.getchannel("A").getbbox()
-        if bounds and (
-            bounds[0] == 0
-            or bounds[1] == 0
-            or bounds[2] == source.width
-            or bounds[3] == source.height
-        ):
-            raise DomainError(
-                f"Geometry reaches render boundary at {entry['angle']}°, frame {entry['frame']}; "
-                "fix anchor or enlarge canvas"
-            )
         sources.append(source)
-    if art.base == "native":
-        rendered = [Image.new("RGBA", size) for size in sizes]
-        palette = list(art.palette.values())
-    else:
-        rendered, palette = pixelate(sources, options, sizes=sizes)
+    rendered = [Image.new("RGBA", size) for size in sizes]
+    palette = list(art.palette.values())
     for index, (entry, im) in enumerate(zip(entries, rendered, strict=True)):
         rendered[index], entry["pixel_features"] = composite_features(
             im, entry["pixel_layers"], art.palette
         )
-        if art.base == "native":
-            sources[index] = rendered[index].resize(sources[index].size, Image.Resampling.NEAREST)
+        sources[index] = rendered[index].resize(sources[index].size, Image.Resampling.NEAREST)
     cells = {(int(e["angle"]), e["frame"]): im for e, im in zip(entries, rendered, strict=True)}
     output.mkdir(parents=True, exist_ok=True)
     write_json(output / "pixel-art.json", art.to_dict())
@@ -386,7 +370,6 @@ def export_asset(
     package = package_asset(output, spec, layouts, cells)
     metadata = {
         "schema_version": 1,
-        "source_kind": "native-grid" if art.base == "native" else "blender-render",
         "pixel_art": "pixel-art.json",
         "project_id": project_id,
         "revision_id": revision_id,

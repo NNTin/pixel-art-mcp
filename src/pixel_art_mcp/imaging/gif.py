@@ -2,7 +2,7 @@
 
 Frames must already be RGBA with binary alpha (0 or 255, as `pixelate()`
 produces) and restricted to the given hex `palette` -- both pixels.py and
-states.py already hold such a palette from `shared_palette()`/`pixelate()`,
+states.py already hold such a palette from `palette_from_samples()`/`pixelate()`,
 so no re-quantization against a freshly derived palette is needed here.
 One extra palette slot (index `len(palette)`) is reserved for transparency,
 which is always available since `RenderOptions.colors` is capped at 255.

@@ -80,9 +80,6 @@ def test_budget_checks_final_ownership_clipping_and_connectivity():
         lambda: PixelArt({".": "#000000", "D": "#ffffff"}, {0: (16, 16)}),
         lambda: PixelArt(PALETTE, {45: (16, 16)}),
         lambda: PixelArt(PALETTE, {0: (16, 16)}).layer("bad", 0, Canvas.from_rows(["X"])),
-        lambda: PixelArt(PALETTE, {0: (16, 16)}).layer(
-            "bad", 0, Canvas.from_rows(["D"]), anchor="x"
-        ),
     ],
 )
 def test_invalid_authoring(operation):
@@ -198,10 +195,9 @@ def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
         assert gauge["visible_pixels"] == 28 and gauge["components"] == 1
 
 
-@pytest.mark.parametrize("base", ["native", "render"])
-def test_export_keeps_exact_pixels_and_reports_lost_features(tmp_path, base, monkeypatch):
+def test_export_keeps_exact_pixels_and_reports_lost_features(tmp_path):
     options = resolve_asset(AssetSpec(kind="furniture", name="Test", asset_id="TEST"))
-    art = PixelArt(PALETTE, {a: (16, 16) for a in (0, 90, 180, 270)}, base=base)
+    art = PixelArt(PALETTE, {a: (16, 16) for a in (0, 90, 180, 270)})
     raw, output = tmp_path / "raw", tmp_path / "out"
     raw.mkdir()
     entries = []
@@ -237,12 +233,6 @@ def test_export_keeps_exact_pixels_and_reports_lost_features(tmp_path, base, mon
                 "pixel_layers": art.poses(angle, 1),
             }
         )
-    if base == "native":
-
-        def forbidden(*args, **kwargs):
-            raise AssertionError("Native artwork must bypass conversion")
-
-        monkeypatch.setattr("pixel_art_mcp.imaging.asset_export.pixelate", forbidden)
     manifest = {
         "frames": entries,
         "pixel_art": art.to_dict(),
@@ -267,8 +257,5 @@ def test_export_keeps_exact_pixels_and_reports_lost_features(tmp_path, base, mon
     entry = metadata["frames"][0]
     with Image.open(output / entry["filename"]) as image:
         assert image.getpixel((5, 5)) == (243, 207, 101, 255)
-        if base == "native":
-            with Image.open(output / entry["source"]) as source:
-                assert (
-                    source.resize(image.size, Image.Resampling.NEAREST).tobytes() == image.tobytes()
-                )
+        with Image.open(output / entry["source"]) as source:
+            assert source.resize(image.size, Image.Resampling.NEAREST).tobytes() == image.tobytes()

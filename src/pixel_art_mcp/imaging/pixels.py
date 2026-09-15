@@ -16,22 +16,6 @@ from pixel_art_mcp.imaging.player import export_player
 from pixel_art_mcp.models import DomainError, RenderOptions
 
 
-def shared_palette(frames: list[Image.Image], options: RenderOptions) -> list[tuple[int, int, int]]:
-    if options.palette:
-        return [tuple(bytes.fromhex(color[1:])) for color in options.palette]  # type: ignore[misc]
-    # Sample evenly across every frame, excluding transparent pixels.
-    stride = max(1, math.ceil(sum(im.width * im.height for im in frames) / 262_144))
-    samples: list[tuple[int, int, int]] = []
-    for im in frames:
-        raw_pixels = im.tobytes()
-        samples.extend(
-            (raw_pixels[i], raw_pixels[i + 1], raw_pixels[i + 2])
-            for i in range(0, len(raw_pixels), stride * 4)
-            if raw_pixels[i + 3] != 0
-        )
-    return palette_from_samples(samples, options)
-
-
 def palette_from_samples(
     samples: list[tuple[int, int, int]], options: RenderOptions
 ) -> list[tuple[int, int, int]]:
@@ -109,28 +93,18 @@ def pixelate(
     target_sizes = sizes if sizes is not None else repeat((options.width, options.height))
     for original, size in zip(frames, target_sizes, strict=False):
         source = original.convert("RGBA")
-        if options.downscale_mode == "crisp" and options.palette is None:
+        if options.palette is None:
             source_samples.extend(
                 sample_source_colors(source, sample_budget, options.alpha_threshold)
             )
         sources.append((source, size))
-    colors = (
-        palette_from_samples(source_samples, options)
-        if options.downscale_mode == "crisp" and options.palette is None
-        else shared_palette(
-            [im.resize(size, Image.Resampling.BOX) for im, size in sources], options
-        )
-    )
+    colors = palette_from_samples(source_samples, options)
     palette = Image.new("P", (1, 1))
     padded = colors + [colors[0]] * (256 - len(colors))
     palette.putpalette([channel for color in padded for channel in color])
     outputs = []
     for source, size in sources:
-        im = (
-            _cell_vote(source, size, palette)
-            if options.downscale_mode == "crisp"
-            else source.resize(size, Image.Resampling.BOX)
-        )
+        im = _cell_vote(source, size, palette)
         quantized = im.convert("RGB").quantize(palette=palette, dither=Image.Dither.NONE)
         result = quantized.convert("RGBA")
         alpha = im.getchannel("A").point(lambda a: 255 if a >= options.alpha_threshold else 0)

@@ -122,12 +122,9 @@ def resolve_asset(spec: AssetSpec, configuration_id: str | None = None) -> Rende
         fps=5,
         colors=spec.colors,
         palette=spec.palette,
-        samples=spec.samples,
         supersampling=spec.supersampling,
         meters_per_tile=None,
         padding=0,
-        elevation=spec.elevation,
-        lighting="scene" if spec.shading == "scene" else "studio",
     )
 
 
@@ -166,7 +163,6 @@ def get_asset_profile(
     layouts = asset_layouts(spec)
     starter: dict[str, Any] = {
         "version": 1,
-        "base": "native",
         "palette": {"D": "#293039", "G": "#f3cf65"},
         "layers": [
             {
@@ -268,7 +264,7 @@ def get_asset_profile(
             "views": "Use only configured angles. The server derives exact canvas dimensions.",
             "layers": "Ordered back to front. Exact-frame pose replaces the null-frame default; "
             "without a default a layer is hidden in unspecified frames. Every view/frame needs "
-            "a resolved pose; native mode also needs visible ink.",
+            "a resolved pose with visible ink.",
             "editing": "get_pixel_art returns definition and revision_id. Use edit_pixel_art "
             "for targeted move_pose/set_pose/delete_pose/set_layer/delete_layer/set_palette "
             "operations with expected_revision_id=revision_id. Untouched source is preserved. "
@@ -295,10 +291,6 @@ def get_asset_profile(
             "2px thickness for identifying details before texture. Exaggerate a faucet or gauge; "
             "simplify nonessential parts. More colors cannot add pixels. Do not enlarge native "
             "resolution. min_pixels and connected measure visibility after all layers are drawn.",
-            "base": "native authors the complete sprite. render overlays pixels on geometry made "
-            "with execute_blender_python; both require pixel layers. Hybrid anchors name existing "
-            "objects: patches follow projected origins but are not depth-tested, rotated or "
-            "scaled.",
             "palette": "2..64 distinct alphanumeric-symbol-to-#RRGGBB colors within the configured "
             "budget. This palette is fixed for every frame/view. Draw outlines explicitly; "
             "configure_asset.outline must be false.",
@@ -347,14 +339,6 @@ def get_asset_profile(
             "Decode each chunk separately and concatenate raw bytes until next_offset=null. "
             "Saving locally requires client attachment support.",
         },
-        "modeling": [
-            "+Z is up; front faces -Y. Model near the origin with named parts.",
-            "Game sizing fits the silhouette, independently of meters. Exaggerate thin features.",
-            "Use broad colors and simple geometry; aim for features at least 2 pixels wide.",
-            "All poses share a scale and stable framing. Keep locomotion in place.",
-            "Default alignment uses the union of visible bounds. anchor_object optionally fixes a "
-            "named ground-contact point near bottom-center, with 2px reserved below the anchor.",
-        ],
         "animation": {
             "furniture": "Each clip is a variant. Animated clips require off_frame; on plays at "
             "5 fps near working agents, otherwise off is shown.",

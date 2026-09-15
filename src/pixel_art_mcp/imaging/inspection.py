@@ -271,11 +271,10 @@ def inspect_sprite(
         "angle": entry["angle"],
         "frame": entry["frame"],
         "filename": entry["filename"],
-        "source_kind": metadata.get("source_kind", "blender-render"),
         "pixel_features": entry.get("pixel_features", []),
         "size": [width, height],
         "pivot": entry["pivot"],
-        "downscale_mode": metadata["settings"].get("downscale_mode", "average"),
+        "downscale_mode": metadata["settings"].get("downscale_mode", "crisp"),
         "analysis": {
             "occupied_pixels": len(occupied),
             "transparent_pixels": width * height - len(occupied),

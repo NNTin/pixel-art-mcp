@@ -35,7 +35,6 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         definitions = tools["write_pixel_art"]["inputSchema"]["$defs"]
         assert set(definitions["PixelDefinition"]["properties"]) == {
             "version",
-            "base",
             "palette",
             "layers",
         }

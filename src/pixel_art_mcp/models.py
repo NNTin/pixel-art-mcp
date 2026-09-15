@@ -250,7 +250,6 @@ class AssetSpec(Model):
         "Extra rows are nonblocking background. Prefer background_tiles; do not increase pixel "
         "density.",
     )
-    anchor_object: str | None = Field(default=None, min_length=1, max_length=120)
     clips: dict[str, AssetClip] = Field(default_factory=dict, max_length=16)
     colors: int = Field(default=16, ge=2, le=64, description="Maximum authored palette size.")
     palette: list[str] | None = Field(
@@ -259,29 +258,16 @@ class AssetSpec(Model):
         max_length=64,
         description="Optional fixed hex colors; write_pixel_art.palette must match exactly.",
     )
-    shading: Literal["game", "studio", "scene"] = Field(
-        default="game",
-        description="Hybrid geometry shading only; native pixels are unchanged.",
-    )
     outline: Literal[False] = Field(
         default=False,
         description="Must be false. Draw outlines explicitly in required pixel layers.",
     )
-    elevation: float = Field(
-        default=0.0,
-        ge=0,
-        le=70,
-        description="Hybrid ('render' base) camera pitch in degrees; 0 is a flat, eye-level "
-        "front/back/side elevation matching pixel-agents' own flat sprite views and native "
-        "pixel authoring. Raising it tilts the camera down for an isometric-style look that "
-        "will not match how pixel-agents actually renders the asset.",
-    )
-    samples: int = Field(default=32, ge=1, le=256)
     supersampling: int = Field(
         default=4,
         ge=1,
         le=4,
-        description="Hybrid source render scale. Never increases or resamples authored pixels.",
+        description="Scale factor for the exported high-resolution comparison image. Never "
+        "increases or resamples authored pixels.",
     )
 
     @model_validator(mode="after")
@@ -382,13 +368,6 @@ class RenderOptions(Model):
         max_length=32,
         description="Camera views in degrees. pixel-agents: 0=front, 90=right, 180=back, 270=left.",
     )
-    elevation: float = Field(
-        default=0.0,
-        ge=-85,
-        le=85,
-        description="Camera pitch in degrees; 0 is flat eye-level, matching pixel-agents' own "
-        "flat front/back/side sprite views.",
-    )
     frame_start: int = Field(default=1, ge=0, le=100_000)
     frame_end: int = Field(default=1, ge=0, le=100_000)
     frame_step: int = Field(default=1, ge=1)
@@ -400,11 +379,11 @@ class RenderOptions(Model):
     )
     colors: int = Field(default=32, ge=2, le=255)
     palette: list[str] | None = Field(default=None, min_length=2, max_length=255)
-    downscale_mode: Literal["crisp", "average"] = Field(
+    downscale_mode: Literal["crisp"] = Field(
         default="crisp",
-        description="crisp classifies source pixels against one shared palette, then uses local "
-        "alpha-weighted color votes without per-frame clustering. average is a BOX-filter "
-        "comparison path. Native PixelArt layers bypass conversion.",
+        description="Classifies source pixels against one shared palette, then uses local "
+        "alpha-weighted color votes without per-frame clustering. Native PixelArt layers "
+        "bypass conversion.",
     )
     supersampling: int = Field(
         default=4,
@@ -414,8 +393,6 @@ class RenderOptions(Model):
         "genuine higher-resolution reference in preview.html; 1 disables that comparison.",
     )
     alpha_threshold: int = Field(default=128, ge=1, le=255)
-    samples: int = Field(default=32, ge=1, le=256)
-    lighting: Literal["studio", "scene"] = "studio"
     padding: float = Field(default=0.1, ge=0, le=0.5)
     meters_per_tile: float | None = Field(
         default=1.0,

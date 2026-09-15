@@ -86,16 +86,11 @@ class Canvas:
 class PixelArt:
     """Named, ordered layers with explicit per-view/per-frame pixel poses.
 
-    Native mode replaces geometry. Render mode overlays exact pixels on geometry;
-    an optional object anchor moves a patch with its projected origin. These are
-    finishing layers, not depth-tested textures: author only the visible views.
+    Every layer draws the complete sprite through pixel helpers: these are
+    finishing layers, not depth-tested textures, so author only the visible views.
     """
 
-    def __init__(
-        self, palette: dict[str, str], views: dict[int, tuple[int, int]], *, base: str = "native"
-    ):
-        if base not in {"native", "render"}:
-            raise ValueError("Pixel art base must be native or render")
+    def __init__(self, palette: dict[str, str], views: dict[int, tuple[int, int]]):
         if not 2 <= len(palette) <= 64 or any(
             len(k) != 1 or k == "." or not re.fullmatch(r"#[0-9a-fA-F]{6}", v)
             for k, v in palette.items()
@@ -112,7 +107,6 @@ class PixelArt:
             raise ValueError("Declare each consumer view and its native canvas")
         self.palette = {k: v.lower() for k, v in palette.items()}
         self.views = {str(k): list(v) for k, v in views.items()}
-        self.base = base
         self.layers: list[dict[str, Any]] = []
 
     def layer(
@@ -124,7 +118,6 @@ class PixelArt:
         x: int = 0,
         y: int = 0,
         frame: int | None = None,
-        anchor: str | None = None,
         min_pixels: int = 0,
         connected: bool = False,
     ) -> "PixelArt":
@@ -134,8 +127,6 @@ class PixelArt:
             raise ValueError("Offsets and pixel budgets must be integers")
         if frame is not None and (type(frame) is not int or not 0 <= frame <= 1_000_000):
             raise ValueError("Invalid pose frame")
-        if anchor is not None and (self.base != "render" or not anchor):
-            raise ValueError("Object anchors require render mode and a nonempty object name")
         if any(c not in self.palette and c != "." for row in canvas.rows for c in row):
             raise ValueError("Unknown palette symbol in pixel layer")
         layer = next((item for item in self.layers if item["name"] == name), None)
@@ -148,7 +139,6 @@ class PixelArt:
             "rows": canvas.rows,
             "x": x,
             "y": y,
-            "anchor": anchor,
             "min_pixels": min_pixels,
             "connected": connected,
         }
@@ -169,7 +159,6 @@ class PixelArt:
     def to_dict(self) -> dict[str, Any]:
         return {
             "version": 1,
-            "base": self.base,
             "palette": self.palette,
             "views": self.views,
             "layers": self.layers,
@@ -180,7 +169,6 @@ class PixelArt:
         layouts: list[dict[str, Any]],
         frames: list[int],
         spec: dict[str, Any],
-        object_names: set[str] | None = None,
     ) -> None:
         expected = {str(v["angle"]): [v["width"], v["height"]] for v in layouts}
         if self.views != expected:
@@ -202,19 +190,12 @@ class PixelArt:
             for row in p["rows"]
             for c in row
         ):
-            raise ValueError("Pixel layers must contain authored ink, including in render mode")
+            raise ValueError("Pixel layers must contain authored ink")
         for layer in self.layers:
             for pose in layer["poses"]:
                 w, h = expected[str(pose["angle"])]
                 if len(pose["rows"]) > h or len(pose["rows"][0]) > w:
                     raise ValueError(f"Patch in {layer['name']!r} exceeds its view dimensions")
-                if (
-                    pose["anchor"]
-                    and object_names is not None
-                    and pose["anchor"] not in object_names
-                ):
-                    raise ValueError(f"Unknown pixel anchor {pose['anchor']!r}")
-        used_ink = False
         for layout in layouts:
             for frame in frames:
                 poses = self.poses(layout["angle"], frame)
@@ -225,29 +206,20 @@ class PixelArt:
                     )
                 ink = any(
                     c != "."
-                    and (
-                        p["anchor"] is not None
-                        or (
-                            0 <= p["x"] + x < layout["width"] and 0 <= p["y"] + y < layout["height"]
-                        )
-                    )
+                    and 0 <= p["x"] + x < layout["width"]
+                    and 0 <= p["y"] + y < layout["height"]
                     for p in poses
                     for y, row in enumerate(p["rows"])
                     for x, c in enumerate(row)
                 )
-                used_ink |= ink
-                if self.base == "native" and not ink:
-                    raise ValueError(f"Empty native pose at angle {layout['angle']}, frame {frame}")
-        if not used_ink:
-            raise ValueError("Configured frames must use authored ink inside their canvases")
+                if not ink:
+                    raise ValueError(f"Empty pose at angle {layout['angle']}, frame {frame}")
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PixelArt":
         if data.get("version") != 1:
             raise ValueError("Unsupported pixel art version")
-        art = cls(
-            data["palette"], {int(k): tuple(v) for k, v in data["views"].items()}, base=data["base"]
-        )
+        art = cls(data["palette"], {int(k): tuple(v) for k, v in data["views"].items()})
         for layer in data["layers"]:
             for pose in layer["poses"]:
                 values = {k: v for k, v in pose.items() if k != "rows"}

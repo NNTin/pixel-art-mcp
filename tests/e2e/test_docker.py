@@ -56,7 +56,6 @@ async def test_thermometer_json_example_roundtrip(example_dir):
         await client.initialize()
         project, result = await generate_example(client, example_dir, "thermometer")
         source = await client.data("get_pixel_art", {"project_id": project["id"]})
-        assert source["definition"]["base"] == "native"
         assert source["authored_views"] == {str(a): [16, 32] for a in (0, 90, 180, 270)}
         report = await client.data("inspect_asset", {"job_id": result["id"]})
         assert len(report["frames"]) == 12 and report["findings"] == []
@@ -80,7 +79,6 @@ async def test_thermometer_json_example_roundtrip(example_dir):
                 },
             )
         )["metadata"]
-        assert metadata["source_kind"] == "native-grid"
         assert len(metadata["frames"]) == 12
 
 
@@ -115,124 +113,8 @@ async def test_docker_reference_and_saved_pixel_layer_edit(png, example_dir):
             assert any(layer["name"] == "body" for layer in art["layers"])
             metadata = json.loads(archive.read("spritesheet.json"))
             assert metadata["size"] == [16, 128]
-            assert metadata["source_kind"] == "native-grid"
             assert all(not f["issues"] for e in metadata["frames"] for f in e["pixel_features"])
             assert len({archive.read(e["filename"]) for e in metadata["frames"]}) == 4
-
-
-async def test_docker_hybrid_badge_follows_object_without_resampling(example_dir):
-    url = os.environ.get("PIXEL_E2E_URL")
-    if not url:
-        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
-    async with httpx.AsyncClient(base_url=url, timeout=60) as http:
-        client = MCPClient(http)
-        await client.initialize()
-        _, result = await generate_example(client, example_dir, "bobbing-cube")
-        downloaded = await http.get(result["outputs"]["sprites.zip"]["download_url"])
-        with zipfile.ZipFile(io.BytesIO(downloaded.content)) as archive:
-            metadata = json.loads(archive.read("spritesheet.json"))
-            art = json.loads(archive.read("pixel-art.json"))
-            assert metadata["source_kind"] == "blender-render"
-            assert len(metadata["frames"]) == 32
-            ys = set()
-            for entry in metadata["frames"]:
-                patch = entry["pixel_layers"][0]
-                feature = entry["pixel_features"][0]
-                assert feature["visible_pixels"] == 21 and feature["components"] == 1
-                assert not feature["issues"]
-                ys.add(patch["y"])
-                with Image.open(io.BytesIO(archive.read(entry["filename"]))) as sprite:
-                    for y, row in enumerate(patch["rows"]):
-                        for x, symbol in enumerate(row):
-                            if symbol != ".":
-                                expected = (*bytes.fromhex(art["palette"][symbol][1:]), 255)
-                                assert sprite.getpixel((patch["x"] + x, patch["y"] + y)) == expected
-            assert len(ys) > 1
-
-
-async def test_docker_hybrid_curve_framing_and_missing_anchor():
-    url = os.environ.get("PIXEL_E2E_URL")
-    if not url:
-        pytest.skip("Set PIXEL_E2E_URL to a running Docker service")
-    async with httpx.AsyncClient(base_url=url, timeout=60) as http:
-        client = MCPClient(http)
-        await client.initialize()
-        project = await client.data("create_project", {"name": "Curve framing regression"})
-        profile = await client.data("get_asset_profile", {"kind": "furniture"})
-        await client.data(
-            "configure_asset",
-            {
-                "project_id": project["id"],
-                "specification": profile["specification"],
-            },
-        )
-        creation = await client.data(
-            "execute_blender_python",
-            {
-                "project_id": project["id"],
-                "expected_revision_id": None,
-                "script": """import bpy
-bpy.ops.curve.primitive_bezier_circle_add(radius=0.4, location=(0, 0, 0.5))
-ring = bpy.context.object
-ring.name = "Ring"
-ring.data.bevel_depth = 0.03
-ring.data.bevel_resolution = 2
-""",
-            },
-        )
-        created = await client.wait(creation["id"])
-        assert (await client.call("render_asset", {"project_id": project["id"]}, allow_error=True))[
-            "isError"
-        ]
-        definition = profile["pixel_authoring"]["example_definition"]
-        definition["base"] = "render"
-        for pose in definition["layers"][0]["poses"]:
-            pose.update(anchor="Missing", x=0, y=0, rows=["GG", "GG"], min_pixels=4)
-        job = await client.data(
-            "write_pixel_art",
-            {
-                "project_id": project["id"],
-                "definition": definition,
-                "expected_revision_id": created["result_revision_id"],
-            },
-        )
-        failed = await client.data("wait_for_job", {"job_id": job["id"]})
-        assert failed["status"] == "failed" and "Unknown pixel anchor" in failed["logs"]
-        scene = await client.data("get_project", {"project_id": project["id"]})
-        assert scene["project"]["current_revision_id"] == created["result_revision_id"]
-        for pose in definition["layers"][0]["poses"]:
-            pose["anchor"] = "Ring"
-        job = await client.data(
-            "write_pixel_art",
-            {
-                "project_id": project["id"],
-                "definition": definition,
-                "expected_revision_id": created["result_revision_id"],
-            },
-        )
-        await client.wait(job["id"])
-        completed = await client.wait(
-            (
-                await client.data(
-                    "render_asset",
-                    {
-                        "project_id": project["id"],
-                    },
-                )
-            )["id"]
-        )
-        metadata = (
-            await client.data(
-                "get_artifact",
-                {
-                    "artifact_id": completed["outputs"]["spritesheet.json"]["id"],
-                },
-            )
-        )["metadata"]
-        # A 0.86-unit visible diameter should nearly span the 14px usable canvas width.
-        # Including curve control geometry incorrectly shrinks the visible ring.
-        assert 15 < metadata["camera"]["pixels_per_unit"] < 18
-        assert metadata["source_kind"] == "blender-render"
 
 
 @pytest.mark.parametrize(
@@ -263,7 +145,6 @@ async def test_native_animated_packages(example_dir, key, archive_name):
                 "disconnected_silhouette"
             }
             assert report["status"] == ("review" if report["findings"] else "checks_passed")
-            assert metadata["source_kind"] == "native-grid"
             assert all(not f["issues"] for e in metadata["frames"] for f in e["pixel_features"])
             with zipfile.ZipFile(io.BytesIO(archive.read(archive_name))) as target:
                 assert target.testzip() is None
@@ -305,7 +186,6 @@ async def test_game_asset_workflow_in_docker(example_dir, kind, script, preset):
                     "asset_id": "FIXTURE",
                     "name": "Fixture",
                     "preset": preset,
-                    "samples": 8,
                 },
             },
         )

@@ -1,7 +1,6 @@
 """Blender entrypoint. Uses only Blender's bundled Python and bpy; no app imports."""
 
 import json
-import math
 import sys
 import traceback
 from pathlib import Path
@@ -56,90 +55,19 @@ def scene_summary():
     }
 
 
-def camera_basis(angle, elevation):
-    az, el = math.radians(angle), math.radians(elevation)
-    outward = Vector((math.sin(az) * math.cos(el), -math.cos(az) * math.cos(el), math.sin(el)))
-    rotation = (-outward).to_track_quat("-Z", "Y")
-    return outward, rotation, rotation @ Vector((1, 0, 0)), rotation @ Vector((0, 1, 0))
-
-
-def evaluated_corners(named=None):
-    graph = bpy.context.evaluated_depsgraph_get()
-    points = []
-    local_bounds = {}
-    for instance in graph.object_instances:
-        obj = instance.object
-        if obj.type not in {"MESH", "CURVE", "SURFACE", "FONT", "META", "VOLUME"}:
-            continue
-        if obj.original.hide_render:
-            continue
-        # Generated curve mesh objects are temporary: Blender reuses their pointers while
-        # iterating. Key by the stable original object and evaluated type, or one curve's
-        # bounds can be applied to another curve (and shift/resize the whole export).
-        key = (obj.original.as_pointer(), obj.type)
-        if key not in local_bounds:
-            if obj.type in {"CURVE", "SURFACE", "FONT", "META"}:
-                # Blender can expose both a legacy curve and its generated mesh instance.
-                # The curve's evaluated bound_box may include non-rendered control geometry
-                # and a unit-sized fallback, dwarfing a small bevel. Bound its visible mesh.
-                mesh = obj.to_mesh()
-                try:
-                    if mesh is None or not mesh.vertices:
-                        local_bounds[key] = []
-                    else:
-                        low = [min(v.co[axis] for v in mesh.vertices) for axis in range(3)]
-                        high = [max(v.co[axis] for v in mesh.vertices) for axis in range(3)]
-                        local_bounds[key] = [
-                            Vector((x, y, z))
-                            for x in (low[0], high[0])
-                            for y in (low[1], high[1])
-                            for z in (low[2], high[2])
-                        ]
-                finally:
-                    obj.to_mesh_clear()
-            else:
-                local_bounds[key] = [Vector(p) for p in obj.bound_box]
-        world = [instance.matrix_world @ point for point in local_bounds[key]]
-        points.extend(world)
-        if named is not None:
-            named.setdefault(obj.original.name, []).extend(world)
-    return points
-
-
 def render(request, output):
     options = request["options"]
     if not options.get("asset"):
         raise ValueError("Use configure_asset, write_pixel_art and render_asset")
     scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    scene.cycles.device = "CPU"
-    scene.cycles.samples = options["samples"]
-    scene.cycles.use_denoising = False
-    scene.cycles.use_adaptive_sampling = False
-    scene.cycles.seed = 0
-    scene.cycles.use_animated_seed = False
-    scene.render.film_transparent = True
-    scene.render.use_motion_blur = False
-    scene.render.use_compositing = False
-    scene.render.use_sequencer = False
-    scene.render.use_border = False
-    scene.render.use_multiview = False
-    scene.render.dither_intensity = 0
-    scene.render.resolution_percentage = 100
-    scene.render.resolution_x = options["width"] * options["supersampling"]
-    scene.render.resolution_y = options["height"] * options["supersampling"]
-    scene.render.pixel_aspect_x = scene.render.pixel_aspect_y = 1
-    scene.render.image_settings.file_format = "PNG"
-    scene.render.image_settings.color_mode = "RGBA"
-    scene.render.image_settings.color_depth = "8"
-    scene.view_settings.view_transform = "Standard"
-    scene.view_settings.look = "None"
-    scene.view_settings.exposure = 0
-    scene.view_settings.gamma = 1
+    if "pixel_art" not in scene:
+        raise ValueError("Call write_pixel_art before rendering")
+    art = PixelArt.load(scene)
+    art.validate_target(options["asset_layouts"], options["frame_sequence"], options["asset"])
 
-    from game_renderer import render_game
+    from game_renderer import native_render
 
-    return render_game(scene, options, output, evaluated_corners, camera_basis, progress)
+    return native_render(scene, options, output, art, progress)
 
 
 def main():
@@ -171,7 +99,6 @@ def main():
                 options["asset_layouts"],
                 options["frame_sequence"],
                 options["asset"],
-                {obj.name for obj in scene.objects},
             )
         elif request.get("pixel_art_required"):
             raise ValueError("A required pixel-art definition cannot be removed")

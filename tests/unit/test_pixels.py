@@ -55,28 +55,15 @@ def test_crisp_stationary_pixels_do_not_change_when_remote_region_animates():
     assert len({image.crop((0, 0, 16, 8)).tobytes() for image in images}) > 1
 
 
-def test_crisp_downscale_uses_source_colors_instead_of_inventing_average_colors():
+def test_downscale_uses_exact_source_colors_not_invented_averages():
     source = Image.new("RGBA", (16, 16), (255, 0, 0, 255))
     for x in range(1, 16, 2):
         ImageDraw.Draw(source).line((x, 0, x, 15), fill=(0, 0, 255, 255))
-    average, average_palette = pixelate(
-        [source],
-        RenderOptions(
-            width=8,
-            height=8,
-            angles=[0],
-            supersampling=2,
-            colors=2,
-            downscale_mode="average",
-        ),
-    )
     crisp, crisp_palette = pixelate(
         [source],
         RenderOptions(width=8, height=8, angles=[0], supersampling=2, colors=2),
     )
-    source_colors = {"#ff0000", "#0000ff"}
-    assert not set(average_palette) <= source_colors
-    assert set(crisp_palette) == source_colors
+    assert set(crisp_palette) == {"#ff0000", "#0000ff"}
     assert {pixel[:3] for pixel in crisp[0].get_flattened_data()} <= {
         (255, 0, 0),
         (0, 0, 255),
@@ -212,7 +199,6 @@ def test_animation_pixels_timing_transparency_and_offline_player(tmp_path, frame
     [
         {"angles": [0, 360]},
         {"angles": [float("nan")]},
-        {"elevation": float("inf")},
         {"frame_start": 10, "frame_end": 1},
         {"width": 0},
         {"palette": ["red", "#ffffff"]},

@@ -1,6 +1,5 @@
 {
   "version": 1,
-  "base": "native",
   "palette": {
     "D": "#253541",
     "S": "#7998a1",
