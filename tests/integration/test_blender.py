@@ -30,7 +30,7 @@ async def test_real_chair_edit_and_animated_sprite_export(service, example_dir, 
         created = await wait_job(service, str(job.id), 120)
         assert created.status == "succeeded", created
         summary = service.revision(project_id)["summary"]
-        assert any(layer["name"] == "seat" for layer in summary["pixel_art"]["layers"])
+        assert any(layer["name"] == "body" for layer in summary["pixel_art"]["layers"])
         edited = service.submit_script(
             project_id,
             (example_dir / "modify_chair.py").read_text(),
