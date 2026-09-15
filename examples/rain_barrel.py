@@ -33,6 +33,10 @@ body = Canvas.from_rows(
         "..DHWWWWWWWSSD..",
         "..DHWWWWWWWSSD..",
         "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
         "...DWWWWWWWSD...",
         "...DDDDDDDDDD...",
         "...DDDDDDDDDD...",
@@ -41,18 +45,32 @@ body = Canvas.from_rows(
 )
 tap = Canvas.from_rows([".GGG..", "..G...", ".GGGG.", "....G.", "....G."])
 surround = Canvas.from_rows(["DDDDD.", ".DDD..", "DDDDDD", ".DDDDD", "...DDD", "....D."])
-# Feature-budget shift: the barrel body now starts 4 rows lower (y=14 instead
-# of y=10) to make room for the enlarged opening above it -- every small
-# accessory attached to the body (tap, gauge, side spout, rear seams) moves
-# down by the same 4 rows so it still sits against the body correctly.
-BODY_TOP = 14
-SHIFT = 4
+# The body is 20 rows tall (was 16), for a taller, more cylindrical barrel
+# rather than one squashed short by an oversized mouth. BODY_TOP keeps the
+# body's bottom at the same y=29 it always had (10 + 20 - 1).
+BODY_TOP = 10
+# The mouth is narrower than the body (8 wide at its band, vs. the body's 12)
+# and sits low enough to overlap the body's own H highlight collar (rows 1-3
+# of `body`, immediately below BODY_TOP): that collar is wider than the mouth,
+# so it shows through on both sides as a wood-toned rim framing the opening --
+# the same technique the pre-#22 design used to make the mouth read as a hole
+# in the barrel rather than a flat patch sitting on top of it. Without this
+# overlap the mouth had no visible frame and the faucet/gauge, offset from a
+# stale pre-shrink BODY_TOP, sat far lower on the body than intended.
+MOUTH = (
+    {(x, y) for x in range(2, 9) for y in range(0, 2)}
+    | {(x, y) for x in range(1, 10) for y in range(2, 5)}
+    | {(x, y) for x in range(2, 9) for y in range(5, 7)}
+)
+DELTAS = ((1, 0), (-1, 0), (0, 1), (0, -1))
+MOUTH_RIM = {p for p in MOUTH if any((p[0] + dx, p[1] + dy) not in MOUTH for dx, dy in DELTAS)}
 for angle in (0, 90, 180, 270):
     art.layer("barrel", angle, body, y=BODY_TOP)
-    # Controls belong to the front: the side has a projecting spout, the rear plain staves.
+    # Controls sit in the mid-band of staves, not crammed against the bottom
+    # rim -- these are absolute canvas offsets, independent of BODY_TOP.
     if angle == 0:
-        art.layer("tap surround", angle, surround, x=2, y=19 + SHIFT)
-        art.layer("faucet", angle, tap, x=2, y=19 + SHIFT, min_pixels=10, connected=True)
+        art.layer("tap surround", angle, surround, x=2, y=19)
+        art.layer("faucet", angle, tap, x=2, y=19, min_pixels=10, connected=True)
     elif angle in (90, 270):
         side = Canvas.from_rows(["GG.", ".G.", ".GG", "..G"])
         art.layer(
@@ -60,26 +78,38 @@ for angle in (0, 90, 180, 270):
             angle,
             side if angle == 90 else side.mirrored(),
             x=12 if angle == 90 else 1,
-            y=20 + SHIFT,
+            y=20,
             min_pixels=6,
             connected=True,
         )
     else:
         seams = Canvas(5, 7).rect(0, 0, 1, 7, "S").rect(4, 0, 1, 7, "S")
-        art.layer("rear staves", angle, seams, x=6, y=18 + SHIFT)
+        art.layer("rear staves", angle, seams, x=6, y=18)
     for level in range(3):
         for phase in range(9):
             frame = level * 10 + phase
-            # A wide, mostly-full mouth (dominant top surface): a 4-row taper,
-            # a 5-row wide band, then another 4-row taper -- see it from above.
-            opening = Canvas(12, 13)
-            opening.rect(1, 0, 10, 4, "D").rect(0, 4, 12, 5, "D").rect(1, 9, 10, 4, "D")
+            # A wide mouth seen from above: a 2-row taper, a 3-row wide band,
+            # then another 2-row taper. Sits low enough (y=6, not y=2) to
+            # overlap the body's own H highlight collar, which is wider than
+            # the mouth and frames it in wood on both sides.
+            #
+            # Rows below `waterline` are wet (C); above it, dry (D, with the
+            # same M rim as the empty state where exposed against open
+            # background). Partial and full must show different water lines
+            # -- filling the whole mouth for both looked identical and hid
+            # which state was which.
+            waterline = {0: 7, 1: 3, 2: 0}[level]
+            opening = Canvas(12, 7)
+            for x, y in MOUTH:
+                if y < waterline:
+                    opening.rect(x, y, 1, 1, "M" if (x, y) in MOUTH_RIM and y < 4 else "D")
+                else:
+                    opening.rect(x, y, 1, 1, "C")
             if level:
-                opening = Canvas(12, 13)
-                opening.rect(1, 0, 10, 4, "C").rect(0, 4, 12, 5, "C").rect(1, 9, 10, 4, "C")
-                opening.rect(3 + (phase % 2), 0, 5, 4, "L")
+                glint_y = max(waterline, 0)
+                opening.rect(2 + (phase % 2), glint_y, 5, min(2, 7 - glint_y), "L")
             art.layer(
-                "opening", angle, opening, x=2, y=2, frame=frame, min_pixels=60, connected=True
+                "opening", angle, opening, x=2, y=6, frame=frame, min_pixels=45, connected=True
             )
             if angle == 0:
                 gauge = Canvas(4, 7).rect(0, 0, 4, 7, "D").rect(1, 1, 2, 5, "M")
@@ -91,7 +121,7 @@ for angle in (0, 90, 180, 270):
                     angle,
                     gauge,
                     x=9,
-                    y=18 + SHIFT,
+                    y=18,
                     frame=frame,
                     min_pixels=28,
                     connected=True,

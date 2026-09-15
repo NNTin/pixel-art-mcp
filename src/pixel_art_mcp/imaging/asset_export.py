@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from PIL import Image
@@ -10,8 +10,8 @@ from PIL import Image
 from pixel_art_mcp.assets import clip_duration_ms, clip_playback
 from pixel_art_mcp.authoring import validated_art
 from pixel_art_mcp.imaging.character import export_character
-from pixel_art_mcp.imaging.context import export_context
-from pixel_art_mcp.imaging.features import composite_features
+from pixel_art_mcp.imaging.context import BACKGROUND_COLOR, export_context, luma
+from pixel_art_mcp.imaging.features import composite_features, largest_component_size
 from pixel_art_mcp.imaging.gif import save_animated_gif
 from pixel_art_mcp.imaging.inspection import inspect_sprite
 from pixel_art_mcp.imaging.pet import MAX_PET_PNG_BYTES
@@ -166,17 +166,25 @@ def asset_report(output: Path, metadata: dict[str, Any]) -> dict[str, Any]:
                     }
                 )
         with Image.open(output / entry["filename"]) as image:
-            opaque = [
-                p
-                for p in image.convert("RGBA").get_flattened_data()
-                if isinstance(p, tuple) and p[3]
-            ]
-        background_luma = 0.2126 * 52 + 0.7152 * 62 + 0.0722 * 66
-        similar = sum(
-            abs(0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2] - background_luma) < 16
-            for p in opaque
-        )
-        if similar / len(opaque) > 0.85:
+            rgba = image.convert("RGBA")
+            width = rgba.width
+            pixels = cast(list[tuple[int, int, int, int]], list(rgba.get_flattened_data()))
+        background_luma = luma(BACKGROUND_COLOR)
+        opaque_count = 0
+        similar_points = set()
+        for index, pixel in enumerate(pixels):
+            if not pixel[3]:
+                continue
+            opaque_count += 1
+            if abs(luma(pixel[:3]) - background_luma) < 16:
+                similar_points.add((index % width, index // width))
+        # A sprite can stay under the overall-similarity ratio yet still read as
+        # broken if one solid patch (not just scattered dark pixels) merges into
+        # the floor -- e.g. a single oversized dark fill -- so check both.
+        if opaque_count and (
+            len(similar_points) / opaque_count > 0.85
+            or largest_component_size(similar_points) / opaque_count > 0.4
+        ):
             findings.append(
                 {
                     "code": "low_context_contrast",
