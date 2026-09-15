@@ -173,7 +173,7 @@
       "kind": "furniture",
       "name": "Thermometer",
       "asset_id": "THERMOMETER",
-      "preset": "chair",
+      "preset": "prop",
       "placement": "wall",
       "category": "wall",
       "colors": 8,
@@ -182,6 +182,21 @@
         "room": {"name": "Room", "frames": [2]},
         "hot": {"name": "Hot", "frames": [3]}
       }
+    }
+  },
+  "cat-tree": {
+    "definition": "cat_tree.json",
+    "incremental": true,
+    "specification": {
+      "kind": "furniture",
+      "name": "Large Cat Tree",
+      "asset_id": "LARGE_CAT_TREE",
+      "placement": "floor",
+      "category": "decor",
+      "ground_width": 3,
+      "ground_depth": 4,
+      "background_tiles": 1,
+      "colors": 8
     }
   },
   "pet": {

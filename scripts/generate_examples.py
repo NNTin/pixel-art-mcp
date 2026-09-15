@@ -47,6 +47,11 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
                 {
                     "kind": example["specification"]["kind"],
                     "preset": example["specification"].get("preset"),
+                    **{
+                        k: v
+                        for k, v in example["specification"].items()
+                        if k in ("ground_width", "ground_depth", "background_tiles")
+                    },
                 },
             )
             project = await call("create_project", {"name": "Game examples / " + key})
@@ -78,12 +83,27 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
                     "write_pixel_art",
                     {
                         "project_id": project["id"],
-                        "definition": definition,
+                        "definition": {**definition, "layers": definition["layers"][:1]}
+                        if example.get("incremental")
+                        else definition,
                         "expected_revision_id": revision,
                     },
                 )
             )
             revision = modeled["result_revision_id"]
+            if example.get("incremental"):
+                for layer in definition["layers"][1:]:
+                    modeled = await wait(
+                        await call(
+                            "edit_pixel_art",
+                            {
+                                "project_id": project["id"],
+                                "expected_revision_id": revision,
+                                "edits": [{"op": "set_layer", "layer": layer}],
+                            },
+                        )
+                    )
+                    revision = modeled["result_revision_id"]
             print(f"{key}: rendering", flush=True)
             rendered = await wait(
                 await call("render_asset", {"project_id": project["id"], "revision_id": revision})

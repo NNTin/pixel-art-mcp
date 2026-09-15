@@ -34,19 +34,24 @@ before writing modeling code. Small images can also be uploaded through the base
 > to draw distinct seat, legs and backrest layers. Render and inspect every view with MCP previews.
 
 Follow up with “Make the backrest taller and change the wood to blue.” The agent should load the
-project's current definition with get_pixel_art, replace it with write_pixel_art, wait, and render
+project's current definition with get_pixel_art, edit named poses/palette with edit_pixel_art, wait, and render
 the revised scene. It should not claim it modified the model before the job succeeds.
 
 ## Troubleshooting
 
 - After upgrading, refresh cached tools. Capabilities must report `pixel_authoring_required: true`
   and `authoring_contract_version: 1`; the tools include `write_pixel_art` and `get_asset_preview`.
+  Targeted editing/delivery also expose `edit_pixel_art` and `get_artifact_chunk`.
 - Check `/health/ready` and `docker compose logs pixel-art-mcp` if modeling is unavailable.
 - Inspect `get_job` for script tracebacks and rendering failures; upload/prompt errors do not need
   a service restart.
 - For a revision conflict, fetch the latest project, inspect it, then adapt and resubmit the script.
 - Artifact links point to the local service. Set `PIXEL_BASE_URL` if your local client uses a
   different address, and separately configure allowed hosts if changing the deployment hostname.
+  This must be the recipient's reachable URL, not a Docker-internal hostname. Small ZIP/.blend
+  artifacts now include embedded MCP bytes; any artifact can also be read using
+  `get_artifact_chunk` without HTTP. Saving/installing still requires your client's attachment
+  integration; tool-only agents cannot write to the user's filesystem by themselves.
 - Docker data persists in the named volume. Stop the service before backing it up.
 - ChatGPT's website needs a remote connection path; it cannot directly use your computer's
   `localhost`. This release deliberately targets local MCP clients.

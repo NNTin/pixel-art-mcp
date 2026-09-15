@@ -22,6 +22,7 @@ PALETTE = {"D": "#293039", "G": "#f3cf65"}
     "kind,preset",
     [
         ("furniture", "small"),
+        ("furniture", "prop"),
         ("furniture", "chair"),
         ("furniture", "desk"),
         ("furniture", "tall"),
@@ -254,9 +255,12 @@ def test_export_keeps_exact_pixels_and_reports_lost_features(tmp_path, base, mon
     assert report["status"] == "review" and report["visual_review_required"]
     assert {f["code"] for f in report["findings"]} == {
         "clipped_feature",
+        "disconnected_silhouette",
         "feature_pixel_budget",
         "low_context_contrast",
     }
+    # The clipped control leaves one pixel detached from the main body in every view.
+    assert all(frame["opaque_connected_components"] == 2 for frame in report["frames"])
     assert json.loads((output / "pixel-art.json").read_text()) == art.to_dict()
     inspected = inspect_sprite(output, angle=0)
     assert inspected["pixel_features"][1]["visible_pixels"] == 4

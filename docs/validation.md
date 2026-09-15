@@ -1,8 +1,29 @@
 # Implementation validation
 
+## MCP-only workflow gaps (2026-09-13)
+
+The current interface also includes `edit_pixel_art` and `get_artifact_chunk`. Small binary
+artifacts include embedded MCP resources; any artifact can be retrieved through bounded base64
+chunks without HTTP. Client attachment/download integration is still needed for local saving.
+Targeted edits retain mandatory helper validation and revision protection. Inspection separates
+opaque silhouette connectivity from same-color fragmentation. `prop` is a neutral 16x32 preset.
+
+- 238 unit/integration tests pass, excluding the Blender and end-to-end markers. Coverage includes
+  ordered edits, exact/default poses, preserved source on failures, queued revision conflicts,
+  configuration snapshots, binary attachments, chunk limits/EOF/checksums and schema discovery.
+- All 13 Docker end-to-end tests pass against an isolated service using Blender 4.5.13. Cold-client
+  protocol tests now use targeted edits and retrieve ZIPs through both embedded resources and MCP
+  chunks, without artifact HTTP GETs. These are deterministic protocol tests, not model-quality
+  benchmarks.
+- Ruff lint/format and strict mypy pass. The thermometer replays with `preset: prop`: 12 frames,
+  zero advisory findings, and frame PNGs byte-identical to the original deployed-MCP trial.
+  Replay artifacts are at `tmp/gap-verification/thermometer/`.
+- The deployed server was not changed. Redeploy and refresh cached MCP tools to expose these
+  additions. Configure `PIXEL_BASE_URL` for the recipient if using optional HTTP links.
+
 ## Mandatory MCP authoring contract (2026-09-13)
 
-The current interface is `configure_asset`, `write_pixel_art`, `get_pixel_art`, `render_asset`,
+The baseline interface is `configure_asset`, `write_pixel_art`, `get_pixel_art`, `render_asset`,
 and MCP-native inspection/preview. Helpers run server-side; clients need no source checkout,
 imports, shell, browser or HTTP downloads. The generic rendering tools are removed. Historical
 validation notes below describe earlier interfaces, not the current tool contract.

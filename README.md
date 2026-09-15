@@ -15,6 +15,11 @@ connectivity and clipping, while offline previews support the necessary visual r
 Use `get_asset_profile` → `create_project` → `configure_asset` → `write_pixel_art` → `wait_for_job`
 → `render_asset` → `wait_for_job` → `inspect_asset` / `inspect_sprite` / `get_asset_preview`.
 Use `get_pixel_art` to retrieve and revise the complete source. Profiles include full JSON starters
+and compact `drawing` examples: numeric rectangles, inclusive lines, small stamps, repetition,
+and mirroring, all rasterized by the mandatory helpers. Begin with a base in every view and
+add features using `edit_pixel_art(set_layer)` instead of repeatedly replacing the whole asset.
+Custom furniture uses occupied `ground_width`/`ground_depth` plus nonblocking `background_tiles`;
+canvases are derived automatically at 16 pixels per tile. Profiles include specifications
 and tool-call examples inline. [Game asset profiles](docs/game-assets.md) give furniture,
 characters, and pets readable sizes, stable placement, shared palettes, and the consumer's actual
 pose sequences. Every render produces an installable package, exact pixel inspection, and offline

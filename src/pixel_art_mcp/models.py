@@ -205,13 +205,51 @@ class AssetSpec(Model):
     kind: Literal["furniture", "character", "pet"]
     name: str = Field(min_length=1, max_length=PIXEL_AGENTS_NAME_MAX_LENGTH)
     asset_id: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{0,63}$")
-    preset: Literal["small", "chair", "tall", "desk", "character", "pet"] | None = None
+    preset: Literal["small", "prop", "chair", "tall", "desk", "character", "pet"] | None = Field(
+        default=None,
+        description="Furniture: small=16x16, prop=neutral 16x32, chair=16x32 with chair category, "
+        "tall=16x64, desk=48x32 with desk category. Set placement/category for the actual object; "
+        "profiles explain rotated footprints.",
+    )
     placement: Literal["floor", "surface", "wall"] = "floor"
     category: FurnitureCategory = "decor"
-    ground_width: int | None = Field(default=None, ge=1, le=16)
-    ground_depth: int = Field(default=1, ge=1, le=16)
-    width: int | None = Field(default=None, ge=16, le=512)
-    height: int | None = Field(default=None, ge=16, le=512)
+    ground_width: int | None = Field(
+        default=None,
+        ge=1,
+        le=16,
+        description="Occupied ground columns in 16px tiles. Front pixel width is ground_width * "
+        "16; defaults from preset.",
+    )
+    ground_depth: int = Field(
+        default=1,
+        ge=1,
+        le=16,
+        description="Occupied ground rows in tiles, not sprite height. Rotated views swap ground "
+        "width/depth.",
+    )
+    background_tiles: int | None = Field(
+        default=None,
+        ge=0,
+        le=31,
+        description="Nonblocking sprite rows above occupied ground. Front "
+        "height=(ground_depth+background_tiles)*16; sides swap ground width/depth. Omit to "
+        "preserve preset headroom, or derive from explicit height.",
+    )
+    width: int | None = Field(
+        default=None,
+        ge=16,
+        le=512,
+        description="Optional front width in pixels; must equal ground_width * 16. Prefer tile "
+        "fields.",
+    )
+    height: int | None = Field(
+        default=None,
+        ge=16,
+        le=512,
+        description="Optional front sprite height in pixels, a multiple of 16 >= ground_depth*16. "
+        "Extra rows are nonblocking background. Prefer background_tiles; do not increase pixel "
+        "density.",
+    )
     anchor_object: str | None = Field(default=None, min_length=1, max_length=120)
     clips: dict[str, AssetClip] = Field(default_factory=dict, max_length=16)
     colors: int = Field(default=16, ge=2, le=64, description="Maximum authored palette size.")
@@ -229,7 +267,15 @@ class AssetSpec(Model):
         default=False,
         description="Must be false. Draw outlines explicitly in required pixel layers.",
     )
-    elevation: float = Field(default=35.264, ge=0, le=70)
+    elevation: float = Field(
+        default=0.0,
+        ge=0,
+        le=70,
+        description="Hybrid ('render' base) camera pitch in degrees; 0 is a flat, eye-level "
+        "front/back/side elevation matching pixel-agents' own flat sprite views and native "
+        "pixel authoring. Raising it tilts the camera down for an isometric-style look that "
+        "will not match how pixel-agents actually renders the asset.",
+    )
     samples: int = Field(default=32, ge=1, le=256)
     supersampling: int = Field(
         default=4,
@@ -245,10 +291,14 @@ class AssetSpec(Model):
         if self.kind != "character" and self.asset_id is None:
             raise ValueError("Furniture and pets require asset_id")
         preset = self.preset or ("small" if self.kind == "furniture" else self.kind)
-        allowed = {"small", "chair", "tall", "desk"} if self.kind == "furniture" else {self.kind}
+        allowed = (
+            {"small", "prop", "chair", "tall", "desk"} if self.kind == "furniture" else {self.kind}
+        )
         if preset not in allowed:
             raise ValueError(f"Invalid preset for {self.kind}: {preset}")
         if self.kind != "furniture":
+            if self.background_tiles is not None:
+                raise ValueError("background_tiles applies only to furniture")
             if self.placement != "floor" or self.ground_width is not None or self.ground_depth != 1:
                 raise ValueError("Placement and ground tiles apply only to furniture")
             if self.width not in (None, 16) or self.height not in (None, 32):
@@ -332,7 +382,13 @@ class RenderOptions(Model):
         max_length=32,
         description="Camera views in degrees. pixel-agents: 0=front, 90=right, 180=back, 270=left.",
     )
-    elevation: float = Field(default=35.264, ge=-85, le=85)
+    elevation: float = Field(
+        default=0.0,
+        ge=-85,
+        le=85,
+        description="Camera pitch in degrees; 0 is flat eye-level, matching pixel-agents' own "
+        "flat front/back/side sprite views.",
+    )
     frame_start: int = Field(default=1, ge=0, le=100_000)
     frame_end: int = Field(default=1, ge=0, le=100_000)
     frame_step: int = Field(default=1, ge=1)

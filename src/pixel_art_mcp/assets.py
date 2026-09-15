@@ -6,6 +6,7 @@ from pixel_art_mcp.models import AssetClip, AssetSpec, DomainError, RenderOption
 
 PROFILES: dict[str, dict[str, Any]] = {
     "small": {"kind": "furniture", "size": [16, 16], "content_height": 14},
+    "prop": {"kind": "furniture", "size": [16, 32], "content_height": 30},
     "chair": {"kind": "furniture", "size": [16, 32], "content_height": 24},
     "tall": {"kind": "furniture", "size": [16, 64], "content_height": 62},
     "desk": {"kind": "furniture", "size": [48, 32], "content_height": 24},
@@ -33,15 +34,33 @@ def asset_layouts(spec: AssetSpec) -> list[dict[str, Any]]:
     spec = normalize_asset(spec)
     profile = PROFILES[str(spec.preset)]
     width = spec.width or (spec.ground_width * 16 if spec.ground_width else profile["size"][0])
-    height = spec.height or profile["size"][1]
+    background = spec.background_tiles
+    if background is None:
+        background = (
+            (spec.height // 16 - spec.ground_depth) if spec.height else profile["size"][1] // 16 - 1
+        )
+    height = spec.height or (spec.ground_depth + background) * 16
     angles = [0, 90, 180, 270] if spec.kind == "furniture" else [0, 180, 90]
     ground_w = spec.ground_width or width // 16
     if spec.kind == "furniture":
         if width % 16 or height % 16 or width != ground_w * 16:
-            raise DomainError("Furniture canvas width must equal ground_width * 16; use tile sizes")
-        background = height // 16 - spec.ground_depth
+            raise DomainError(
+                f"Furniture width must equal ground_width * 16 = {ground_w * 16}px; "
+                "height must be a multiple of 16. Prefer "
+                "ground_width/ground_depth/background_tiles."
+            )
         if background < 0:
-            raise DomainError("Furniture canvas must include all occupied ground rows")
+            raise DomainError(
+                f"height={height}px cannot include ground_depth={spec.ground_depth} tiles; "
+                f"minimum height is {spec.ground_depth * 16}px. "
+                "Omit height and set background_tiles for automatic sizing."
+            )
+        if height != (spec.ground_depth + background) * 16:
+            raise DomainError(
+                "height conflicts with background_tiles: "
+                f"expected {(spec.ground_depth + background) * 16}px. "
+                "Supply tile fields or matching pixel dimensions."
+            )
     else:
         background = 0
     layouts = []
@@ -112,7 +131,14 @@ def resolve_asset(spec: AssetSpec, configuration_id: str | None = None) -> Rende
     )
 
 
-def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
+def get_asset_profile(
+    kind: str,
+    preset: str | None = None,
+    *,
+    ground_width: int | None = None,
+    ground_depth: int | None = None,
+    background_tiles: int | None = None,
+) -> dict[str, Any]:
     if kind not in ("furniture", "character", "pet"):
         raise DomainError("Choose furniture, character, or pet")
     selected = preset or ("small" if kind == "furniture" else kind)
@@ -120,11 +146,25 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
         raise DomainError(f"Unknown {kind} preset {selected!r}")
     spec = normalize_asset(
         AssetSpec.model_validate(
-            {"kind": kind, "name": "Example", "asset_id": "EXAMPLE", "preset": selected}
+            {
+                "kind": kind,
+                "name": "Example",
+                "asset_id": "EXAMPLE",
+                "preset": selected,
+                **{
+                    key: value
+                    for key, value in {
+                        "ground_width": ground_width,
+                        "ground_depth": ground_depth,
+                        "background_tiles": background_tiles,
+                    }.items()
+                    if value is not None
+                },
+            }
         )
     )
     layouts = asset_layouts(spec)
-    starter = {
+    starter: dict[str, Any] = {
         "version": 1,
         "base": "native",
         "palette": {"D": "#293039", "G": "#f3cf65"},
@@ -152,20 +192,89 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
         "presets": [key for key, value in PROFILES.items() if value["kind"] == kind],
         "specification": spec.model_dump(),
         "layouts": layouts,
+        "sizing": {
+            "tile_pixels": 16,
+            "occupied_ground_tiles": [layouts[0]["ground_width"], layouts[0]["ground_depth"]],
+            "background_tiles": layouts[0]["background_tiles"],
+            "rule": "Front/back = 16*ground_width by 16*(ground_depth+background_tiles). "
+            "Right/left swap ground width/depth. Background rows are nonblocking; "
+            "they are not additional occupied ground tiles.",
+            "example_3x4": {
+                "ground_width": 3,
+                "ground_depth": 4,
+                "background_tiles": 1,
+                "front_pixels": [48, 80],
+                "side_pixels": [64, 64],
+            },
+        }
+        if kind == "furniture"
+        else {
+            "native_views": {str(row["angle"]): [row["width"], row["height"]] for row in layouts},
+            "rule": "Fixed consumer canvases; furniture tile fields do not apply.",
+        },
+        "preset_guidance": "For a generic 16x32 object use furniture preset=prop, which defaults "
+        "to category=decor. chair/desk imply chairs/desks unless category is explicit. Set "
+        "placement and category for the actual object: a thermometer uses placement=wall, "
+        "category=wall. Presets choose native canvas/footprint, not the drawing; never increase "
+        "pixel density to add detail.",
         "pixel_authoring": {
             "contract_version": 1,
             "required": True,
             "tool": "write_pixel_art",
             "helpers": "Canvas and PixelArt run on the server. Supply JSON, never imports.",
             "schema": "write_pixel_art.definition describes all fields and limits.",
+            "incremental_workflow": "First publish only a small valid base/body covering all "
+            "configured views, then wait. Add one named feature at a time with "
+            "edit_pixel_art(set_layer), render and inspect. Do not resend the whole asset "
+            "after a small error. Initial creation uses write_pixel_art, not edit_pixel_art. "
+            "Use the successful job's result_revision_id for the next edit; get_pixel_art "
+            "is needed only when reading/changing existing source.",
+            "drawing": "For large shapes supply drawing instead of rows: width/height plus "
+            "ordered rect, line, stamp commands. Commands repeat with repeat/dx/dy; mirror_x "
+            "reflects the whole patch. Integer helper pixels only; no antialiasing. Prefer "
+            "rectangles for thick connected posts/platforms and small stamps for motifs. "
+            "Source reads return canonical rows, never executable code.",
+            "drawing_example": {
+                "angle": 0,
+                "frame": None,
+                "x": 0,
+                "y": 0,
+                "drawing": {
+                    "width": 6,
+                    "height": 6,
+                    "commands": [
+                        {"op": "rect", "x": 0, "y": 0, "width": 6, "height": 6, "color": "D"},
+                        {"op": "rect", "x": 1, "y": 1, "width": 4, "height": 4, "color": "G"},
+                    ],
+                },
+            },
             "coordinates": "Native integer pixels, top-left origin; '.' reveals lower layers.",
             "views": "Use only configured angles. The server derives exact canvas dimensions.",
             "layers": "Ordered back to front. Exact-frame pose replaces the null-frame default; "
             "without a default a layer is hidden in unspecified frames. Every view/frame needs "
             "a resolved pose; native mode also needs visible ink.",
-            "editing": "get_pixel_art returns definition and revision_id. Modify that whole "
-            "definition, then write_pixel_art(expected_revision_id=revision_id). This replaces, "
-            "never merges: omitted layers/poses are deleted. Wait for the job before continuing.",
+            "editing": "get_pixel_art returns definition and revision_id. Use edit_pixel_art "
+            "for targeted move_pose/set_pose/delete_pose/set_layer/delete_layer/set_palette "
+            "operations with expected_revision_id=revision_id. Untouched source is preserved. "
+            "Alternatively write_pixel_art replaces the entire definition: omitted layers/poses "
+            "are deleted. Both validate all source and use mandatory helpers. Wait for the job.",
+            "example_edit_call": {
+                "tool": "edit_pixel_art",
+                "arguments": {
+                    "project_id": "<project.id>",
+                    "expected_revision_id": "<get_pixel_art.revision_id>",
+                    "edits": [
+                        {
+                            "op": "move_pose",
+                            "layer": "marker",
+                            "angle": 0,
+                            "frame": None,
+                            "x": starter["layers"][0]["poses"][0]["x"] + 1,
+                            "y": starter["layers"][0]["poses"][0]["y"],
+                        }
+                    ],
+                },
+            },
             "features": "Reserve connected contrasting clusters, separating gaps and usually "
             "2px thickness for identifying details before texture. Exaggerate a faucet or gauge; "
             "simplify nonessential parts. More colors cannot add pixels. Do not enlarge native "
@@ -215,10 +324,12 @@ def get_asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
             "The starter is a valid small pixel marker, not a finished design; default patches "
             "are static across all semantic clips. Author the documented distinct poses. "
             "On nonterminal wait results call wait_for_job again; on failure inspect get_job. "
-            "To edit, change definition.palette.G to #66d6c5, then send the entire definition "
-            "to write_pixel_art with expected_revision_id from get_pixel_art. Render and inspect "
-            "again. Retrieve job.outputs source JSON and Python through get_artifact, no HTTP "
-            "needed.",
+            "example_edit_call moves just the front default marker one native pixel right. "
+            "Substitute the current source revision, wait for success, render and inspect again. "
+            "Retrieve job.outputs PNG/JSON/text and small binary resources through get_artifact; "
+            "get_artifact_chunk delivers any file in bounded base64 chunks, no HTTP needed. "
+            "Decode each chunk separately and concatenate raw bytes until next_offset=null. "
+            "Saving locally requires client attachment support.",
         },
         "modeling": [
             "+Z is up; front faces -Y. Model near the origin with named parts.",

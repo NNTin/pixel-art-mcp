@@ -3,19 +3,14 @@
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
+from pydantic import Field, StrictBool, StrictInt, model_validator
 
+from pixel_art_mcp.drawing import PixelDrawing, PixelModel, PixelRow, Symbol
 from pixel_art_mcp.models import AssetSpec, DomainError, Model
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 AUTHORING_VERSION = 1
-Symbol = Annotated[str, Field(pattern=r"^[A-Za-z0-9]$")]
 Color = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]
-PixelRow = Annotated[str, Field(min_length=1, max_length=512, pattern=r"^[A-Za-z0-9.]+$")]
-
-
-class PixelModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
 
 
 class PixelPose(PixelModel):
@@ -24,11 +19,18 @@ class PixelPose(PixelModel):
     angle: Literal[0, 90, 180, 270] = Field(
         description="0 front/down, 90 right, 180 back/up, 270 left. Use only configured views."
     )
-    rows: list[PixelRow] = Field(
+    rows: list[PixelRow] | None = Field(
+        default=None,
         min_length=1,
         max_length=512,
         description="Equal-width pixel rows, top to bottom. Letters/digits refer to palette "
-        "symbols; '.' is transparent. A transparent pose explicitly hides a layer.",
+        "symbols; '.' is transparent. Supply exactly one of rows or drawing. Prefer drawing "
+        "for large shapes; literal rows are suited to small motifs.",
+    )
+    drawing: PixelDrawing | None = Field(
+        default=None,
+        description="Numeric rect/line/stamp commands using mandatory Canvas helpers. Alternative "
+        "to rows, not additional pixels. Source reads return canonical raster rows.",
     )
     frame: StrictInt | None = Field(
         default=None,
@@ -76,8 +78,17 @@ class PixelPose(PixelModel):
 
     @model_validator(mode="after")
     def rectangular(self) -> "PixelPose":
-        Canvas.from_rows(self.rows)
+        if (self.rows is None) == (self.drawing is None):
+            raise ValueError("Supply exactly one of rows or drawing")
+        if self.rows is not None:
+            Canvas.from_rows(self.rows)
         return self
+
+    def canvas(self) -> Canvas:
+        if self.drawing is not None:
+            return self.drawing.canvas()
+        assert self.rows is not None
+        return Canvas.from_rows(self.rows)
 
 
 class PixelLayer(PixelModel):
@@ -135,19 +146,25 @@ class PixelDefinition(PixelModel):
         if len({color.lower() for color in self.palette.values()}) != len(self.palette):
             raise ValueError("Palette colors must be distinct")
         pixels = 0
+        paint_operations = 0
         for layer in self.layers:
             for pose in layer.poses:
                 if pose.anchor is not None and self.base != "render":
                     raise ValueError("Object anchors require base=render")
-                pixels += sum(map(len, pose.rows))
-                if any(
-                    symbol != "." and symbol not in self.palette
-                    for row in pose.rows
-                    for symbol in row
-                ):
+                if pose.drawing is not None:
+                    pixels += pose.drawing.width * pose.drawing.height
+                    paint_operations += pose.drawing.cost()
+                    symbols = pose.drawing.symbols()
+                else:
+                    assert pose.rows is not None
+                    pixels += sum(map(len, pose.rows))
+                    symbols = set("".join(pose.rows)) - {"."}
+                if symbols - self.palette.keys():
                     raise ValueError(f"Unknown palette symbol in layer {layer.name!r}")
         if pixels > 262_144:
             raise ValueError("Definition exceeds 262144 authored pixel cells; reuse default poses")
+        if paint_operations > 1_048_576:
+            raise ValueError("Definition exceeds 1048576 drawing paint operations")
         return self
 
     def to_art(self, layouts: list[dict[str, Any]]) -> PixelArt:
@@ -158,8 +175,8 @@ class PixelDefinition(PixelModel):
             for pose in layer.poses:
                 art.layer(
                     layer.name,
-                    canvas=Canvas.from_rows(pose.rows),
-                    **pose.model_dump(exclude={"rows"}),
+                    canvas=pose.canvas(),
+                    **pose.model_dump(exclude={"rows", "drawing"}),
                 )
         return art
 
@@ -180,6 +197,128 @@ class PixelArtSource(Model):
         "adapting the definition before rendering."
     )
     configuration_id: UUID | None
+
+
+class PoseTarget(PixelModel):
+    layer: str = Field(min_length=1, max_length=100, description="Existing, exact layer name.")
+    angle: Literal[0, 90, 180, 270]
+    frame: StrictInt | None = Field(
+        ge=0,
+        le=100_000,
+        description="Exact stored pose key. null selects the view default, not all frames.",
+    )
+
+
+class MovePose(PoseTarget):
+    """Move one existing patch without resending rows or changing any other property."""
+
+    op: Literal["move_pose"]
+    x: StrictInt = Field(ge=-512, le=512, description="New absolute native x, not a delta.")
+    y: StrictInt = Field(ge=-512, le=512, description="New absolute native y, not a delta.")
+
+
+class SetPose(PixelModel):
+    """Replace an exact pose in place, or append it; the named layer must already exist."""
+
+    op: Literal["set_pose"]
+    layer: str = Field(min_length=1, max_length=100)
+    pose: PixelPose = Field(
+        description="Complete patch. Omitted properties use PixelPose defaults."
+    )
+
+
+class DeletePose(PoseTarget):
+    """Delete an exact stored pose. Deleting an override may reveal its view default."""
+
+    op: Literal["delete_pose"]
+
+
+class SetLayer(PixelModel):
+    """Replace a named layer at its current order, or append a new topmost layer."""
+
+    op: Literal["set_layer"]
+    layer: PixelLayer = Field(description="Complete layer; omitted previous poses are deleted.")
+
+
+class DeleteLayer(PixelModel):
+    """Delete an existing named layer. Missing targets fail the entire edit batch."""
+
+    op: Literal["delete_layer"]
+    name: str = Field(min_length=1, max_length=100)
+
+
+class SetPalette(PixelModel):
+    """Replace the palette; all retained poses must use symbols from the final palette."""
+
+    op: Literal["set_palette"]
+    palette: dict[Symbol, Color] = Field(min_length=2, max_length=64)
+
+
+PixelEdit = Annotated[
+    MovePose | SetPose | DeletePose | SetLayer | DeleteLayer | SetPalette,
+    Field(discriminator="op"),
+]
+PixelEdits = Annotated[
+    list[PixelEdit],
+    Field(
+        min_length=1,
+        max_length=128,
+        description="Ordered atomic operations; only the final document is validated.",
+    ),
+]
+
+
+def apply_pixel_edits(definition: PixelDefinition, edits: PixelEdits) -> PixelDefinition:
+    """Work on a detached document so any failure leaves the original source untouched."""
+    data = definition.model_dump()
+    layers = data["layers"]
+    for index, edit in enumerate(edits):
+        if isinstance(edit, SetPalette):
+            data["palette"] = dict(edit.palette)
+            continue
+        if isinstance(edit, SetLayer):
+            name = edit.layer.name
+        elif isinstance(edit, DeleteLayer):
+            name = edit.name
+        else:
+            name = edit.layer
+        layer_index = next((i for i, layer in enumerate(layers) if layer["name"] == name), None)
+        if isinstance(edit, SetLayer):
+            if layer_index is None:
+                layers.append(edit.layer.model_dump())
+            else:
+                layers[layer_index] = edit.layer.model_dump()
+            continue
+        if layer_index is None:
+            raise ValueError(f"edits[{index}] {edit.op}: unknown layer {name!r}")
+        if isinstance(edit, DeleteLayer):
+            layers.pop(layer_index)
+            continue
+        poses = layers[layer_index]["poses"]
+        target = edit.pose if isinstance(edit, SetPose) else edit
+        pose_index = next(
+            (
+                i
+                for i, pose in enumerate(poses)
+                if (pose["angle"], pose["frame"]) == (target.angle, target.frame)
+            ),
+            None,
+        )
+        if isinstance(edit, SetPose):
+            if pose_index is None:
+                poses.append(edit.pose.model_dump())
+            else:
+                poses[pose_index] = edit.pose.model_dump()
+        elif pose_index is None:
+            raise ValueError(
+                f"edits[{index}] {edit.op}: no stored pose ({target.angle}, {target.frame}) "
+                f"in {name!r}; defaults are not implicit edit targets"
+            )
+        elif isinstance(edit, DeletePose):
+            poses.pop(pose_index)
+        else:
+            poses[pose_index].update(x=edit.x, y=edit.y)
+    return PixelDefinition.model_validate(data)
 
 
 def validated_art(data: dict[str, Any], options: dict[str, Any]) -> PixelArt:

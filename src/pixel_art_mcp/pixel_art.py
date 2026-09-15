@@ -16,8 +16,16 @@ class Canvas:
 
     @classmethod
     def from_rows(cls, rows: list[str]) -> "Canvas":
-        if not rows or not rows[0] or any(len(row) != len(rows[0]) for row in rows):
-            raise ValueError("Pixel rows must form a nonempty rectangle")
+        if not rows or not rows[0]:
+            raise ValueError("Pixel rows must form a nonempty rectangle; row 0 must not be empty")
+        bad = [(i, len(row)) for i, row in enumerate(rows) if len(row) != len(rows[0])]
+        if bad:
+            details = "; ".join(f"row {i}: expected {len(rows[0])}, actual {n}" for i, n in bad[:8])
+            remaining = f"; {len(bad) - 8} more mismatched rows" if len(bad) > 8 else ""
+            raise ValueError(
+                f"Pixel rows must form a nonempty rectangle. {details}{remaining}. "
+                "Row indices are zero-based; use numeric drawing commands for long shapes."
+            )
         canvas = cls(len(rows[0]), len(rows))
         canvas.pixels = [list(row) for row in rows]
         return canvas
@@ -47,6 +55,32 @@ class Canvas:
 
     def mirrored(self) -> "Canvas":
         return Canvas.from_rows([row[::-1] for row in self.rows])
+
+    def line(self, x1: int, y1: int, x2: int, y2: int, color: str) -> "Canvas":
+        if len(color) != 1 or any(type(v) is not int for v in (x1, y1, x2, y2)):
+            raise ValueError("Use integer line coordinates and a palette symbol")
+        if not (
+            0 <= x1 < self.width
+            and 0 <= x2 < self.width
+            and 0 <= y1 < self.height
+            and 0 <= y2 < self.height
+        ):
+            raise ValueError("Line exceeds canvas")
+        # Integer Bresenham: inclusive endpoints, no fractional coverage or antialiasing.
+        dx, dy = abs(x2 - x1), -abs(y2 - y1)
+        sx, sy = (1 if x1 < x2 else -1), (1 if y1 < y2 else -1)
+        error = dx + dy
+        while True:
+            self.pixels[y1][x1] = color
+            if (x1, y1) == (x2, y2):
+                return self
+            twice = 2 * error
+            if twice >= dy:
+                error += dy
+                x1 += sx
+            if twice <= dx:
+                error += dx
+                y1 += sy
 
 
 class PixelArt:

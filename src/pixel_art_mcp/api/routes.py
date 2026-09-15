@@ -1,12 +1,13 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from pixel_art_mcp.assets import get_asset_profile
-from pixel_art_mcp.authoring import PixelArtSource, PixelDefinition, PixelModel
+from pixel_art_mcp.authoring import PixelArtSource, PixelDefinition
+from pixel_art_mcp.drawing import PixelModel
 from pixel_art_mcp.models import AssetSpec, DomainError, Job, Project, ProjectDetail, Reference
 from pixel_art_mcp.projects.service import Service
 
@@ -24,8 +25,23 @@ def routes(service: Service) -> APIRouter:
     router = APIRouter()
 
     @router.get("/asset-profiles/{kind}")
-    async def asset_profile(kind: str, preset: str | None = None) -> dict[str, Any]:
-        return get_asset_profile(kind, preset)
+    async def asset_profile(
+        kind: str,
+        preset: str | None = None,
+        ground_width: Annotated[int, Query(ge=1, le=16)] | None = None,
+        ground_depth: Annotated[int, Query(ge=1, le=16)] | None = None,
+        background_tiles: Annotated[int, Query(ge=0, le=31)] | None = None,
+    ) -> dict[str, Any]:
+        try:
+            return get_asset_profile(
+                kind,
+                preset,
+                ground_width=ground_width,
+                ground_depth=ground_depth,
+                background_tiles=background_tiles,
+            )
+        except ValidationError as exc:
+            raise DomainError(str(exc), 422) from exc
 
     @router.put("/projects/{project_id}/asset")
     async def configure_asset(project_id: UUID, specification: AssetSpec) -> dict[str, Any]:

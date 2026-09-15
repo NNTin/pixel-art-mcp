@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from pixel_art_mcp.assets import asset_layouts, get_asset_profile, resolve_asset
 from pixel_art_mcp.authoring import PixelDefinition
 from pixel_art_mcp.blender.camera_fit import fit_asset_views
-from pixel_art_mcp.imaging.asset_export import export_asset
+from pixel_art_mcp.imaging.asset_export import asset_report, export_asset
 from pixel_art_mcp.imaging.inspection import inspect_sprite
 from pixel_art_mcp.models import AssetSpec, DomainError
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
@@ -68,6 +68,10 @@ def test_profiles_and_character_pose_roles():
     assert profile["specification"]["clips"]["typing"]["frames"] == [4, 5]
     assert profile["specification"]["clips"]["reading"]["frames"] == [6, 7]
     assert get_asset_profile("furniture", "chair")["specification"]["category"] == "chairs"
+    prop = get_asset_profile("furniture", "prop")
+    assert prop["specification"]["category"] == "decor"
+    assert {(row["width"], row["height"]) for row in prop["layouts"]} == {(16, 32)}
+    assert "placement=wall" in prop["preset_guidance"]
     explicit = resolve_asset(
         AssetSpec(
             kind="furniture", name="Barrel", asset_id="BARREL", preset="chair", category="decor"
@@ -200,6 +204,26 @@ def test_configuration_persistence(service):
     assert (
         service.store.record(first["id"], "asset_configuration")["specification"]["name"] == "First"
     )
+
+
+def test_report_flags_detached_structure_without_rejecting_intentional_effects(tmp_path):
+    out, _, _ = fixture_export(tmp_path)
+    metadata = json.loads((out / "spritesheet.json").read_text())
+    original = asset_report(out, metadata)
+    assert all(row["opaque_connected_components"] == 1 for row in original["frames"])
+    assert not any(f["code"] == "disconnected_silhouette" for f in original["findings"])
+    first = metadata["frames"][0]
+    image = Image.new("RGBA", (16, 16))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((2, 2, 5, 5), fill="#f3cf65")
+    draw.rectangle((8, 8, 11, 11), fill="#5285b8")
+    image.save(out / first["filename"])
+    report = asset_report(out, metadata)
+    finding = next(f for f in report["findings"] if f["code"] == "disconnected_silhouette")
+    assert finding["components"] == 2
+    assert "intentional detached effects" in finding["suggestion"]
+    assert report["status"] == "review"
+    assert report["frames"][0]["opaque_connected_components"] == 2
 
 
 @pytest.mark.parametrize("kind", ["character", "pet"])

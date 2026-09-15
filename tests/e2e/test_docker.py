@@ -256,7 +256,13 @@ async def test_native_animated_packages(example_dir, key, archive_name):
             assert archive.testzip() is None
             metadata = json.loads(archive.read("spritesheet.json"))
             report = json.loads(archive.read("asset-report.json"))
-            assert report["status"] == "checks_passed" and report["visual_review_required"]
+            assert report["visual_review_required"]
+            # Rain/flames and diagonal-only contacts can form separate four-connected regions.
+            # These remain installable, but are now surfaced for visual review.
+            assert {finding["code"] for finding in report["findings"]} <= {
+                "disconnected_silhouette"
+            }
+            assert report["status"] == ("review" if report["findings"] else "checks_passed")
             assert metadata["source_kind"] == "native-grid"
             assert all(not f["issues"] for e in metadata["frames"] for f in e["pixel_features"])
             with zipfile.ZipFile(io.BytesIO(archive.read(archive_name))) as target:

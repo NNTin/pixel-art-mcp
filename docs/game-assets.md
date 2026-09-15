@@ -28,10 +28,14 @@ optional rendered geometry supplies broad volume beneath exact-pixel identifying
 5. Read `inspect_asset({"job_id":"JOB_UUID"})`. For exact pixels call `inspect_sprite`;
    its `state_id` selects a clip, `frame` is a Blender source frame, and `angle` selects the view.
 6. Use `get_asset_preview` for inline image content: select clip, source frame, direction, integer
-   scale and approximate context. Use `get_pixel_art` to retrieve source, then send the complete
-   modified definition to `write_pixel_art` with its revision as `expected_revision_id`.
-   `get_artifact` returns PNG/JSON/source text inline. ZIPs and the offline player are optional
-   human downloads, not required client tools. Do not repair generated output PNGs by hand.
+   scale and approximate context. Use `get_pixel_art` to retrieve source, then `edit_pixel_art`
+   for targeted layer/pose edits with its revision as `expected_revision_id`. `write_pixel_art`
+   remains a complete replacement. `get_artifact` returns PNG/JSON/source text and small binary
+   resources inline; `get_artifact_chunk` delivers any artifact without HTTP. Client integration
+   is needed for local saving/installing. Do not repair generated output PNGs by hand.
+
+Generic 16x32 objects use the neutral furniture `prop` preset. Set placement/category explicitly
+for the actual object; `chair` and `desk` carry chair/desk category defaults.
 
 `configure_asset` replaces the configuration and returns an immutable configuration ID and
 resolved per-direction layouts. `get_project` returns the current configuration. Each render
@@ -99,6 +103,7 @@ pixel art direction, not a promise that every small detail can survive at this f
 | Preset | Front canvas | Default occupied ground | Upper background rows |
 | --- | --- | --- | --- |
 | small | 16×16 | 1×1 | 0 |
+| prop | 16×32 | 1×1 | 1 |
 | chair | 16×32 | 1×1 | 1 |
 | tall | 16×64 | 1×1 | 3 |
 | desk | 48×32 | 3×1 | 1 |
@@ -106,7 +111,11 @@ pixel art direction, not a promise that every small detail can survive at this f
 | pet | 16×32, right 32×32 | bottom-center anchor | — |
 
 Furniture canvas width equals `ground_width * 16`; width and height must be tile multiples.
-`ground_depth` counts occupied rows. `height / 16 - ground_depth` becomes `backgroundTiles`.
+`ground_depth` counts occupied rows. Prefer `background_tiles` and omit `width`/`height`:
+front height becomes `(ground_depth + background_tiles) * 16`. Omitted background tiles preserve
+preset headroom. An explicit `height` instead derives `height / 16 - ground_depth` background
+rows; if both fields are supplied they must agree. A 3x4 cat tree with one background row is
+48x80 front/back and 64x64 on its sides, without increasing the native tile pixel density.
 When rotated, ground width/depth swap while the upper background-row count stays the same.
 A desk therefore has a 16×64 side canvas and a 1×4 manifest footprint, with one walkable top row.
 The `chair` and `desk` presets also select the corresponding consumer category by default.

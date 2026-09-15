@@ -13,6 +13,12 @@ revision. The server derives view sizes from the current target configuration. T
 documents fields, bounds, overrides and replacement semantics. `get_asset_profile` includes a
 complete JSON starter and ordered tool-call examples inline, not a reference to inaccessible files.
 
+`edit_pixel_art` applies up to 128 typed layer/pose/palette operations to a detached document,
+then passes the complete validated result through the same mandatory helper/write pipeline.
+Revision checks apply both at submission and publication; a failed operation or queued race
+cannot partially publish a batch. The neutral furniture `prop` preset provides a 16x32 canvas
+without chair-category defaults.
+
 The source definition has version 1; capabilities expose `authoring_contract_version=1` and
 `pixel_authoring_required=true`. Generic MCP rendering has been removed. Every public render
 requires a target configuration and a valid pixel definition. Geometry scripts remain an advanced
@@ -59,8 +65,12 @@ advisory and `visual_review_required` is always true.
 `inspect_sprite` exposes an exact indexed grid and feature metrics, optionally compared with
 another job. `preview.py` selects a clip, consumer direction and frame, including mirrored left
 and mapped pet idle, and returns an inline nearest-neighbor PNG. Context is schematic and marked
-approximate. `get_artifact` returns bounded PNG/JSON/Python/text directly in MCP. ZIP and Blender
-downloads remain available for human use.
+approximate. Inspection distinguishes four-connected nontransparent silhouette regions from
+same-color regions; a one-pixel highlight is not necessarily a detached opaque pixel.
+`get_artifact` returns bounded PNG/JSON/Python/text or embedded binary resources directly in MCP.
+`get_artifact_chunk` provides up to 262144 raw bytes per call as base64 with offsets and a chunk
+SHA-256 digest. Clients need no HTTP/resource tool to retrieve bytes, but need attachment/download
+integration to save them locally. HTTP links use the operator-configured `PIXEL_BASE_URL`.
 
 The server-generated offline player also supports playback and placement review. Node and
 Chromium are development-only dependencies. `scripts/check_webview.mjs` reads the consumer

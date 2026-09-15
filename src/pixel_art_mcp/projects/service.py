@@ -17,6 +17,8 @@ from pixel_art_mcp.authoring import (
     AUTHORING_VERSION,
     PixelArtSource,
     PixelDefinition,
+    PixelEdits,
+    apply_pixel_edits,
     validated_art,
 )
 from pixel_art_mcp.config import Settings
@@ -33,6 +35,7 @@ from pixel_art_mcp.models import (
     RenderOptions,
     Revision,
 )
+from pixel_art_mcp.projects.artifacts import MAX_ARTIFACT_CHUNK_BYTES, MAX_INLINE_ARTIFACT_BYTES
 from pixel_art_mcp.projects.references import download_reference, normalize_reference
 from pixel_art_mcp.storage.store import Store, identifier, timestamp
 
@@ -71,6 +74,30 @@ class Service:
                 "inspect_sprite",
                 "get_asset_preview",
             ],
+            "pixel_editing": {
+                "tool": "edit_pixel_art",
+                "operations": [
+                    "move_pose",
+                    "set_pose",
+                    "delete_pose",
+                    "set_layer",
+                    "delete_layer",
+                    "set_palette",
+                ],
+                "atomic": True,
+                "expected_revision_required": True,
+            },
+            "artifact_delivery": {
+                "inline_tool": "get_artifact",
+                "binary_content": "Embedded base64 blob resources up to max_inline_artifact_bytes; "
+                "no resources/read required",
+                "chunk_tool": "get_artifact_chunk",
+                "chunk_encoding": "Decode each base64 chunk separately, concatenate raw bytes "
+                "by offset; next_offset=null ends the file",
+                "download_base_url": self.settings.base_url.rstrip("/"),
+                "local_saving": "Client attachment/download integration required; "
+                "no arbitrary filesystem writes",
+            },
             "asset_profiles": {
                 kind: {"presets": get_asset_profile(kind)["presets"], "tool": "get_asset_profile"}
                 for kind in ("furniture", "character", "pet")
@@ -104,7 +131,12 @@ class Service:
                 "max_poses_per_layer": 256,
                 "max_authored_cells": 262_144,
                 "max_preview_pixels": 4_194_304,
-                "max_inline_artifact_bytes": 1_048_576,
+                "max_inline_artifact_bytes": MAX_INLINE_ARTIFACT_BYTES,
+                "max_artifact_chunk_bytes": MAX_ARTIFACT_CHUNK_BYTES,
+                "max_pixel_edit_operations": 128,
+                "max_drawing_commands_per_pose": 256,
+                "max_drawing_repetitions": 128,
+                "max_drawing_paint_operations": 1_048_576,
             },
         }
 
@@ -196,6 +228,19 @@ class Service:
             authored_views=data["views"],
             configuration_id=UUID(configuration["id"]) if configuration else None,
         )
+
+    def edit_pixel_art(self, project_id: str, edits: PixelEdits, expected_revision_id: str) -> Job:
+        if self.store.project(project_id)["current_revision_id"] != expected_revision_id:
+            raise DomainError(
+                "Scene revision changed; get_pixel_art and retry with its current ID", 409
+            )
+        source = self.get_pixel_art(project_id, expected_revision_id)
+        try:
+            definition = apply_pixel_edits(source.definition, edits)
+        except ValueError as exc:
+            raise DomainError(f"Invalid pixel edit: {exc}") from exc
+        # The normal write path revalidates the complete target and checks revision at publication.
+        return self.write_pixel_art(project_id, definition, expected_revision_id)
 
     def export_root(self, job_id: str) -> Path:
         job = self.job(job_id)

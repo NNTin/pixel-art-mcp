@@ -6,8 +6,9 @@ static furniture variants, not a live temperature sensor. Side/back views show t
 
 `thermometer.json` is the complete `write_pixel_art.definition` payload, with no Python, imports,
 file paths or project IDs. Its target specification is under `thermometer` in `asset-specs.json`.
-The `chair` preset supplies a 16x32 canvas; explicit `category: wall` and `placement: wall` prevent
-chair metadata. The server derives all four native view sizes.
+The neutral `prop` preset supplies a 16x32 canvas; `category: wall` and `placement: wall` describe
+the actual object. The server derives all four native view sizes. The original live trial used
+`chair` with these explicit overrides, before the neutral preset was available.
 
 The drawing was authored and visually refined using only the live Pixel Art MCP tools. Connected
 agents did not need these files: they received the schema and profile inline, wrote pixel rows,
