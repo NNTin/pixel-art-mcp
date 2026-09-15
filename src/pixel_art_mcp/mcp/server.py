@@ -42,7 +42,10 @@ INSTRUCTIONS = """Create Pixel Agents assets using only these MCP tools. No loca
 imports, browser, shell, or external downloads are needed to author and inspect an asset.
 Start with get_asset_profile(kind, preset, ground_width, ground_depth, background_tiles):
 it returns native layouts, semantic poses, design
-rules, a complete JSON starter definition, and ordered tool calls with ID placeholders.
+rules, a complete JSON starter definition, ordered tool calls with ID placeholders, and
+camera_perspective -- read it first. pixel-agents renders from a downward-tilted 3/4 camera,
+never a flat front elevation: draw the object's top-facing surface as the dominant visible
+area, not its front face.
 Call create_project, configure_asset, write_pixel_art, wait_for_job, render_asset, wait_for_job,
 inspect_asset, inspect_sprite and get_asset_preview. The write_pixel_art schema defines the
 entire versioned pixel format. The server invokes Canvas and PixelArt helpers automatically;
