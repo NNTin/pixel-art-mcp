@@ -1,0 +1,143 @@
+name: Pixel Index Publish Check
+
+# Consumer-driven contract/integration test (issue #8's real-upload follow-up):
+# every example in examples/asset-specs.json, generated through the real MCP
+# rendering pipeline (same as contract-checks.yml's example gallery job), gets
+# actually POSTed to POST /api/v1/assets on a real, freshly-started pixel-index
+# instance. A pass means pixel-index's real decode/ingest logic accepted the
+# exact zip this repo produces -- not just "the manifest matches a schema"
+# (contracts/pixel_index/, docs/contract-testing.md) and not "a deployed
+# environment is reachable" (contract-checks.yml).
+#
+# This is why it's a separate workflow from contract-checks.yml rather than a
+# job added to it: contract-checks.yml deliberately never vendors or pins
+# pixel-index (docs/contract-testing.md, "The model: live, not pinned") --
+# every check there asks a real *deployed* pixel-index what it currently
+# accepts. There is no deployed environment this repo controls well enough to
+# safely upload throwaway test assets to, though, and no way to stand up a
+# real pixel-index at all without its actual code -- so this workflow vendors
+# it (vendor/pixel-index, a git submodule) for exactly this one purpose, and
+# only this one purpose. See docs/contract-testing.md for how the two
+# workflows relate.
+#
+# vendor/pixel-index/services/api/e2e/ is pixel-index's own test fixture for
+# this exact situation (a real Postgres + renderer + API stack, unguilded --
+# see its docker-compose.yml -- so any inserted user may submit with no
+# Discord OAuth round trip) and is reused here as-is via `docker compose -f`.
+# A throwaway user row is inserted directly and signed into a bearer token
+# with pixel-index's own signAccessToken() (scripts/ci/mint_pixel_index_token.ts,
+# copied into the checked-out submodule so its imports resolve against that
+# workspace's own installed dependencies) -- the same shape pixel-index's own
+# services/api/e2e/run.ts uses to test itself, and the same two-credential
+# design docs/contract-testing.md already documented as this project's one
+# viable path in (no X-Api-Key issued to this project, and POST /api/v1/assets
+# requires either that or a Bearer session).
+#
+# scripts/publish_examples_to_pixel_index.py does the actual uploading, and
+# also explains and handles the one real, structural mismatch this check
+# found: pixel-art-mcp's multi-clip furniture examples (rain-barrel,
+# thermometer) package every clip's own manifest.json into one zip, but
+# pixel-index accepts at most one manifest.json per upload. See that script's
+# module docstring for the reasoning; short version: each clip becomes its own
+# separate pixel-index catalog entry, which is the correct shape until/unless
+# pixel-index grows a grouped-variant concept.
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    paths:
+      - "vendor/pixel-index"
+      - "examples/**"
+      - "scripts/generate_examples.py"
+      - "scripts/publish_examples_to_pixel_index.py"
+      - "scripts/pixel_index_packaging.py"
+      - "scripts/ci/mint_pixel_index_token.ts"
+      - "src/pixel_art_mcp/imaging/asset_export.py"
+      - "src/pixel_art_mcp/imaging/pixel_agents.py"
+      - "src/pixel_art_mcp/imaging/character.py"
+      - "src/pixel_art_mcp/imaging/pet.py"
+      - ".github/workflows/pixel-index-publish-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pixel-index-publish-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-check:
+    name: Publish every example to a real pixel-index instance
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout (with pixel-index and its own pixel-agents submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.18"
+          python-version: "3.12"
+      - run: uv sync --frozen
+
+      - name: Generate every example through the real MCP pipeline
+        run: |
+          docker compose up --build --wait --wait-timeout 120
+          uv run --frozen python scripts/generate_examples.py \
+            --base-url http://localhost:8000 \
+            --output "${{ runner.temp }}/examples-gallery"
+      - name: pixel-art-mcp logs
+        if: always()
+        run: docker compose logs --no-color
+      - name: Stop pixel-art-mcp
+        if: always()
+        run: docker compose down
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pixel-index workspace dependencies
+        working-directory: vendor/pixel-index
+        run: npm ci
+
+      - name: Build packages/layout-core
+        working-directory: vendor/pixel-index
+        run: npm run build --workspace @pixel-index/layout-core
+
+      - name: Start pixel-index (Postgres + renderer + API test fixture)
+        run: |
+          SESSION_SECRET=$(openssl rand -base64 48)
+          echo "::add-mask::$SESSION_SECRET"
+          echo "SESSION_SECRET=$SESSION_SECRET" >> "$GITHUB_ENV"
+          SESSION_SECRET="$SESSION_SECRET" docker compose -f vendor/pixel-index/services/api/e2e/docker-compose.yml \
+            up --build --wait --wait-timeout 180
+
+      - name: Mint a bearer token for a throwaway pixel-index test user
+        id: token
+        run: |
+          cp scripts/ci/mint_pixel_index_token.ts vendor/pixel-index/services/api/mint-token.ts
+          token=$(cd vendor/pixel-index/services/api && \
+            DATABASE_URL="postgres://pixel:pixel@localhost:15432/pixel_index" \
+            SESSION_SECRET="$SESSION_SECRET" \
+            npx tsx mint-token.ts)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Publish every example to the running pixel-index
+        run: |
+          uv run --frozen python scripts/publish_examples_to_pixel_index.py \
+            --pixel-index-url http://localhost:18080 \
+            --examples-dir "${{ runner.temp }}/examples-gallery" \
+            --token "${{ steps.token.outputs.token }}"
+
+      - name: pixel-index logs
+        if: always()
+        run: docker compose -f vendor/pixel-index/services/api/e2e/docker-compose.yml logs --no-color
+      - name: Stop pixel-index
+        if: always()
+        run: docker compose -f vendor/pixel-index/services/api/e2e/docker-compose.yml down --volumes --remove-orphans

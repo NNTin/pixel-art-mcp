@@ -57,7 +57,8 @@ See [rendering pipeline](docs/rendering-pipeline.md) for how a render actually e
 Blender subprocess boundary, the native/hybrid split, and downscaling.
 See [validation status](docs/validation.md) for the completed Docker rendering and playback checks.
 See [contract testing](docs/contract-testing.md) for how the pixel-agents/character/pet exports
-are checked live against pixel-index's real staging and production APIs.
+are checked live against pixel-index's real staging and production APIs, and by a real upload
+to a pixel-index instance this repo stands up itself.
 
 ## Development
 
