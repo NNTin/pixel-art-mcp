@@ -62,12 +62,49 @@ while production hasn't deployed that commit yet, not a regression to chase.
 
 `POST /api/v1/assets` requires authentication — a Bearer session or an `X-Api-Key` +
 `discordUserId` (see `services/api/src/assets/submit.ts` in pixel-agents-hq/index) — that
-this project has no credentials for. **No authenticated upload is attempted anywhere
-here.** A pass means "the zip shapes this repo generates should still be accepted by this
-environment's decode logic," inferred from the schema and query constraints — not "a real
-upload to this environment would succeed right now." Issue #8 itself leaves a genuine
-upload-based check (with cleanup, or a pixel-index dry-run mode) as an open question for a
-future iteration, not assumed here.
+this project has no credentials for on any *deployed* environment. **No authenticated
+upload to staging or production is attempted anywhere here.** A pass means "the zip
+shapes this repo generates should still be accepted by this environment's decode
+logic," inferred from the schema and query constraints — not "a real upload to this
+environment would succeed right now."
+
+A genuine upload-based check now exists, just not against a deployed environment —
+see [Publish check: a real upload, against a real pixel-index this repo stands up
+itself](#publish-check-a-real-upload-against-a-real-pixel-index-this-repo-stands-up-itself)
+below.
+
+## Publish check: a real upload, against a real pixel-index this repo stands up itself
+
+[`.github/workflows/pixel-index-publish-check.yml`](../.github/workflows/pixel-index-publish-check.yml)
+is issue #8's real-upload follow-up, and deliberately a separate workflow rather than a
+job added to this one. Everything above asks a *deployed* pixel-index what it currently
+accepts, live and unpinned — that's the whole point of this file's "live, not pinned"
+model, and there is no deployed environment this repo controls well enough to safely
+upload throwaway test assets to. So instead, this check vendors pixel-index itself
+(`vendor/pixel-index`, a git submodule pointed at the same
+[pixel-agents-hq/index](https://github.com/pixel-agents-hq/index) remote), stands up a
+real instance from it (Postgres + renderer + API, reusing pixel-index's own
+`services/api/e2e/` test fixture — unguilded, so any inserted user may submit with no
+Discord OAuth round trip), and actually POSTs every example's real installable package
+zip (`scripts/generate_examples.py`'s output) to it via
+[`scripts/publish_examples_to_pixel_index.py`](../scripts/publish_examples_to_pixel_index.py).
+A pass here means pixel-index's real decode/ingest logic accepted the exact zip this
+repo produced, not just that it matches a schema.
+
+This is the one place in the repo pixel-index's code is vendored rather than asked live
+— see the workflow file's own header comment for why that's still consistent with this
+file's "no schema file is vendored" rule above: that rule is about not *pinning a
+contract* to avoid re-syncing; running pixel-index's actual server to prove a real
+upload works is a different need entirely, one no live HTTP check can satisfy.
+
+That check also found, and now documents and handles, one real structural mismatch:
+pixel-art-mcp's multi-clip furniture examples (`rain-barrel`, `thermometer`) package
+every clip's own `manifest.json` into one zip — intentional, matching what a native
+Pixel Agents install expects — but pixel-index accepts at most one `manifest.json` per
+upload. `scripts/publish_examples_to_pixel_index.py` splits such a zip back into one
+upload per clip before publishing (see that script's module docstring for the full
+reasoning), so each clip becomes its own pixel-index catalog entry. That is a real,
+deliberate product-shape decision, not a bug being silently papered over.
 
 ## When it runs
 
