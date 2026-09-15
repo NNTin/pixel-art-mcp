@@ -45,6 +45,15 @@ All clips, including off poses, share a palette, scale, and stable framing.
 
 ## Native pixel authoring
 
+pixel-agents renders every asset from a downward-tilted 3/4 camera, never a flat front
+elevation (see `get_asset_profile`'s `camera_perspective` field, read by any MCP-only agent
+before authoring). For floor furniture, the top-facing surface must dominate the sprite --
+usually well over half its visible height -- with only a thin front/side edge and legs/base
+at the very bottom few pixels; a true front face (a chair's backrest, a desk's front apron)
+is barely visible from this camera. For characters/pets, the front and side views show mostly
+the top of the head/fur with eyes/face pushed down near the bottom of the head box, not a
+conventional face with a visible forehead; the back view is entirely hair/fur, no face.
+
 The primary API is typed JSON through `write_pixel_art`; see [the MCP contract](tools.md).
 `render_asset` rejects missing or invalid definitions; generic render tools are removed.
 The following is an advanced developer example of the helper used internally by the server.
@@ -92,11 +101,13 @@ does not run Cycles or downscale artwork. Its source comparison is labeled **aut
 not a higher-detail source render. Hybrid source comparisons show the unmodified Blender render.
 Automatic `outline` is rejected with pixel layers; draw outlines explicitly on the native grid.
 
-The rain barrel keeps its front body at 12x20 inside a 16x32 canvas. Its faucet is a connected
-10-pixel gold glyph; the gauge is a 4x7 frame with a 2x5 interior. A wood gap separates them.
-The opening and fill are broad clusters; rain moves independently above the body. Screws,
-threads and repeated wood texture yield space to these identifying features. This is deliberate
-pixel art direction, not a promise that every small detail can survive at this footprint.
+The rain barrel's 12x13 mouth/opening dominates the top of its 16x32 canvas, matching the
+top-down 3/4 camera; its compressed body starts immediately below at y=14. Its faucet is a
+connected 10-pixel gold glyph; the gauge is a 4x7 frame with a 2x5 interior. A wood gap
+separates them. The opening and fill are broad clusters; rain moves independently above the
+body. Screws, threads and repeated wood texture yield space to these identifying features.
+This is deliberate pixel art direction, not a promise that every small detail can survive at
+this footprint.
 
 ## Sizes and placement
 

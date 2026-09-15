@@ -7,7 +7,7 @@ from pixel_art_mcp.pixel_art import Canvas, PixelArt
 art = PixelArt.load(bpy.context.scene)
 art.palette["C"], art.palette["T"] = "#aa466b", "#e69eb0"
 for layer in art.layers:
-    if layer["name"] != "backrest":
+    if layer["name"] != "body":
         continue
     for pose in layer["poses"]:
         canvas = Canvas.from_rows(pose["rows"])

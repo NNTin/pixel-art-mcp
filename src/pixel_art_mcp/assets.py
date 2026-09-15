@@ -217,6 +217,22 @@ def get_asset_profile(
         "placement and category for the actual object: a thermometer uses placement=wall, "
         "category=wall. Presets choose native canvas/footprint, not the drawing; never increase "
         "pixel density to add detail.",
+        "camera_perspective": (
+            "pixel-agents renders every asset from a downward-tilted 3/4 camera, never a flat "
+            "front elevation. The object's TOP-FACING surface must dominate the sprite -- most "
+            "of its visible height -- with only a thin front/side edge and legs/base visible at "
+            "the very bottom few pixels. A true front face (a chair's backrest, a desk's front "
+            "apron, a barrel's side wall) is barely visible from this camera; drawing it as the "
+            "main content is the most common mistake. Before adding side/front detail, decide "
+            "how much of the canvas the topmost visible surface should fill -- usually well over "
+            "half the height for floor furniture."
+            if kind == "furniture"
+            else "pixel-agents renders every asset from a downward-tilted 3/4 camera, never a "
+            "flat front elevation. On the front ('down') and side views the top of the head/fur "
+            "dominates and eyes/face sit low, near the bottom of the head box -- not a "
+            "conventional face with a visible forehead. The back ('up') view is entirely "
+            "hair/fur with no face at all."
+        ),
         "pixel_authoring": {
             "contract_version": 1,
             "required": True,

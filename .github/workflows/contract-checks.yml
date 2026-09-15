@@ -34,6 +34,8 @@ on:
   pull_request:
     paths:
       - "contracts/pixel_index/**"
+      - "examples/**"
+      - "scripts/generate_examples.py"
       - "src/pixel_art_mcp/models.py"
       - "src/pixel_art_mcp/imaging/pixel_agents.py"
       - "src/pixel_art_mcp/imaging/character.py"

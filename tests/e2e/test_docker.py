@@ -112,7 +112,7 @@ async def test_docker_reference_and_saved_pixel_layer_edit(png, example_dir):
         with zipfile.ZipFile(io.BytesIO(downloaded.content)) as archive:
             art = json.loads(archive.read("pixel-art.json"))
             assert art["palette"]["C"] == "#aa466b"
-            assert any(layer["name"] == "backrest" for layer in art["layers"])
+            assert any(layer["name"] == "body" for layer in art["layers"])
             metadata = json.loads(archive.read("spritesheet.json"))
             assert metadata["size"] == [16, 128]
             assert metadata["source_kind"] == "native-grid"

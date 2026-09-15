@@ -1,4 +1,6 @@
-"""A 12x20 barrel on the existing 16x32 canvas, with explicit feature budgets."""
+"""A barrel drawn top-down 3/4 (dominant mouth/opening, compressed staves
+below), matching pixel-agents' own camera convention instead of a flat front
+elevation. Explicit feature budgets throughout."""
 
 import bpy
 
@@ -17,26 +19,40 @@ art = PixelArt(
     },
     {angle: (16, 32) for angle in (0, 90, 180, 270)},
 )
-body = Canvas(16, 32)
-body.rect(2, 13, 12, 16, "D").rect(3, 13, 10, 15, "W")
-body.rect(3, 14, 1, 13, "H").rect(11, 14, 2, 13, "S")
-body.rect(5, 10, 6, 1, "D").rect(3, 11, 10, 1, "D")
-body.rect(4, 11, 8, 1, "H").rect(2, 12, 12, 1, "D")
-body.rect(3, 12, 10, 1, "H").rect(3, 14, 10, 1, "H")
-for y in (15, 16, 17, 25, 26, 27, 28):
-    body.rect(2, y, 1, 1, ".").rect(13, y, 1, 1, ".")
-    body.rect(3, y, 1, 1, "D").rect(12, y, 1, 1, "D")
-for y, color in ((15, "D"), (16, "M"), (17, "D"), (26, "D"), (27, "M"), (28, "D")):
-    body.rect(4, y, 8, 1, color)
-body.rect(5, 29, 6, 1, "D")
+body = Canvas.from_rows(
+    [
+        "..DDDDDDDDDDDD..",
+        "...DHHHHHHHHD...",
+        "..DHHHHHHHHHHD..",
+        "..DHHHHHHHHHHD..",
+        "...DDDDDDDDDD...",
+        "...DMMMMMMMMD...",
+        "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
+        "..DHWWWWWWWSSD..",
+        "...DWWWWWWWSD...",
+        "...DDDDDDDDDD...",
+        "...DDDDDDDDDD...",
+        ".....DDDDDD.....",
+    ]
+)
 tap = Canvas.from_rows([".GGG..", "..G...", ".GGGG.", "....G.", "....G."])
 surround = Canvas.from_rows(["DDDDD.", ".DDD..", "DDDDDD", ".DDDDD", "...DDD", "....D."])
+# Feature-budget shift: the barrel body now starts 4 rows lower (y=14 instead
+# of y=10) to make room for the enlarged opening above it -- every small
+# accessory attached to the body (tap, gauge, side spout, rear seams) moves
+# down by the same 4 rows so it still sits against the body correctly.
+BODY_TOP = 14
+SHIFT = 4
 for angle in (0, 90, 180, 270):
-    art.layer("barrel", angle, body)
+    art.layer("barrel", angle, body, y=BODY_TOP)
     # Controls belong to the front: the side has a projecting spout, the rear plain staves.
     if angle == 0:
-        art.layer("tap surround", angle, surround, x=2, y=19)
-        art.layer("faucet", angle, tap, x=2, y=19, min_pixels=10, connected=True)
+        art.layer("tap surround", angle, surround, x=2, y=19 + SHIFT)
+        art.layer("faucet", angle, tap, x=2, y=19 + SHIFT, min_pixels=10, connected=True)
     elif angle in (90, 270):
         side = Canvas.from_rows(["GG.", ".G.", ".GG", "..G"])
         art.layer(
@@ -44,22 +60,26 @@ for angle in (0, 90, 180, 270):
             angle,
             side if angle == 90 else side.mirrored(),
             x=12 if angle == 90 else 1,
-            y=20,
+            y=20 + SHIFT,
             min_pixels=6,
             connected=True,
         )
     else:
         seams = Canvas(5, 7).rect(0, 0, 1, 7, "S").rect(4, 0, 1, 7, "S")
-        art.layer("rear staves", angle, seams, x=6, y=18)
+        art.layer("rear staves", angle, seams, x=6, y=18 + SHIFT)
     for level in range(3):
         for phase in range(9):
             frame = level * 10 + phase
-            opening = Canvas.from_rows([".DDDDDD.", "DDDDDDDD", ".DDDDDD."])
+            # A wide, mostly-full mouth (dominant top surface): a 4-row taper,
+            # a 5-row wide band, then another 4-row taper -- see it from above.
+            opening = Canvas(12, 13)
+            opening.rect(1, 0, 10, 4, "D").rect(0, 4, 12, 5, "D").rect(1, 9, 10, 4, "D")
             if level:
-                opening = Canvas.from_rows([".CCCCCC.", "CCCCCCCC", ".CCCCCC."])
-                opening.rect(2 + (phase % 2), 0, 3, 1, "L")
+                opening = Canvas(12, 13)
+                opening.rect(1, 0, 10, 4, "C").rect(0, 4, 12, 5, "C").rect(1, 9, 10, 4, "C")
+                opening.rect(3 + (phase % 2), 0, 5, 4, "L")
             art.layer(
-                "opening", angle, opening, x=4, y=12, frame=frame, min_pixels=20, connected=True
+                "opening", angle, opening, x=2, y=2, frame=frame, min_pixels=60, connected=True
             )
             if angle == 0:
                 gauge = Canvas(4, 7).rect(0, 0, 4, 7, "D").rect(1, 1, 2, 5, "M")
@@ -71,7 +91,7 @@ for angle in (0, 90, 180, 270):
                     angle,
                     gauge,
                     x=9,
-                    y=18,
+                    y=18 + SHIFT,
                     frame=frame,
                     min_pixels=28,
                     connected=True,
