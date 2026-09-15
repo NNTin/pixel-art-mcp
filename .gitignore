@@ -16,3 +16,4 @@ data/
 tmp/
 .ao/
 .claude/
+.vercel
