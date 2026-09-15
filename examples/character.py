@@ -1,4 +1,9 @@
-"""Native office worker: three walk poses and two distinct typing/reading poses."""
+"""Native office worker: three walk poses and two distinct typing/reading poses.
+
+Heads are drawn top-down 3/4 (more hair coverage, eyes pushed down near the
+bottom of the head box) matching pixel-agents' own char_0.png reference
+sprite sheet instead of a flat front elevation with a fully exposed face.
+"""
 
 import bpy
 
@@ -19,7 +24,64 @@ art = PixelArt(
     },
     {a: (16, 32) for a in (0, 180, 90)},
 )
+HEADS = {
+    0: Canvas.from_rows(
+        [
+            "...HHHHHH...",
+            ".HHHHHHHHHH.",
+            ".HhhhhhhhHH.",
+            "HHhhhhhhhHHH",
+            "HHHHHHHHHHHH",
+            "HHHHHHHHHHHH",
+            "HHHHHHHHHHHH",
+            "HHHHLLLLLLHH",
+            "HHLLLLLLLLHH",
+            "HHLDLLLLDLHH",
+            ".SLDLLLLDLS.",
+            ".SLLLSSLLLS.",
+            "..SLLHHLLS..",
+            "...SSSSSS...",
+        ]
+    ),
+    180: Canvas.from_rows(
+        [
+            "...HHHHHH...",
+            ".HHHHHHHHHH.",
+            ".HhhhhhhhHH.",
+            "HHhhhhhhhHHH",
+            "HHhhhhhhhHHH",
+            "HHhhhhhhhHHH",
+            "HHhhhhhhhHHH",
+            "HHhhhhhhhHHH",
+            ".HHHHHHHHHH.",
+            ".HHHHHHHHHH.",
+            "..SHHHHHHS..",
+            "...HHHHHH...",
+            ".....SS.....",
+            ".....SS.....",
+        ]
+    ),
+    90: Canvas.from_rows(
+        [
+            "...HHHHHH...",
+            ".HHHHHHHHHH.",
+            ".HhhhhhhhHH.",
+            "HHhhhhhhhHHH",
+            "HHHHHHHHHHHH",
+            "HHHHHHHHHHHH",
+            "HHHHHHHHHHHH",
+            "HHHHHHHLLLLH",
+            "HHHHHHHLLDLH",
+            "HHHHHSSLLDLL",
+            ".SSSSSSLLLLL",
+            ".SSSSSLLLLS.",
+            "..SSSSLLHH..",
+            "...SSSSSS...",
+        ]
+    ),
+}
 for angle in (0, 180, 90):
+    head = HEADS[angle]
     for frame in range(1, 8):
         work = frame >= 4
         step = (1, 0, -1)[frame - 1] if not work else 0
@@ -35,23 +97,6 @@ for angle in (0, 180, 90):
             body.rect(5, 24, 6, 4, "P").rect(7, 25, 2, 3, "D")
             body.rect(4, 28 - max(step, 0), 4, 2, "D")
             body.rect(8, 28 - max(-step, 0), 4, 2, "D")
-        head = Canvas(12, 14)
-        head.rect(3, 0, 6, 1, "H").rect(1, 1, 10, 2, "H")
-        head.rect(0, 3, 12, 5, "H").rect(1, 8, 10, 2, "S")
-        head.rect(2, 10, 8, 1, "S").rect(3, 11, 6, 1, "S")
-        head.rect(5, 12, 2, 2, "S").rect(2, 2, 7, 2, "h")
-        if angle == 180:
-            head.rect(1, 4, 10, 6, "H").rect(2, 4, 7, 4, "h")
-            head.rect(3, 10, 6, 2, "H")
-        elif angle == 90:
-            head.rect(7, 5, 4, 4, "L").rect(6, 9, 4, 2, "L")
-            head.rect(10, 7, 2, 2, "L").rect(9, 6, 1, 2, "D")
-            head.rect(5, 7, 2, 2, "S").rect(8, 10, 2, 1, "H")
-        else:
-            head.rect(2, 5, 8, 5, "L").rect(2, 5, 2, 1, "H")
-            head.rect(3, 7, 1, 2, "D").rect(8, 7, 1, 2, "D")
-            head.rect(5, 9, 2, 1, "S").rect(3, 10, 6, 1, "L")
-            head.rect(5, 10, 2, 1, "H")
         art.layer("body", angle, body, frame=frame)
         art.layer("head", angle, head, x=2, y=3, frame=frame, min_pixels=124, connected=True)
         hands = Canvas(16, 32)
