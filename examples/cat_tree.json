@@ -1,6 +1,5 @@
 {
   "version": 1,
-  "base": "native",
   "palette": {"O":"#26363e","C":"#629d9b","L":"#a8d8cd","D":"#426773","S":"#ae844c","s":"#e1bf7e","W":"#f0dbad","T":"#ea735e"},
   "layers": [
     {

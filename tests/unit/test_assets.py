@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from pixel_art_mcp.assets import asset_layouts, get_asset_profile, resolve_asset
 from pixel_art_mcp.authoring import PixelDefinition
-from pixel_art_mcp.blender.camera_fit import fit_asset_views
 from pixel_art_mcp.imaging.asset_export import asset_report, export_asset
 from pixel_art_mcp.imaging.inspection import inspect_sprite
 from pixel_art_mcp.models import AssetSpec, DomainError
@@ -22,7 +21,6 @@ def fixture_export(tmp_path, kind="furniture", **kwargs):
     art = PixelArt(
         {"D": "#293039", "G": "#f3cf65", "B": "#5285b8"},
         {row["angle"]: (row["width"], row["height"]) for row in options.asset_layouts},
-        base="render",
     )
     entries, views = [], []
     for row in options.asset_layouts:
@@ -95,28 +93,6 @@ def test_rotated_desk_has_shared_background_and_rotated_ground():
     assert [(r["width"], r["height"]) for r in wide] == [(32, 16), (16, 32), (32, 16), (16, 32)]
     with pytest.raises(DomainError):
         resolve_asset(AssetSpec(kind="furniture", name="Bad", asset_id="BAD", width=24))
-
-
-def test_shared_game_scale_and_stable_bottom_alignment():
-    rows = asset_layouts(AssetSpec(kind="pet", name="Pet", asset_id="PET"))
-    bounds = [(-0.2, 0.2, -0.1, 0.6), (-0.2, 0.2, -0.1, 0.6), (-0.6, 0.6, -0.1, 0.6)]
-    fits = fit_asset_views(rows, bounds)
-    assert len({fit["pixels_per_unit"] for fit in fits}) == 1
-    for row, bound, fit in zip(rows, bounds, fits, strict=True):
-        assert row["height"] / 2 + (fit["cy"] - bound[2]) * fit["pixels_per_unit"] == pytest.approx(
-            row["bottom"]
-        )
-    # Body size in meters doesn't determine on-screen readability.
-    smaller = fit_asset_views(rows, [tuple(v / 10 for v in b) for b in bounds])
-    assert smaller[0]["pixels_per_unit"] == pytest.approx(fits[0]["pixels_per_unit"] * 10)
-
-
-def test_explicit_anchor_reserves_contact_clearance():
-    rows = asset_layouts(AssetSpec(kind="character", name="Person"))
-    fits = fit_asset_views(rows, [(-0.2, 0.2, -0.05, 1)] * 3, [(0, 0)] * 3)
-    for row, fit in zip(rows, fits, strict=True):
-        assert row["height"] / 2 + fit["cy"] * fit["pixels_per_unit"] == pytest.approx(29)
-        assert 29 + 0.05 * fit["pixels_per_unit"] <= 31
 
 
 @pytest.mark.parametrize("kind", ["furniture", "character", "pet"])
@@ -267,7 +243,7 @@ def test_animation_playback_and_duration_match_consumer(tmp_path, kind):
             assert {p[:3] for p in image.get_flattened_data() if p[3]} <= palette
 
 
-@pytest.mark.parametrize("problem", ["empty", "clipped", "wrong_size", "path"])
+@pytest.mark.parametrize("problem", ["empty", "wrong_size", "path"])
 def test_asset_export_rejects_invalid_source_frames(tmp_path, problem):
     out, options, manifest = fixture_export(tmp_path)
     raw = tmp_path / "raw"
@@ -279,15 +255,11 @@ def test_asset_export_rejects_invalid_source_frames(tmp_path, problem):
     else:
         with Image.open(first) as im:
             size = (8, 8) if problem == "wrong_size" else im.size
-        image = Image.new("RGBA", size)
-        if problem == "clipped":
-            ImageDraw.Draw(image).rectangle((0, 0, 10, 10), fill="white")
-        image.save(first)
+        Image.new("RGBA", size).save(first)
     with pytest.raises(
         DomainError,
         match={
             "empty": "Empty sprite",
-            "clipped": "render boundary",
             "wrong_size": "canvas dimensions",
             "path": "image path",
         }[problem],

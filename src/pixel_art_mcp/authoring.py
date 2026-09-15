@@ -44,23 +44,13 @@ class PixelPose(PixelModel):
         default=0,
         ge=-512,
         le=512,
-        description="Native pixel column of the patch's top-left. With anchor, offset from its "
-        "projected object origin.",
+        description="Native pixel column of the patch's top-left.",
     )
     y: StrictInt = Field(
         default=0,
         ge=-512,
         le=512,
-        description="Native pixel row of the patch's top-left; positive goes down. With "
-        "anchor, offset from its projected object origin.",
-    )
-    anchor: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=120,
-        description="Hybrid render mode only: existing Blender object name. Screen-space "
-        "overlay follows its origin, not its rotation/scale, and is not "
-        "depth-tested.",
+        description="Native pixel row of the patch's top-left; positive goes down.",
     )
     min_pixels: StrictInt = Field(
         default=0,
@@ -118,12 +108,6 @@ class PixelDefinition(PixelModel):
     """Complete editable source; write replaces it atomically, never merges it."""
 
     version: Literal[1] = 1
-    base: Literal["native", "render"] = Field(
-        default="native",
-        description="native draws the complete sprite through pixel helpers. render uses "
-        "Blender geometry beneath pixel overlays; prepare geometry with "
-        "execute_blender_python first. Both require this definition.",
-    )
     palette: dict[Symbol, Color] = Field(
         min_length=2,
         max_length=64,
@@ -149,8 +133,6 @@ class PixelDefinition(PixelModel):
         paint_operations = 0
         for layer in self.layers:
             for pose in layer.poses:
-                if pose.anchor is not None and self.base != "render":
-                    raise ValueError("Object anchors require base=render")
                 if pose.drawing is not None:
                     pixels += pose.drawing.width * pose.drawing.height
                     paint_operations += pose.drawing.cost()
@@ -168,9 +150,7 @@ class PixelDefinition(PixelModel):
         return self
 
     def to_art(self, layouts: list[dict[str, Any]]) -> PixelArt:
-        art = PixelArt(
-            self.palette, {v["angle"]: (v["width"], v["height"]) for v in layouts}, base=self.base
-        )
+        art = PixelArt(self.palette, {v["angle"]: (v["width"], v["height"]) for v in layouts})
         for layer in self.layers:
             for pose in layer.poses:
                 art.layer(

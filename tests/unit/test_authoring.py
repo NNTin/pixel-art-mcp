@@ -30,7 +30,6 @@ def starter():
         lambda d: d["layers"][0]["poses"][0].update(rows=["XX"]),
         lambda d: d["layers"][0]["poses"][0].update(x=1.5),
         lambda d: d["layers"][0]["poses"][0].update(x=True),
-        lambda d: d["layers"][0]["poses"][0].update(anchor="Body"),
         lambda d: d["layers"][0]["poses"].append(d["layers"][0]["poses"][0]),
         lambda d: d["layers"].append(d["layers"][0]),
     ],
@@ -57,8 +56,7 @@ def test_target_contract(starter, change, message):
         validated_art(art.to_dict(), options.model_dump())
 
 
-def test_transparent_hybrid_document_is_not_a_geometry_bypass(starter):
-    starter["base"] = "render"
+def test_transparent_document_is_rejected(starter):
     for pose in starter["layers"][0]["poses"]:
         pose["rows"] = ["."]
     options = resolve_asset(AssetSpec(kind="furniture", name="Test", asset_id="TEST"))
@@ -67,7 +65,7 @@ def test_transparent_hybrid_document_is_not_a_geometry_bypass(starter):
         validated_art(art.to_dict(), options.model_dump())
 
 
-def test_target_rejects_outline_palette_and_unknown_anchors(starter):
+def test_target_rejects_outline_palette(starter):
     options = resolve_asset(AssetSpec(kind="furniture", name="Test", asset_id="TEST"))
     art = PixelDefinition.model_validate(starter).to_art(options.asset_layouts)
     for change, message in [
@@ -79,13 +77,6 @@ def test_target_rejects_outline_palette_and_unknown_anchors(starter):
             art.validate_target(
                 options.asset_layouts, options.frames(), {**options.asset.model_dump(), **change}
             )
-    starter["base"] = "render"
-    starter["layers"][0]["poses"][0]["anchor"] = "Missing"
-    art = PixelDefinition.model_validate(starter).to_art(options.asset_layouts)
-    with pytest.raises(ValueError, match="Unknown pixel anchor"):
-        art.validate_target(
-            options.asset_layouts, options.frames(), options.asset.model_dump(), set()
-        )
 
 
 def test_authored_cell_limit(starter):
@@ -95,25 +86,12 @@ def test_authored_cell_limit(starter):
         PixelDefinition.model_validate(starter)
 
 
-@pytest.mark.parametrize("base", ["native", "render"])
-def test_only_off_canvas_ink_is_rejected(starter, base):
-    starter["base"] = base
+def test_only_off_canvas_ink_is_rejected(starter):
     for pose in starter["layers"][0]["poses"]:
         pose["x"] = 512
     options = resolve_asset(AssetSpec(kind="furniture", name="Test", asset_id="TEST"))
     art = PixelDefinition.model_validate(starter).to_art(options.asset_layouts)
-    with pytest.raises(DomainError, match="Empty native|inside their canvases"):
-        validated_art(art.to_dict(), options.model_dump())
-
-
-def test_ink_in_unused_hybrid_frames_is_not_a_bypass(starter):
-    starter["base"] = "render"
-    for pose in starter["layers"][0]["poses"]:
-        pose["rows"] = ["."]
-    starter["layers"][0]["poses"].append({"angle": 0, "frame": 999, "rows": ["G"]})
-    options = resolve_asset(AssetSpec(kind="furniture", name="Test", asset_id="TEST"))
-    art = PixelDefinition.model_validate(starter).to_art(options.asset_layouts)
-    with pytest.raises(DomainError, match="Configured frames must use authored ink"):
+    with pytest.raises(DomainError, match="Empty pose"):
         validated_art(art.to_dict(), options.model_dump())
 
 
@@ -194,7 +172,7 @@ def test_preview_is_exact_selected_sprite(tmp_path, kind, clip, angle, source_an
         asset_preview(root, clip, angle, 9999, 1, False)
 
 
-def test_export_requires_source_even_for_hybrid(tmp_path):
+def test_export_requires_source(tmp_path):
     _, options, manifest = fixture_export(tmp_path)
     manifest = copy.deepcopy(manifest)
     del manifest["pixel_art"]
