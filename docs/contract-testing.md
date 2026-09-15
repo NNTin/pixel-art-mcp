@@ -101,10 +101,17 @@ That check also found, and now documents and handles, one real structural mismat
 pixel-art-mcp's multi-clip furniture examples (`rain-barrel`, `thermometer`) package
 every clip's own `manifest.json` into one zip — intentional, matching what a native
 Pixel Agents install expects — but pixel-index accepts at most one `manifest.json` per
-upload. `scripts/publish_examples_to_pixel_index.py` splits such a zip back into one
-upload per clip before publishing (see that script's module docstring for the full
-reasoning), so each clip becomes its own pixel-index catalog entry. That is a real,
-deliberate product-shape decision, not a bug being silently papered over.
+upload. [`scripts/pixel_index_packaging.py`](../scripts/pixel_index_packaging.py)'s
+`split_multi_clip_zip()` splits such a zip back into one zip per clip (see its module
+docstring for the full reasoning); `scripts/publish_examples_to_pixel_index.py` uses it
+to publish each clip as its own separate pixel-index catalog entry, and
+`scripts/generate_examples.py` uses the same function to also write each clip's zip
+into the example gallery with its own download link — the bundled `pixel-agents.zip`
+a multi-clip example's card still links to is correct for a native Pixel Agents
+install, but is **not** directly uploadable to pixel-index; the per-clip zips are
+what a person publishing one of these to pixel-index by hand actually wants. That
+split is a real, deliberate product-shape decision, not a bug being silently papered
+over.
 
 ## When it runs
 

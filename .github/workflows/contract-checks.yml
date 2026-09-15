@@ -38,6 +38,8 @@ on:
       - "src/pixel_art_mcp/imaging/pixel_agents.py"
       - "src/pixel_art_mcp/imaging/character.py"
       - "src/pixel_art_mcp/imaging/pet.py"
+      - "scripts/generate_examples.py"
+      - "scripts/pixel_index_packaging.py"
       - ".github/workflows/contract-checks.yml"
 
 permissions:

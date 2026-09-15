@@ -51,6 +51,7 @@ on:
       - "examples/**"
       - "scripts/generate_examples.py"
       - "scripts/publish_examples_to_pixel_index.py"
+      - "scripts/pixel_index_packaging.py"
       - "scripts/ci/mint_pixel_index_token.ts"
       - "src/pixel_art_mcp/imaging/asset_export.py"
       - "src/pixel_art_mcp/imaging/pixel_agents.py"

@@ -14,40 +14,22 @@ Reads `examples/asset-specs.json`-driven output from `scripts/generate_examples.
 
 ## Multi-clip furniture becomes multiple uploads
 
-`imaging/asset_export.py` gives each named clip of a multi-clip furniture asset
-(e.g. the `rain-barrel` example's empty/partial/full states, `thermometer`'s
-cold/room/hot) its own asset id and its own `manifest.json`, all packaged
-together in one `pixel-agents.zip` -- intentional, and exactly what a native
-Pixel Agents install (`webview-ui/public`) expects: each clip is independently
-placeable furniture, not a hidden state of one item.
-
-pixel-index's ingestion contract has no equivalent of that: `findNamedTextEntry`
-(`services/api/src/assets/zip.ts` in pixel-agents-hq/index) rejects any upload
-containing more than one `manifest.json`, by design -- one upload is one catalog
-entry. There is no grouped-variant concept upstream today for one catalog entry
-to offer multiple selectable clips.
-
-Rather than changing either side's contract to work around that mismatch, this
-script treats the two as compatible at the packaging level: a multi-clip zip is
-split back into one independent zip per top-level `manifest.json` (preserving
-every entry's original path, so pixel-index's own manifest-relative file
-resolution still works unmodified) and each one is published as its own
-pixel-index asset. A three-clip rain barrel becomes three separate pixel-index
-catalog listings (RAIN_BARREL_EMPTY / _PARTIAL / _FULL) instead of one -- a
-real, deliberate product-shape decision, not a technical shortcut, and the
-right one until/unless pixel-index grows a grouped-variant concept of its own.
+A multi-clip furniture package (e.g. `rain-barrel`'s empty/partial/full states,
+`thermometer`'s cold/room/hot) is not directly uploadable to pixel-index -- see
+`scripts/pixel_index_packaging.py` for why, and for the `split_multi_clip_zip()`
+this script reuses (the same split that also gives each clip its own downloadable
+zip in the example gallery, `scripts/generate_examples.py`) to publish each clip
+as its own separate pixel-index asset instead.
 """
 
 from __future__ import annotations
 
 import argparse
-import io
-import json
 import sys
 from pathlib import Path
-from zipfile import ZipFile
 
 import httpx
+from pixel_index_packaging import split_multi_clip_zip
 
 PACKAGE_FILENAMES = ("pixel-agents.zip", "pixel-agents-character.zip", "pixel-agents-pet.zip")
 
@@ -62,31 +44,12 @@ class Unit:
 
 
 def split_units(example_key: str, package_filename: str, data: bytes) -> list[Unit]:
-    with ZipFile(io.BytesIO(data)) as archive:
-        manifest_paths = [name for name in archive.namelist() if name.endswith("manifest.json")]
-        if len(manifest_paths) <= 1:
-            return [Unit(f"{example_key}/{package_filename}", data)]
-
-        # Multi-clip furniture: one manifest.json per clip, each with its own
-        # sibling PNGs directly beside it (asset_export.py). Group every entry
-        # by which manifest.json's directory it lives under, and re-zip each
-        # group standalone with its original paths intact -- pixel-index finds
-        # manifest.json wherever it is and resolves referenced files relative
-        # to that same directory (services/api/src/assets/zip.ts), so no path
-        # rewriting is needed.
-        dirs = sorted((p.rsplit("/", 1)[0] + "/" for p in manifest_paths), key=len, reverse=True)
-        units = []
-        for clip_dir in dirs:
-            names = [n for n in archive.namelist() if n.startswith(clip_dir)]
-            manifest = json.loads(archive.read(f"{clip_dir}manifest.json"))
-            buffer = io.BytesIO()
-            with ZipFile(buffer, "w") as clip_zip:
-                for name in names:
-                    clip_zip.writestr(name, archive.read(name))
-            units.append(
-                Unit(f"{example_key}/{package_filename} [{manifest['id']}]", buffer.getvalue())
-            )
-        return units
+    clips = split_multi_clip_zip(data)
+    if not clips:
+        return [Unit(f"{example_key}/{package_filename}", data)]
+    return [
+        Unit(f"{example_key}/{package_filename} [{clip.asset_id}]", clip.data) for clip in clips
+    ]
 
 
 def find_package(example_dir: Path) -> tuple[str, bytes] | None:

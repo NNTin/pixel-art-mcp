@@ -11,8 +11,33 @@ from zipfile import ZipFile
 import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+from pixel_index_packaging import split_multi_clip_zip
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Every other file this script writes into an example's folder -- any *.zip
+# beyond these is one split_multi_clip_zip() wrote (its filename is the
+# clip's own asset id), and gets its own gallery download link.
+KNOWN_ZIP_FILENAMES = {
+    "sprites.zip",
+    "pixel-agents.zip",
+    "pixel-agents-character.zip",
+    "pixel-agents-pet.zip",
+}
+
+
+def clip_links_html(example_dir: Path) -> str:
+    clip_zips = sorted(p for p in example_dir.glob("*.zip") if p.name not in KNOWN_ZIP_FILENAMES)
+    if not clip_zips:
+        return ""
+    links = " · ".join(
+        f'<a href="{html.escape(example_dir.name)}/{html.escape(p.name)}">{html.escape(p.stem)}</a>'
+        for p in clip_zips
+    )
+    return (
+        "<p>Not directly uploadable to pixel-index as one zip (multiple states, "
+        f"see docs/contract-testing.md) -- individual states: {links}</p>"
+    )
 
 
 async def generate(base_url: str, output: Path, only: list[str]) -> None:
@@ -141,6 +166,10 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
                     if not (folder / name).resolve().is_relative_to(folder.resolve()):
                         raise ValueError("Invalid archive path")
                 archive.extractall(folder)
+            package_path = folder / "pixel-agents.zip"
+            if package_path.is_file():
+                for clip in split_multi_clip_zip(package_path.read_bytes()):
+                    (folder / f"{clip.asset_id}.zip").write_bytes(clip.data)
             (folder / "generation.json").write_text(
                 json.dumps(
                     {
@@ -166,7 +195,9 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
         f'<img src="{html.escape(p.name)}/context.png" '
         f'alt="{html.escape(p.name)} in approximate placement context"></a>'
         f'<p><a href="{html.escape(p.name)}/sprites.zip">Download all outputs</a> · '
-        f'<a href="{html.escape(p.name)}/asset-report.json">Diagnostics</a></p></article>'
+        f'<a href="{html.escape(p.name)}/asset-report.json">Diagnostics</a></p>'
+        + clip_links_html(p)
+        + "</article>"
         for p in sorted(output.iterdir())
         if (p / "preview.html").is_file()
     ]
