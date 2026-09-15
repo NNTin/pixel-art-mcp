@@ -1,33 +1,4 @@
 {
-  "bobbing-cube": {
-    "scripts": [
-      "bobbing_cube.py"
-    ],
-    "specification": {
-      "kind": "furniture",
-      "name": "Bobbing Cube",
-      "asset_id": "BOBBING_CUBE",
-      "width": 32,
-      "height": 32,
-      "ground_width": 2,
-      "ground_depth": 2,
-      "clips": {
-        "bob": {
-          "frames": [
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8
-          ],
-          "off_frame": 1
-        }
-      }
-    }
-  },
   "candle": {
     "scripts": [
       "candle.py"
