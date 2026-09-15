@@ -1,0 +1,3 @@
+[submodule "vendor/pixel-index"]
+	path = vendor/pixel-index
+	url = https://github.com/pixel-agents-hq/index.git
