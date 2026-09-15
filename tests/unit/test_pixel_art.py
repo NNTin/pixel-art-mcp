@@ -186,7 +186,7 @@ def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
             for f in range(9)
         ]
         assert len({im.crop((0, 18, 16, 32)).tobytes() for im in images}) == 1
-        assert images[0].getbbox() == (2, 2, 14, 30)
+        assert images[0].getbbox() == (2, 6, 14, 30)
         _, features = composite_features(
             Image.new("RGBA", (16, 32)), art.poses(0, level * 10), art.palette
         )

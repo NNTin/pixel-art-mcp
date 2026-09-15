@@ -45,32 +45,32 @@ body = Canvas.from_rows(
 )
 tap = Canvas.from_rows([".GGG..", "..G...", ".GGGG.", "....G.", "....G."])
 surround = Canvas.from_rows(["DDDDD.", ".DDD..", "DDDDDD", ".DDDDD", "...DDD", "....D."])
-# The body is 20 rows tall (was 16) and the mouth above it 9 rows (was 13),
-# for a taller, more cylindrical barrel rather than one squashed short by an
-# oversized mouth. BODY_TOP keeps the body's bottom at the same y=29 it
-# always had (10 + 20 - 1), so every accessory offset below stays unchanged;
-# only the freed 4 rows move from mouth to body, as extra stave rows.
+# The body is 20 rows tall (was 16), for a taller, more cylindrical barrel
+# rather than one squashed short by an oversized mouth. BODY_TOP keeps the
+# body's bottom at the same y=29 it always had (10 + 20 - 1).
 BODY_TOP = 10
-SHIFT = 4
-# The mouth's D fill (barrel-body dark) is only 13 luma units from the webview
-# floor's own dark tile color, and dominates the top of the sprite -- solid D
-# reads as a hole punched through the sprite into the background rather than
-# an opening. Trace a lighter metal-rim highlight (M, already the barrel's
-# hoop-band color) one pixel in from the mouth's outline so it stays a single
-# connected surface but no longer merges with the floor.
+# The mouth is narrower than the body (8 wide at its band, vs. the body's 12)
+# and sits low enough to overlap the body's own H highlight collar (rows 1-3
+# of `body`, immediately below BODY_TOP): that collar is wider than the mouth,
+# so it shows through on both sides as a wood-toned rim framing the opening --
+# the same technique the pre-#22 design used to make the mouth read as a hole
+# in the barrel rather than a flat patch sitting on top of it. Without this
+# overlap the mouth had no visible frame and the faucet/gauge, offset from a
+# stale pre-shrink BODY_TOP, sat far lower on the body than intended.
 MOUTH = (
-    {(x, y) for x in range(1, 11) for y in range(0, 3)}
-    | {(x, y) for x in range(0, 12) for y in range(3, 6)}
-    | {(x, y) for x in range(1, 11) for y in range(6, 9)}
+    {(x, y) for x in range(2, 9) for y in range(0, 2)}
+    | {(x, y) for x in range(1, 10) for y in range(2, 5)}
+    | {(x, y) for x in range(2, 9) for y in range(5, 7)}
 )
 DELTAS = ((1, 0), (-1, 0), (0, 1), (0, -1))
 MOUTH_RIM = {p for p in MOUTH if any((p[0] + dx, p[1] + dy) not in MOUTH for dx, dy in DELTAS)}
 for angle in (0, 90, 180, 270):
     art.layer("barrel", angle, body, y=BODY_TOP)
-    # Controls belong to the front: the side has a projecting spout, the rear plain staves.
+    # Controls sit in the mid-band of staves, not crammed against the bottom
+    # rim -- these are absolute canvas offsets, independent of BODY_TOP.
     if angle == 0:
-        art.layer("tap surround", angle, surround, x=2, y=19 + SHIFT)
-        art.layer("faucet", angle, tap, x=2, y=19 + SHIFT, min_pixels=10, connected=True)
+        art.layer("tap surround", angle, surround, x=2, y=19)
+        art.layer("faucet", angle, tap, x=2, y=19, min_pixels=10, connected=True)
     elif angle in (90, 270):
         side = Canvas.from_rows(["GG.", ".G.", ".GG", "..G"])
         art.layer(
@@ -78,28 +78,34 @@ for angle in (0, 90, 180, 270):
             angle,
             side if angle == 90 else side.mirrored(),
             x=12 if angle == 90 else 1,
-            y=20 + SHIFT,
+            y=20,
             min_pixels=6,
             connected=True,
         )
     else:
         seams = Canvas(5, 7).rect(0, 0, 1, 7, "S").rect(4, 0, 1, 7, "S")
-        art.layer("rear staves", angle, seams, x=6, y=18 + SHIFT)
+        art.layer("rear staves", angle, seams, x=6, y=18)
     for level in range(3):
         for phase in range(9):
             frame = level * 10 + phase
-            # A wide, mostly-full mouth (dominant top surface): a 3-row taper,
-            # a 3-row wide band, then another 3-row taper -- see it from above.
-            opening = Canvas(12, 9)
+            # A wide mouth seen from above: a 2-row taper, a 3-row wide band,
+            # then another 2-row taper. Sits low enough (y=6, not y=2) to
+            # overlap the body's own H highlight collar, which is wider than
+            # the mouth and frames it in wood on both sides.
+            opening = Canvas(12, 7)
             for x, y in MOUTH:
-                opening.rect(x, y, 1, 1, "M" if (x, y) in MOUTH_RIM else "D")
+                # Only rim the part exposed against open background (y<4); the
+                # lower rows overlap the body and are already framed by its H
+                # collar peeking out on both sides -- an M rim there would
+                # cover that collar instead of letting it show.
+                opening.rect(x, y, 1, 1, "M" if (x, y) in MOUTH_RIM and y < 4 else "D")
             if level:
-                opening = Canvas(12, 9)
+                opening = Canvas(12, 7)
                 for x, y in MOUTH:
                     opening.rect(x, y, 1, 1, "C")
-                opening.rect(3 + (phase % 2), 0, 5, 3, "L")
+                opening.rect(2 + (phase % 2), 0, 5, 2, "L")
             art.layer(
-                "opening", angle, opening, x=2, y=2, frame=frame, min_pixels=60, connected=True
+                "opening", angle, opening, x=2, y=6, frame=frame, min_pixels=45, connected=True
             )
             if angle == 0:
                 gauge = Canvas(4, 7).rect(0, 0, 4, 7, "D").rect(1, 1, 2, 5, "M")
@@ -111,7 +117,7 @@ for angle in (0, 90, 180, 270):
                     angle,
                     gauge,
                     x=9,
-                    y=18 + SHIFT,
+                    y=18,
                     frame=frame,
                     min_pixels=28,
                     connected=True,

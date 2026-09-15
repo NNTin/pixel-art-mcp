@@ -95,18 +95,22 @@ runs Cycles or downscales artwork: its source comparison is always labeled **aut
 an upscaled copy of the exact exported pixels, not a higher-detail source render. Automatic
 `outline` is rejected with pixel layers; draw outlines explicitly on the native grid.
 
-The rain barrel's 12x9 mouth/opening tops its 16x32 canvas, matching the top-down 3/4
-camera, with a taller 20-row body starting immediately below at y=10 -- tall and
-cylindrical rather than squashed short by an oversized mouth. Its empty-state mouth
-traces a one-pixel metal-rim highlight around the dark interior fill -- the interior
-color alone sits close enough in luma to the webview's own floor tile that a flat, unrimmed
-fill reads as a hole into the background instead of an opening (`asset_report`'s
-`low_context_contrast` finding catches this class of mistake). Its faucet is a
-connected 10-pixel gold glyph; the gauge is a 4x7 frame with a 2x5 interior. A wood gap
-separates them. The opening and fill are broad clusters; rain moves independently above the
-body. Screws, threads and repeated wood texture yield space to these identifying features.
-This is deliberate pixel art direction, not a promise that every small detail can survive at
-this footprint.
+The rain barrel's mouth tops its 16x32 canvas, matching the top-down 3/4 camera, with a
+taller 20-row body starting at y=10 -- tall and cylindrical rather than squashed short by
+an oversized mouth. The mouth is narrower than the body and sits low enough (y=6) to overlap
+the body's own H highlight collar, which is wider than the mouth and shows through on both
+sides as a wood-toned rim framing whatever fills it -- water reads as sitting in a hole in
+the barrel, not as a flat patch on top of it. The exposed top rows of the mouth (above the
+body) get their own one-pixel metal-rim highlight instead, since nothing sits behind them to
+frame them, and their darkest fill alone sits close enough in luma to the webview's own floor
+tile that a flat, unrimmed fill reads as a hole into the background (`asset_report`'s
+`low_context_contrast` finding catches this class of mistake). Its faucet, side spout, rear
+seams and gauge sit in the mid-band of staves, at absolute canvas offsets independent of the
+body's own top -- not crammed against the bottom rim. The faucet is a connected 10-pixel gold
+glyph; the gauge is a 4x7 frame with a 2x5 interior. A wood gap separates them. The opening
+and fill are broad clusters; rain moves independently above the body. Screws, threads and
+repeated wood texture yield space to these identifying features. This is deliberate pixel art
+direction, not a promise that every small detail can survive at this footprint.
 
 ## Sizes and placement
 
