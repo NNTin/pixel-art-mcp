@@ -113,6 +113,34 @@ what a person publishing one of these to pixel-index by hand actually wants. Tha
 split is a real, deliberate product-shape decision, not a bug being silently papered
 over.
 
+### Keeping the vendored pin fresh
+
+`vendor/pixel-index` is a pinned commit, not a live check — the one place in this file
+where that's true, and it needs its own maintenance to stay meaningful: a pin that
+never moves means the publish check above keeps passing against an ever-more-outdated
+ingestion contract instead of pixel-index's real current one, quietly losing the
+whole point of vendoring it.
+
+[`.github/workflows/vendor-pixel-index-update.yml`](../.github/workflows/vendor-pixel-index-update.yml)
+keeps it moving, mirroring [pixel-index's own `vendor-update.yml`](https://github.com/pixel-agents-hq/index/blob/develop/.github/workflows/vendor-update.yml)
+for its `vendor/pixel-agents` pin: daily (and on `workflow_dispatch`), it moves
+`vendor/pixel-index` to the remote's HEAD, then proves the move is safe by running the
+exact same publish check as `pixel-index-publish-check.yml` — every example, uploaded
+to a real pixel-index instance built from the candidate pin — before opening (or
+updating, if one is already open) a `chore/vendor-pixel-index` pull request with the
+verdict in its body. A failing publish check still gets a PR opened (labeled
+`vendor-breaking`), because a merge blocker nobody can see is worse than a red workflow
+run; the job itself still fails, for visibility in Actions. Unlike pixel-index's own
+version, there's no rendered-preview diff for a human to additionally eyeball — a green
+publish check already means "every example still publishes under the new pin", the
+whole thing this repo's side of the contract cares about.
+
+That PR arrives with no CI of its own unless a `VENDOR_UPDATE_TOKEN` repository secret
+(a PAT on a bot account, same convention as pixel-index's workflow) is set — GitHub
+never triggers `pull_request` workflows for a PR opened with the default `GITHUB_TOKEN`.
+Without it, the workflow still opens the PR and says so in the body; the publish
+check's own verdict is unaffected either way, since it already ran inside the workflow.
+
 ## When it runs
 
 [`.github/workflows/contract-checks.yml`](../.github/workflows/contract-checks.yml) runs the

@@ -1,0 +1,300 @@
+name: Update vendored pixel-index
+
+# Mirrors pixel-index's own .github/workflows/vendor-update.yml for its
+# vendor/pixel-agents pin: vendor/pixel-index's pin is what
+# pixel-index-publish-check.yml stands up and checks every example's package
+# zip against, so a stale pin means that check keeps passing against an
+# outdated ingestion contract instead of pixel-index's real current one.
+#
+# This moves the pin, then proves the move is safe by running the exact same
+# publish check pixel-index-publish-check.yml runs on every PR -- every
+# example, uploaded to a real pixel-index instance built from the candidate
+# pin. The PR it opens is for a human to merge; unlike pixel-index's own
+# vendor-update.yml there is no rendered-preview diff for a person to
+# additionally judge -- a green publish check here already means "every
+# example still publishes under the new pin", the whole thing this repo's
+# side of the contract cares about.
+
+on:
+  schedule:
+    # Daily, 06:00 UTC -- same cadence as pixel-index's own vendor-update.yml,
+    # and for the same reason: the branch is reused (a run that finds no
+    # movement opens nothing and costs about a minute; a run that finds
+    # movement updates the open PR in place rather than opening another), so
+    # daily buys a smaller diff per bump and a shorter gap before a breaking
+    # pixel-index change is noticed, without turning into a PR stream.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# A manual dispatch during a scheduled run must not race two force-pushes onto
+# the same branch. Never cancel-in-progress: a half-published PR is worse
+# than a late one.
+concurrency:
+  group: vendor-pixel-index-update
+  cancel-in-progress: false
+
+env:
+  PR_BRANCH: chore/vendor-pixel-index
+
+jobs:
+  update:
+    name: Bump the pin and prove every example still publishes
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Always the base branch's pin, never a previously-opened PR's -- a PR
+      # that already advanced aaa->bbb and now advances to ccc has to report
+      # aaa->ccc, the diff a reviewer will actually merge.
+      - name: Record the baseline pin
+        id: baseline
+        run: echo "sha=$(git -C vendor/pixel-index rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Move the pin to upstream HEAD
+        id: candidate
+        run: |
+          set -euo pipefail
+          git submodule update --remote vendor/pixel-index
+          # --remote only moves the top-level pin; pixel-index's own nested
+          # vendor/pixel-agents pin (recorded inside the new commit) still
+          # needs syncing into the working tree so the Docker builds below
+          # see what that commit actually pins, not the old checkout.
+          git submodule update --init --recursive vendor/pixel-index
+          sha="$(git -C vendor/pixel-index rev-parse HEAD)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ "$sha" = "${{ steps.baseline.outputs.sha }}" ]; then
+            echo "Already at upstream HEAD ($sha). Nothing to do."
+            echo "moved=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "moved=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve the compare URL
+        id: urls
+        if: steps.candidate.outputs.moved == 'true'
+        run: |
+          set -euo pipefail
+          # From .gitmodules, never hardcoded -- a fork pointing at its own
+          # upstream should get a compare link to *that* one.
+          upstream="$(git config -f .gitmodules submodule.vendor/pixel-index.url | sed 's/\.git$//')"
+          echo "compare=$upstream/compare/${{ steps.baseline.outputs.sha }}...${{ steps.candidate.outputs.sha }}" >> "$GITHUB_OUTPUT"
+
+      # ── Everything below only runs when the pin actually moved, so a day
+      # with no upstream activity costs one cheap run and opens nothing. ────
+
+      - uses: astral-sh/setup-uv@v6
+        if: steps.candidate.outputs.moved == 'true'
+        with:
+          version: "0.9.18"
+          python-version: "3.12"
+      - run: uv sync --frozen
+        if: steps.candidate.outputs.moved == 'true'
+
+      - name: Generate every example through the real MCP pipeline
+        if: steps.candidate.outputs.moved == 'true'
+        run: |
+          docker compose up --build --wait --wait-timeout 120
+          uv run --frozen python scripts/generate_examples.py \
+            --base-url http://localhost:8000 \
+            --output "${{ runner.temp }}/examples-gallery"
+      - name: pixel-art-mcp logs
+        if: always() && steps.candidate.outputs.moved == 'true'
+        run: docker compose logs --no-color
+      - name: Stop pixel-art-mcp
+        if: always() && steps.candidate.outputs.moved == 'true'
+        run: docker compose down
+
+      - uses: actions/setup-node@v4
+        if: steps.candidate.outputs.moved == 'true'
+        with:
+          node-version: "22"
+
+      - name: Install pixel-index workspace dependencies (candidate pin)
+        if: steps.candidate.outputs.moved == 'true'
+        working-directory: vendor/pixel-index
+        run: npm ci
+
+      - name: Build packages/layout-core (candidate pin)
+        if: steps.candidate.outputs.moved == 'true'
+        working-directory: vendor/pixel-index
+        run: npm run build --workspace @pixel-index/layout-core
+
+      - name: Start pixel-index (candidate pin)
+        if: steps.candidate.outputs.moved == 'true'
+        run: |
+          SESSION_SECRET=$(openssl rand -base64 48)
+          echo "::add-mask::$SESSION_SECRET"
+          echo "SESSION_SECRET=$SESSION_SECRET" >> "$GITHUB_ENV"
+          SESSION_SECRET="$SESSION_SECRET" docker compose -f vendor/pixel-index/services/api/e2e/docker-compose.yml \
+            up --build --wait --wait-timeout 180
+
+      - name: Mint a bearer token for a throwaway pixel-index test user
+        id: token
+        if: steps.candidate.outputs.moved == 'true'
+        run: |
+          cp scripts/ci/mint_pixel_index_token.ts vendor/pixel-index/services/api/mint-token.ts
+          token=$(cd vendor/pixel-index/services/api && \
+            DATABASE_URL="postgres://pixel:pixel@localhost:15432/pixel_index" \
+            SESSION_SECRET="$SESSION_SECRET" \
+            npx tsx mint-token.ts)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      # The actual gate: does every example still publish under the candidate
+      # pin? Captured rather than failed here -- the PR has to be opened
+      # carrying the verdict either way, so the job is only failed at the
+      # very end, once the PR exists.
+      - name: Publish every example to the candidate pixel-index
+        id: publish
+        if: steps.candidate.outputs.moved == 'true'
+        continue-on-error: true
+        run: |
+          uv run --frozen python scripts/publish_examples_to_pixel_index.py \
+            --pixel-index-url http://localhost:18080 \
+            --examples-dir "${{ runner.temp }}/examples-gallery" \
+            --token "${{ steps.token.outputs.token }}" \
+            | tee "${{ runner.temp }}/publish.log"
+
+      - name: pixel-index logs
+        if: always() && steps.candidate.outputs.moved == 'true'
+        run: docker compose -f vendor/pixel-index/services/api/e2e/docker-compose.yml logs --no-color
+      - name: Stop pixel-index
+        if: always() && steps.candidate.outputs.moved == 'true'
+        run: docker compose -f vendor/pixel-index/services/api/e2e/docker-compose.yml down --volumes --remove-orphans
+
+      - name: Compose the pull request body
+        id: body
+        if: steps.candidate.outputs.moved == 'true'
+        env:
+          COMPARE_URL: ${{ steps.urls.outputs.compare }}
+          BASELINE: ${{ steps.baseline.outputs.sha }}
+          CANDIDATE: ${{ steps.candidate.outputs.sha }}
+          OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          set -euo pipefail
+          short="$(printf '%s' "$CANDIDATE" | cut -c1-7)"
+          echo "title=chore(vendor): update pixel-index to $short" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "Bumps \`vendor/pixel-index\` from [\`${BASELINE:0:7}\`]($COMPARE_URL) to [\`${CANDIDATE:0:7}\`]($COMPARE_URL) ([compare]($COMPARE_URL))."
+            echo
+            if [ "$OUTCOME" = "success" ]; then
+              echo "### ✅ Publish check: passed"
+              echo
+              echo "Every example in \`examples/asset-specs.json\` was still accepted by a real"
+              echo "pixel-index instance built from the candidate pin (same check as"
+              echo "\`.github/workflows/pixel-index-publish-check.yml\`)."
+            else
+              echo "### ❌ Publish check: failed"
+              echo
+              echo "At least one example was rejected by a real pixel-index instance built"
+              echo "from the candidate pin. This is a merge blocker -- see the log below, or"
+              echo "[this workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+            fi
+            echo
+            echo "<details><summary>Publish check output</summary>"
+            echo
+            echo '```'
+            cat "${{ runner.temp }}/publish.log" 2>/dev/null || echo "(no output captured)"
+            echo '```'
+            echo
+            echo "</details>"
+          } > "${{ runner.temp }}/pr-body.md"
+
+          if [ "$OUTCOME" != "success" ]; then
+            echo "labels=vendor-update,vendor-breaking" >> "$GITHUB_OUTPUT"
+          else
+            echo "labels=vendor-update" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A PR opened with the default GITHUB_TOKEN never triggers `pull_request`
+      # workflows (GitHub's loop protection), so it would arrive with no CI.
+      # VENDOR_UPDATE_TOKEN (a PAT on a bot account, same convention as
+      # pixel-index's own vendor-update.yml) is not subject to that. Falls
+      # back to GITHUB_TOKEN so this still opens a PR before that secret
+      # exists -- just one without checks, which the step below says out loud.
+      - name: Note if the pull request will arrive without CI
+        if: steps.candidate.outputs.moved == 'true'
+        env:
+          VENDOR_UPDATE_TOKEN: ${{ secrets.VENDOR_UPDATE_TOKEN }}
+        run: |
+          if [ -n "$VENDOR_UPDATE_TOKEN" ]; then exit 0; fi
+          {
+            echo
+            echo "### ⚠️ No checks will run on this pull request"
+            echo
+            echo "It was opened with \`GITHUB_TOKEN\`, and GitHub does not trigger"
+            echo "\`pull_request\` workflows for anything that token creates -- so \`ci.yaml\`"
+            echo "is not running here, however green it looks. The publish check's own"
+            echo "verdict above is unaffected: it ran inside this workflow, not as a check"
+            echo "on this PR."
+            echo
+            echo "Set a \`VENDOR_UPDATE_TOKEN\` repository secret (a PAT on a machine account"
+            echo "with \`repo\` scope) to get real checks on future runs."
+          } >> "${{ runner.temp }}/pr-body.md"
+
+      - name: Open or update the pull request
+        id: pr
+        continue-on-error: true
+        if: steps.candidate.outputs.moved == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          # A constant branch is what makes this reuse the open PR instead of
+          # opening a second one every time upstream moves. The action force-
+          # pushes a single commit on top of the checked-out base, so the
+          # branch is regenerated from the base branch each run rather than
+          # accumulating hops.
+          token: ${{ secrets.VENDOR_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: ${{ env.PR_BRANCH }}
+          base: ${{ github.ref_name }}
+          delete-branch: false
+          commit-message: |
+            ${{ steps.body.outputs.title }}
+
+            ${{ steps.baseline.outputs.sha }} -> ${{ steps.candidate.outputs.sha }}
+
+            Opened by .github/workflows/vendor-pixel-index-update.yml.
+          title: ${{ steps.body.outputs.title }}
+          body-path: ${{ runner.temp }}/pr-body.md
+          labels: ${{ steps.body.outputs.labels }}
+          add-paths: vendor/pixel-index
+
+      - name: Summarise
+        if: always() && steps.candidate.outputs.moved == 'true'
+        run: |
+          cat "${{ runner.temp }}/pr-body.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          if [ -n "${{ steps.pr.outputs.pull-request-url }}" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "PR: ${{ steps.pr.outputs.pull-request-url }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Last, so the PR always exists to be read. A failed publish check is a
+      # real, actionable finding -- fail the job so it shows up as red in
+      # Actions even though the PR was still opened.
+      - name: Fail if the update broke the publish check
+        if: steps.candidate.outputs.moved == 'true' && steps.publish.outcome != 'success'
+        run: |
+          echo "::error::This pixel-index bump breaks the publish check. See the PR body for detail."
+          exit 1
+
+      - name: Explain a pull request that could not be opened
+        if: always() && steps.pr.outcome == 'failure'
+        run: |
+          {
+            echo "::error::The pull-request action failed; its log above contains the specific cause."
+            echo "For GitHub API failures:"
+            echo "  * \"not permitted to create or approve pull requests\" -- enable Settings ->"
+            echo "    Actions -> General -> Workflow permissions -> \"Allow GitHub Actions to"
+            echo "    create and approve pull requests\"."
+            echo "  * 401 or 403 -- VENDOR_UPDATE_TOKEN has expired or lost access."
+            echo "If the branch was pushed, this opens it by hand:"
+            echo "  https://github.com/${{ github.repository }}/compare/${{ github.ref_name }}...${{ env.PR_BRANCH }}?expand=1"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
