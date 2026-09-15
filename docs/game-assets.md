@@ -95,9 +95,10 @@ runs Cycles or downscales artwork: its source comparison is always labeled **aut
 an upscaled copy of the exact exported pixels, not a higher-detail source render. Automatic
 `outline` is rejected with pixel layers; draw outlines explicitly on the native grid.
 
-The rain barrel's 12x13 mouth/opening dominates the top of its 16x32 canvas, matching the
-top-down 3/4 camera; its compressed body starts immediately below at y=14. Its empty-state
-mouth traces a one-pixel metal-rim highlight around the dark interior fill -- the interior
+The rain barrel's 12x9 mouth/opening tops its 16x32 canvas, matching the top-down 3/4
+camera, with a taller 20-row body starting immediately below at y=10 -- tall and
+cylindrical rather than squashed short by an oversized mouth. Its empty-state mouth
+traces a one-pixel metal-rim highlight around the dark interior fill -- the interior
 color alone sits close enough in luma to the webview's own floor tile that a flat, unrimmed
 fill reads as a hole into the background instead of an opening (`asset_report`'s
 `low_context_contrast` finding catches this class of mistake). Its faucet is a
