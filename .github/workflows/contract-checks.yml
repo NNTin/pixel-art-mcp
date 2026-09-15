@@ -11,6 +11,11 @@ name: Contract Checks
 # rendering pipeline) is built and published here too, alongside the contract dashboard, in
 # a single combined deploy -- two independent Pages deploys would each overwrite the other's
 # content. See docs/game-assets.md#reproduce-examples-and-webview-checks.
+#
+# On a pull request touching a path below, the same gallery is also generated and pushed to
+# a Vercel preview deployment (not GitHub Pages -- that stays default-branch-only) with the
+# URL posted as a PR comment, so a rendering-affecting change can be visually reviewed before
+# merge instead of only after it lands on develop.
 
 on:
   push:
@@ -115,7 +120,7 @@ jobs:
     # All examples in examples/asset-specs.json (NNTin/pixel-art-mcp#15): a real MCP client
     # authors/renders/downloads every one of them through the Dockerized service, the same
     # pipeline docs/game-assets.md documents for local development.
-    if: ${{ github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true }}
+    if: ${{ github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true || github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -226,3 +231,46 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-preview-gallery:
+    name: Deploy example gallery preview (Vercel)
+    needs: generate-examples-gallery
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Download example gallery
+        uses: actions/download-artifact@v5
+        with:
+          name: examples-gallery
+          path: ${{ runner.temp }}/examples-gallery
+
+      # The linked Vercel project auto-detected this repo's root as FastAPI; a per-deploy
+      # vercel.json overrides that and forces a plain static deploy of the artifact's files.
+      - name: Force static deploy
+        run: |
+          echo '{"framework": null}' > "${{ runner.temp }}/examples-gallery/vercel.json"
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@54.4.1
+
+      - name: Deploy preview to Vercel
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          url=$(vercel deploy "${{ runner.temp }}/examples-gallery" --token="$VERCEL_TOKEN" --yes)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL on the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "Example gallery preview for ${{ github.sha }}: ${{ steps.deploy.outputs.url }}"
