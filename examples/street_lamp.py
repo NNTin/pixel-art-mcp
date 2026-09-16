@@ -1,7 +1,5 @@
 """A tall native lamp with an uninterrupted two-pixel post and clear panes."""
 
-import bpy
-
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
@@ -35,4 +33,4 @@ for angle in (0, 90, 180, 270):
     )
     body.rect(7, 16, 2, 3, "D")
     art.layer("post and housing", angle, body, min_pixels=220, connected=True)
-art.save(bpy.context.scene)
+art.save(scene)

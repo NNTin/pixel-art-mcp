@@ -4,6 +4,7 @@ import fcntl
 import json
 import logging
 import shutil
+import sys
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -11,7 +12,7 @@ from PIL import Image
 
 from pixel_art_mcp.async_utils import finish_thread
 from pixel_art_mcp.authoring import validated_art
-from pixel_art_mcp.blender import __file__ as blender_package_file
+from pixel_art_mcp.engine import __file__ as engine_package_file
 from pixel_art_mcp.imaging.pet import angle_widths
 from pixel_art_mcp.imaging.pixels import export_sheet
 from pixel_art_mcp.jobs.process import ProcessFailure, run_process
@@ -44,26 +45,7 @@ class Worker:
         if scratch.exists():
             shutil.rmtree(scratch)
         scratch.mkdir()
-        try:
-            process = await asyncio.create_subprocess_exec(
-                service.settings.blender_binary,
-                "--version",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-            )
-            try:
-                output, _ = await asyncio.wait_for(process.communicate(), timeout=10)
-            except BaseException:
-                with contextlib.suppress(ProcessLookupError):
-                    process.kill()
-                await process.wait()
-                raise
-            lines = output.decode(errors="replace").splitlines()
-            if process.returncode == 0 and lines and lines[0].startswith("Blender "):
-                service.blender_version = lines[0]
-        except (OSError, TimeoutError):
-            logger.warning("Blender is unavailable; uploads and project inspection remain usable")
-        self.task = asyncio.create_task(self.loop(), name="blender-worker")
+        self.task = asyncio.create_task(self.loop(), name="pixel-worker")
         service.worker_ready = True
 
     async def stop(self) -> None:
@@ -83,14 +65,14 @@ class Worker:
         try:
             while not self.stopping:
                 service.wake.clear()
-                job = service.store.claim_job() if service.blender_version else None
+                job = service.store.claim_job()
                 if job is None:
                     await service.wake.wait()
                     continue
                 await self.execute(job)
         except Exception:
             service.worker_ready = False
-            logger.exception("Blender worker stopped unexpectedly")
+            logger.exception("Pixel worker stopped unexpectedly")
 
     async def execute(self, job: dict[str, Any]) -> None:
         service, store = self.service, self.service.store
@@ -114,13 +96,15 @@ class Worker:
                 shutil.copy2(script_path, staged / "script.py")
             else:
                 script_path = None
-            input_blend = None
+            input_state = None
+            pixel_art = None
             if revision_id:
                 revision = service.revision(project_id, revision_id)
-                input_blend = str(service.artifact_path(revision["blend_artifact_id"]))
-            references = {
-                r["id"]: r["blender_path"] for r in store.records(project_id, "reference")
-            }
+                if job["operation"] == "script":
+                    input_state = str(service.artifact_path(revision["state_artifact_id"]))
+                else:
+                    pixel_art = revision["summary"]["pixel_art"]
+            references = {r["id"]: r["image_path"] for r in store.records(project_id, "reference")}
             render_options = job["params"].get("options")
             if render_options and render_options.get("pet"):
                 # Pet's right-facing row renders at double width -- see
@@ -132,32 +116,19 @@ class Worker:
             request = {
                 "schema_version": 1,
                 "operation": job["operation"],
-                "input_blend": input_blend,
+                "input_state": input_state,
+                "pixel_art": pixel_art,
                 "output_dir": str(raw),
                 "script_path": str(script_path) if script_path else None,
                 "references": references,
-                "threads": service.settings.blender_threads,
                 "options": render_options,
                 "authoring_options": job["params"].get("authoring_options"),
                 "pixel_art_required": job["params"].get("pixel_art_required", False),
             }
             request_path = scratch / "request.json"
             request_path.write_text(json.dumps(request), encoding="utf-8")
-            runner = Path(str(blender_package_file)).with_name("runner.py")
-            command = [
-                service.settings.blender_binary,
-                "--background",
-                "--factory-startup",
-                "--disable-autoexec",
-                "--python-exit-code",
-                "1",
-                "--threads",
-                str(service.settings.blender_threads),
-                "--python",
-                str(runner),
-                "--",
-                str(request_path),
-            ]
+            runner = Path(str(engine_package_file)).with_name("runner.py")
+            command = [sys.executable, str(runner), str(request_path)]
 
             def update(log: str, progress: dict[str, Any] | None) -> None:
                 changes: dict[str, Any] = {"logs": log}
@@ -181,7 +152,7 @@ class Worker:
                 raise asyncio.CancelledError
             result_path = raw / "result.json"
             if not result_path.is_file() or result_path.stat().st_size > 16 * 1024 * 1024:
-                raise ProcessFailure("Blender did not return a valid result manifest")
+                raise ProcessFailure("Script did not return a valid result manifest")
             result = json.loads(result_path.read_text(encoding="utf-8"))
             new_revision = None
             if job["operation"] == "script":
@@ -193,11 +164,11 @@ class Worker:
                     validated_art(data, authoring_options)
                 elif job["params"].get("pixel_art_required"):
                     raise DomainError("An edit cannot remove the required pixel-art definition")
-                blend = raw / "scene.blend"
-                if not blend.is_file() or blend.stat().st_size < 12:
-                    raise ProcessFailure("Script did not produce a saved Blender scene")
-                shutil.copy2(blend, staged / "scene.blend")
-                (staged / "scene.json").write_text(
+                state = raw / "state.json"
+                if not state.is_file():
+                    raise ProcessFailure("Script did not produce a saved scene state")
+                shutil.copy2(state, staged / "state.json")
+                (staged / "summary.json").write_text(
                     json.dumps(result["summary"], indent=2), encoding="utf-8"
                 )
             else:
@@ -233,7 +204,7 @@ class Worker:
                     "project_id": project_id,
                     "parent_id": revision_id,
                     "created_at": timestamp(),
-                    "blend_artifact_id": by_name["scene.blend"]["id"],
+                    "state_artifact_id": by_name["state.json"]["id"],
                     "script_artifact_id": by_name["script.py"]["id"],
                     "summary": result["summary"],
                 }

@@ -304,7 +304,7 @@ def inspect_sprite(
             "rows": rows,
         },
         "guidance": "Design identifying shapes on the final grid. Edit named PixelArt layers "
-        "in the saved Blender revision; reserve connected pixel clusters and a separating "
+        "in the saved scene revision; reserve connected pixel clusters and a separating "
         "gap for each important feature. Review every view and pose at native scale. "
         "Feature budgets detect loss, not whether a drawing looks good.",
     }

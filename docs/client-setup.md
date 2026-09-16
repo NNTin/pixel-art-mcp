@@ -29,7 +29,7 @@ before writing modeling code. Small images can also be uploaded through the base
 
 ## Suggested first prompt
 
-> Use the Pixel Art Blender MCP server. Inspect the reference image in this project and create
+> Use the Pixel Art MCP server. Inspect the reference image in this project and create
 > a native Pixel Agents chair. Discover the chair profile, configure it, then use write_pixel_art
 > to draw distinct seat, legs and backrest layers. Render and inspect every view with MCP previews.
 

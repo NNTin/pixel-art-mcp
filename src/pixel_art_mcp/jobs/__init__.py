@@ -1,1 +1,1 @@
-"""Persistent Blender job execution."""
+"""Persistent pixel-art authoring/render job execution."""

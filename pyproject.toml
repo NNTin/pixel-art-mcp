@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pixel-art-mcp"
 version = "0.1.0"
-description = "A local MCP service for Blender modeling and pixel-art sprite export"
+description = "A local MCP service for pixel-art authoring and sprite export"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -35,7 +35,7 @@ environments = ["sys_platform == 'linux'"]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
 asyncio_mode = "auto"
-markers = ["blender: requires a real Blender executable", "e2e: requires a running Docker service"]
+markers = ["e2e: requires a running Docker service"]
 
 [tool.ruff]
 target-version = "py312"
@@ -46,17 +46,15 @@ extend-exclude = ["vendor"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/pixel_art_mcp/blender/runner.py" = ["E402"]
 # A generated HTML/CSS template, same long-line shape as the pixel-agents-cogs script
 # this is adapted from (contracts/pixel_index/generate_status_site.py) — wrapping the
 # CSS block would just add noise, not readability.
 "contracts/pixel_index/generate_status_site.py" = ["E501"]
+# Submitted as script text to engine/runner.py, which execs them with `scene` injected
+# into scope -- not a real module import, so it's undefined from ruff's perspective.
+"examples/*.py" = ["F821"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-exclude = ["src/pixel_art_mcp/blender/runner.py", "examples/", "vendor/"]
-
-[[tool.mypy.overrides]]
-module = ["pixel_art_mcp.blender.runner", "pixel_art_mcp.blender.game_renderer"]
-ignore_errors = true
+exclude = ["examples/", "vendor/"]

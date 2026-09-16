@@ -85,9 +85,7 @@ def test_installable_package_and_real_high_resolution_comparison(tmp_path, anima
             image.save(raw / name)
             originals.append(image)
             entries.append({"filename": name, "angle": angle, "frame": frame, "pivot": [8, 44]})
-    export_sheet(
-        raw, out, {"frames": entries, "camera": {}, "blender_version": "test"}, options, "p", "r"
-    )
+    export_sheet(raw, out, {"frames": entries, "camera": {}}, options, "p", "r")
     metadata = json.loads((out / "spritesheet.json").read_text())
     assert metadata["settings"]["fps"] == 5
     assert all(f["duration_ms"] == 200 for f in metadata["frames"])

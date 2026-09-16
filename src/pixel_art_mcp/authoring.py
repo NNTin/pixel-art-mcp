@@ -1,4 +1,4 @@
-"""Public, typed pixel authoring contract. Blender uses the stdlib-only helper."""
+"""Public, typed pixel authoring contract. The engine runner uses the stdlib-only helper."""
 
 from typing import Annotated, Any, Literal
 from uuid import UUID

@@ -32,7 +32,7 @@ def export_states(
     entries = manifest["frames"]
     expected_keys = [(angle, frame) for angle in options.angles for frame in render_frames]
     if [(e["angle"], e["frame"]) for e in entries] != expected_keys:
-        raise DomainError("Blender returned an incomplete or unordered state sequence")
+        raise DomainError("Render output is an incomplete or unordered state sequence")
     by_key = {(e["angle"], e["frame"]): e for e in entries}
     source_samples: list[tuple[int, int, int]] = []
     sample_budget = max(1, 262_144 // max(1, len(entries)))
@@ -45,7 +45,7 @@ def export_states(
                 options.width * options.supersampling,
                 options.height * options.supersampling,
             ):
-                raise DomainError("Blender returned unexpected image dimensions")
+                raise DomainError("Render output has unexpected image dimensions")
             if options.palette is None:
                 source_samples.extend(
                     sample_source_colors(
@@ -231,7 +231,6 @@ def export_states(
         "states": states,
         "player": "preview.html",
         "camera": manifest["camera"],
-        "blender_version": manifest["blender_version"],
         "pixel_agents": {
             "archive": "pixel-agents.zip",
             "activation": ACTIVATION,

@@ -1,7 +1,5 @@
 """Golden dog, with a longer side silhouette and consumer-specific walk/idle poses."""
 
-import bpy
-
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
@@ -90,4 +88,4 @@ for angle in (0, 180, 90):
                 )
                 canvas.stamp(6 + phase, 21, ["WW", "HW", "HW", "WW"])
         art.layer("dog", angle, canvas, frame=frame, min_pixels=110)
-art.save(bpy.context.scene)
+art.save(scene)

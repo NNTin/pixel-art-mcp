@@ -2,7 +2,7 @@
 
 A local MCP service for creating **Pixel Agents furniture, characters, and pets** at the
 consumer's native pixel resolution. Author recognizable shapes on the final grid, save named
-layers and animation poses in Blender revisions, and export installable packages.
+layers and animation poses in scene revisions, and export installable packages.
 
 `write_pixel_art` accepts a typed pixel definition and runs the mandatory `PixelArt` and `Canvas`
 helpers on the server. No client-side imports or filesystem tools are needed. Important features
@@ -28,11 +28,10 @@ The development webview harness checks generated packages against a read-only Pi
 Node and Chromium are not production dependencies.
 
 The AI lives in your MCP client. It interprets reference images and authors exact native pixels.
-`execute_blender_python` remains available for computing a pixel-art definition with Python
-instead of a static JSON payload; any Blender geometry it builds has no effect on the render.
-Generic `render_preview` and `render_sprites` tools have been removed. Every successful
-write saves an editable `.blend` revision; failures preserve the prior revision.
-No AI API key, automatic semantic redraw, or image-to-3D service is involved.
+`execute_pixel_script` remains available for computing a pixel-art definition with Python
+instead of a static JSON payload. Generic `render_preview` and `render_sprites` tools have been
+removed. Every successful write saves an editable scene revision; failures preserve the prior
+revision. No AI API key, automatic semantic redraw, or image-to-3D service is involved.
 
 After upgrading, refresh cached client tool lists. `get_capabilities` reports
 `authoring_contract_version: 1` and `pixel_authoring_required: true`.
@@ -49,12 +48,12 @@ docker compose up --build -d
 Connect a local MCP client using Streamable HTTP at **http://localhost:8000/mcp**.
 Open **http://localhost:8000/docs** for HTTP uploads and downloads.
 The service has no authentication and is published on host loopback only. The container image
-targets Linux x86-64 and pins Blender 4.5.13 LTS with CPU Cycles; no GPU or display is required.
+targets Linux x86-64 and runs pure Python; no GPU or display is required.
 
 See [client setup](docs/client-setup.md), [tool usage](docs/tools.md), and
 [architecture](docs/architecture.md) for the workflow and operating constraints.
 See [rendering pipeline](docs/rendering-pipeline.md) for how a render actually executes: the
-Blender subprocess boundary and native pixel compositing.
+script subprocess boundary and native pixel compositing.
 See [validation status](docs/validation.md) for the completed Docker rendering and playback checks.
 See [contract testing](docs/contract-testing.md) for how the pixel-agents/character/pet exports
 are checked live against pixel-index's real staging and production APIs, and by a real upload
@@ -70,12 +69,11 @@ uv run pixel-art-mcp
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src/pixel_art_mcp
-uv run pytest -m 'not blender and not e2e'
+uv run pytest -m 'not e2e'
 ```
 
-Blender tests require a Blender executable (set `PIXEL_BLENDER_BINARY` when it is not on PATH).
-`uv run pytest -m blender` exercises real modeling and rendering. With Compose running,
-`PIXEL_E2E_URL=http://localhost:8000 uv run pytest -m e2e` exercises the whole service over HTTP.
+With Compose running, `PIXEL_E2E_URL=http://localhost:8000 uv run pytest -m e2e` exercises the
+whole service over HTTP.
 
 Dependencies are locked in `uv.lock`. The implementation uses the supported official MCP SDK
 1.29.1 maintenance release: its complete distribution was available for offline testing in the

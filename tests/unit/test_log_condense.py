@@ -35,13 +35,13 @@ def test_long_log_preserves_an_early_error_outside_the_tail():
 
 
 def test_error_detection_is_case_insensitive():
-    lines = ["Example Blender traceback: modeling failed"]
+    lines = ["Example Traceback: modeling failed"]
     lines += [f"progress {i}" for i in range(100)]
     log = "\n".join(lines)
 
     result = condense_log(log)
 
-    assert "Example Blender traceback: modeling failed" in result
+    assert "Example Traceback: modeling failed" in result
 
 
 def test_caps_the_number_of_error_lines_shown():

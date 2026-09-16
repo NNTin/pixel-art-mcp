@@ -59,7 +59,7 @@ class Reference(Model):
     original_artifact_id: UUID
     image_artifact_id: UUID
     thumbnail_artifact_id: UUID
-    blender_path: str
+    image_path: str
 
 
 class Revision(Model):
@@ -67,7 +67,7 @@ class Revision(Model):
     project_id: UUID
     parent_id: UUID | None
     created_at: str
-    blend_artifact_id: UUID
+    state_artifact_id: UUID
     script_artifact_id: UUID
     summary: dict[str, Any]
 
@@ -399,10 +399,10 @@ class RenderOptions(Model):
         gt=0,
         le=1000,
         description="Fixes camera zoom to an absolute physical scale instead of auto-fitting to "
-        "this object's own bounding box: a 16px tile spans this many Blender units (meters, by "
+        "this object's own bounding box: a 16px tile spans this many world units (meters, by "
         "convention) at zero padding. Defaults to 1.0 (1 tile == 1m) so sizing is driven by the "
         "object's actual real-world scale, not a canvas-size guess -- model geometry at accurate "
-        "relative real-world size (Blender units == meters) so unrelated objects rendered in "
+        "relative real-world size (world units == meters) so unrelated objects rendered in "
         "separate jobs -- e.g. a small candle and a tall street lamp -- come out at correctly "
         "relative sizes to each other. padding still applies on top (default 0.1 adds ~20% "
         "margin, i.e. a tile maps to meters_per_tile*(1+2*padding) meters); set padding=0 for an "

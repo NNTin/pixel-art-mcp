@@ -24,7 +24,7 @@ async def generate_example(client, example_dir, key):
     revision = None
     for script in example.get("scripts", []):
         queued = await client.data(
-            "execute_blender_python",
+            "execute_pixel_script",
             {
                 "project_id": project["id"],
                 "expected_revision_id": revision,
@@ -192,7 +192,7 @@ async def test_game_asset_workflow_in_docker(example_dir, kind, script, preset):
         modeled = await client.wait(
             (
                 await client.data(
-                    "execute_blender_python",
+                    "execute_pixel_script",
                     {
                         "project_id": project["id"],
                         "script": (example_dir / script).read_text(),

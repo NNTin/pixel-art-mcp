@@ -36,8 +36,7 @@ async def test_http_custom_profile_validation(settings):
         assert (await http.get("/asset-profiles/character?background_tiles=1")).status_code == 422
 
 
-async def test_source_roundtrip_atomic_replacement_and_reconfiguration(settings, fake_blender):
-    settings.blender_binary = fake_blender
+async def test_source_roundtrip_atomic_replacement_and_reconfiguration(settings):
     app = create_app(settings)
     async with (
         app.router.lifespan_context(app),
@@ -93,10 +92,10 @@ async def test_source_roundtrip_atomic_replacement_and_reconfiguration(settings,
         )["isError"]
         # Advanced scripts cannot remove the required source. The old revision survives failure.
         removal = await client.data(
-            "execute_blender_python",
+            "execute_pixel_script",
             {
                 "project_id": pid,
-                "script": "del bpy.context.scene['pixel_art']",
+                "script": "del scene['pixel_art']",
                 "expected_revision_id": current["revision_id"],
             },
         )
@@ -150,7 +149,7 @@ async def test_source_roundtrip_atomic_replacement_and_reconfiguration(settings,
         ]
 
 
-async def test_typed_write_queue_cas_and_configuration_snapshot(service, fake_blender):
+async def test_typed_write_queue_cas_and_configuration_snapshot(service):
     from conftest import wait_job
 
     from pixel_art_mcp.assets import get_asset_profile
@@ -158,8 +157,7 @@ async def test_typed_write_queue_cas_and_configuration_snapshot(service, fake_bl
     from pixel_art_mcp.jobs.worker import Worker
     from pixel_art_mcp.models import AssetSpec
 
-    service.settings.blender_binary = fake_blender
-    service.worker_ready, service.blender_version = True, "fixture"
+    service.worker_ready = True
     pid = str(service.create_project("Queued").id)
     profile = get_asset_profile("furniture")
     service.configure_asset(pid, AssetSpec.model_validate(profile["specification"]))
@@ -198,8 +196,7 @@ async def test_typed_write_queue_cas_and_configuration_snapshot(service, fake_bl
         await worker.stop()
 
 
-async def test_targeted_mcp_edit_validation_revision_and_failed_job(settings, fake_blender):
-    settings.blender_binary = fake_blender
+async def test_targeted_mcp_edit_validation_revision_and_failed_job(settings):
     app = create_app(settings)
     async with (
         app.router.lifespan_context(app),
@@ -247,17 +244,13 @@ async def test_targeted_mcp_edit_validation_revision_and_failed_job(settings, fa
                 await client.call("edit_pixel_art", {**args, "edits": invalid}, allow_error=True)
             )["isError"]
             assert await client.data("get_pixel_art", {"project_id": pid}) == current
-        # The fixture deliberately fails scripts containing this marker, after enqueueing.
+        # A script that deliberately fails after being enqueued leaves the old revision intact.
         failed = await client.data(
-            "edit_pixel_art",
+            "execute_pixel_script",
             {
-                **args,
-                "edits": [
-                    {
-                        "op": "set_layer",
-                        "layer": {"name": "# fail", "poses": [{"angle": 0, "rows": ["G"]}]},
-                    }
-                ],
+                "project_id": pid,
+                "script": "raise RuntimeError('boom')",
+                "expected_revision_id": current["revision_id"],
             },
         )
         assert (await client.data("wait_for_job", {"job_id": failed["id"]}))["status"] == "failed"

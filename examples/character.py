@@ -5,8 +5,6 @@ bottom of the head box) matching pixel-agents' own char_0.png reference
 sprite sheet instead of a flat front elevation with a fully exposed face.
 """
 
-import bpy
-
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
@@ -114,4 +112,4 @@ for angle in (0, 180, 90):
             if angle != 90:
                 hands.rect(11, 19 - step, 2, 3, "L")
         art.layer("hands and work", angle, hands, frame=frame, min_pixels=6)
-art.save(bpy.context.scene)
+art.save(scene)

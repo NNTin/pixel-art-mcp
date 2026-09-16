@@ -1,7 +1,5 @@
 """A surface candle: the entire silhouette fits the profile's seven useful rows."""
 
-import bpy
-
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
@@ -20,4 +18,4 @@ for angle in (0, 90, 180, 270):
         min_pixels=5,
         connected=True,
     )
-art.save(bpy.context.scene)
+art.save(scene)

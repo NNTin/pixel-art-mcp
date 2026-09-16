@@ -3,15 +3,14 @@ import sys
 import time
 
 import pytest
-from conftest import wait_job
+from conftest import FAILING_SCRIPT, SLOW_SCRIPT, wait_job
 
 from pixel_art_mcp.jobs.process import ProcessFailure, run_process
 from pixel_art_mcp.jobs.worker import Worker
 from pixel_art_mcp.models import DomainError, RenderOptions
 
 
-async def test_scene_revisions_conflicts_and_failed_edit(service, fake_blender):
-    service.settings.blender_binary = fake_blender
+async def test_scene_revisions_conflicts_and_failed_edit(service):
     worker = Worker(service)
     await worker.start()
     try:
@@ -28,10 +27,10 @@ async def test_scene_revisions_conflicts_and_failed_edit(service, fake_blender):
         with pytest.raises(DomainError, match="revision"):
             service.submit_script(project_id, "print('edit')", None)
         failed = service.submit_script(
-            project_id, "# fail\nprint('bad')", str(completed.result_revision_id)
+            project_id, FAILING_SCRIPT, str(completed.result_revision_id)
         )
         assert (await wait_job(service, str(failed.id))).status == "failed"
-        assert "traceback" in service.job(str(failed.id)).logs
+        assert "traceback" in service.job(str(failed.id)).logs.lower()
         assert (
             service.get_project(project_id).project.current_revision_id
             == completed.result_revision_id
@@ -50,13 +49,12 @@ async def test_scene_revisions_conflicts_and_failed_edit(service, fake_blender):
     assert list((service.store.root / "tmp").iterdir()) == []
 
 
-async def test_cancel_running_and_queued_work(service, fake_blender):
-    service.settings.blender_binary = fake_blender
+async def test_cancel_running_and_queued_work(service):
     worker = Worker(service)
     await worker.start()
     try:
         project_id = str(service.create_project("Chair").id)
-        first = service.submit_script(project_id, "# slow\nprint('create')", None)
+        first = service.submit_script(project_id, SLOW_SCRIPT, None)
         second = service.submit_script(project_id, "print('queued')", None)
         assert service.cancel_job(str(second.id)).status == "cancelled"
         async with asyncio.timeout(5):
@@ -113,8 +111,7 @@ async def test_cancellation_kills_descendants(tmp_path):
     assert not stat.exists() or stat.read_text().split()[2] == "Z"
 
 
-async def test_worker_lock_prevents_two_owners(service, fake_blender):
-    service.settings.blender_binary = fake_blender
+async def test_worker_lock_prevents_two_owners(service):
     first, second = Worker(service), Worker(service)
     await first.start()
     try:
@@ -124,19 +121,16 @@ async def test_worker_lock_prevents_two_owners(service, fake_blender):
         await first.stop()
 
 
-async def test_wait_for_job_clamps_a_client_requested_timeout_to_the_server_max(
-    service, fake_blender
-):
-    service.settings.blender_binary = fake_blender
+async def test_wait_for_job_clamps_a_client_requested_timeout_to_the_server_max(service):
     service.settings.wait_for_job_max_timeout = 0.1
     worker = Worker(service)
     await worker.start()
     try:
         project_id = str(service.create_project("Chair").id)
-        # "# slow" sleeps 60s in fake_blender -- long enough that this job
-        # is reliably still non-terminal when the (much shorter) clamp
-        # elapses, regardless of how long submitting/claiming took.
-        job = service.submit_script(project_id, "# slow\nprint('create')", None)
+        # SLOW_SCRIPT sleeps 60s -- long enough that this job is reliably
+        # still non-terminal when the (much shorter) clamp elapses,
+        # regardless of how long submitting/claiming took.
+        job = service.submit_script(project_id, SLOW_SCRIPT, None)
 
         started = time.monotonic()
         result = await service.wait_for_job(str(job.id), 999)
@@ -148,14 +142,13 @@ async def test_wait_for_job_clamps_a_client_requested_timeout_to_the_server_max(
         await worker.stop()
 
 
-async def test_wait_for_job_with_no_timeout_given_uses_the_server_max(service, fake_blender):
-    service.settings.blender_binary = fake_blender
+async def test_wait_for_job_with_no_timeout_given_uses_the_server_max(service):
     service.settings.wait_for_job_max_timeout = 0.1
     worker = Worker(service)
     await worker.start()
     try:
         project_id = str(service.create_project("Chair").id)
-        job = service.submit_script(project_id, "# slow\nprint('create')", None)
+        job = service.submit_script(project_id, SLOW_SCRIPT, None)
 
         started = time.monotonic()
         result = await service.wait_for_job(str(job.id), None)
@@ -167,14 +160,7 @@ async def test_wait_for_job_with_no_timeout_given_uses_the_server_max(service, f
         await worker.stop()
 
 
-async def test_empty_version_output_is_not_a_ready_renderer(service):
-    service.settings.blender_binary = "/bin/true"
-    worker = Worker(service)
-    await worker.start()
-    try:
-        assert service.blender_version is None
-        project_id = str(service.create_project("Chair").id)
-        with pytest.raises(DomainError, match="unavailable"):
-            service.submit_script(project_id, "print('chair')", None)
-    finally:
-        await worker.stop()
+async def test_submit_before_worker_started_is_unavailable(service):
+    project_id = str(service.create_project("Chair").id)
+    with pytest.raises(DomainError, match="unavailable"):
+        service.submit_script(project_id, "print('chair')", None)

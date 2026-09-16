@@ -1,7 +1,7 @@
 # Pixel Agents asset workflow
 
-Use this workflow for furniture, characters, and pets. Blender remains the editable source,
-including named native pixel layers. The server derives placement metadata, packages and
+Use this workflow for furniture, characters, and pets. The saved scene remains the editable
+source, including named native pixel layers. The server derives placement metadata, packages and
 previews from the exact authored pixel grid.
 
 ## Model, render, inspect, refine
@@ -26,7 +26,7 @@ previews from the exact authored pixel grid.
    configured layouts; real-world dimensions do not determine game size.
 4. Call `render_asset({"project_id":"PROJECT_UUID"})`, then `wait_for_job`.
 5. Read `inspect_asset({"job_id":"JOB_UUID"})`. For exact pixels call `inspect_sprite`;
-   its `state_id` selects a clip, `frame` is a Blender source frame, and `angle` selects the view.
+   its `state_id` selects a clip, `frame` is a source frame, and `angle` selects the view.
 6. Use `get_asset_preview` for inline image content: select clip, source frame, direction, integer
    scale and approximate context. Use `get_pixel_art` to retrieve source, then `edit_pixel_art`
    for targeted layer/pose edits with its revision as `expected_revision_id`. `write_pixel_art`
@@ -60,7 +60,6 @@ The following is an advanced developer example of the helper used internally by 
 Independent MCP agents do not need to discover or execute this import:
 
 ```python
-import bpy
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
@@ -70,13 +69,14 @@ art = PixelArt(
 tap = Canvas.from_rows(["GGG.", ".G..", "GGGG", "...G", "...G"])
 for angle in (0, 90, 180, 270):
     art.layer("faucet", angle, tap, x=5, y=3, min_pixels=10, connected=True)
-art.save(bpy.context.scene)
+art.save(scene)
 ```
 
-This minimal example shows the same glyph in every direction; actual assets must author the
-appropriate view. Coordinates are integer pixels from the top-left, not Blender units. A dot
-is transparent. `Canvas.rect(x, y, width, height, symbol)` and `stamp(x, y, rows)` draw exact
-pixels; `mirrored()` returns a reflected canvas. Out-of-bounds drawing raises an error.
+`scene` is a plain dict the engine subprocess injects into the script's scope and persists as the
+revision's state. This minimal example shows the same glyph in every direction; actual assets
+must author the appropriate view. Coordinates are integer pixels from the top-left, not world
+units. A dot is transparent. `Canvas.rect(x, y, width, height, symbol)` and `stamp(x, y, rows)`
+draw exact pixels; `mirrored()` returns a reflected canvas. Out-of-bounds drawing raises an error.
 
 Layers composite in insertion order. Omit `frame` for a static default; `frame=...` overrides it
 for that source frame. A layer without a default is absent in unspecified frames. A dot reveals
@@ -85,7 +85,7 @@ the preceding layer, not an eraser. Use a separate static body and small animate
 `connected=True` requires one four-connected cluster. Set budgets per view to account for
 intentional occlusion. Diagnostics cannot decide whether the shape actually resembles a faucet.
 
-Reload `PixelArt.load(bpy.context.scene)` in a later revision to change its palette or named poses.
+Reload `PixelArt.load(scene)` in a later revision to change its palette or named poses.
 See `modify_chair.py`. Every native export includes `pixel-art.json`, and inspection exposes
 the resolved feature bounds, visible pixels, clipping, overwritten pixels and components.
 

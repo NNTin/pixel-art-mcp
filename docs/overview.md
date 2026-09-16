@@ -18,7 +18,7 @@ only the tools it discovers from this server: no source checkout, hidden imports
 `get_asset_profile` provides exact canvases, consumer pose semantics, design rules, a complete
 typed JSON starter, and executable tool-call examples. `write_pixel_art` exposes the entire
 versioned schema and invokes mandatory `Canvas`/`PixelArt` helpers on the server.
-Each successful write saves source in a new Blender revision.
+Each successful write saves source in a new scene revision.
 
 ```mermaid
 flowchart TD
@@ -45,10 +45,9 @@ Every asset paints exact pixels from named ordered per-view/per-frame layers. St
 are reused; exact frame patches override them. The palette is fixed for the whole asset. Native
 pixels are never antialiased, dithered, supersampled or requantized.
 
-The advanced `execute_blender_python` tool is available for computing a pixel-art definition
-with Python instead of a static JSON payload (e.g. building layers from a loop). Any Blender
-geometry it creates has no effect on the render: only the saved `pixel_art` definition is ever
-exported.
+The advanced `execute_pixel_script` tool is available for computing a pixel-art definition
+with Python instead of a static JSON payload (e.g. building layers from a loop). Only the
+saved `pixel_art` definition is ever exported.
 
 ```mermaid
 flowchart TD

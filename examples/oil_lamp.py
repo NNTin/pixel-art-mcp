@@ -1,7 +1,5 @@
 """Six-color lamp with a stable glass outline and a separately authored flame."""
 
-import bpy
-
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
@@ -52,4 +50,4 @@ for angle in (0, 90, 180, 270):
             min_pixels=12 if frame else 0,
             connected=bool(frame),
         )
-art.save(bpy.context.scene)
+art.save(scene)

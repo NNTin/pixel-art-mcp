@@ -16,7 +16,7 @@ jobs:
       - run: uv run --frozen ruff check .
       - run: uv run --frozen ruff format --check .
       - run: uv run --frozen mypy src/pixel_art_mcp
-      - run: uv run --frozen pytest -m 'not blender and not e2e'
+      - run: uv run --frozen pytest -m 'not e2e'
 
   docs:
     runs-on: ubuntu-latest

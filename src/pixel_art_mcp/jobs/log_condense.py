@@ -3,12 +3,11 @@
 `Job.logs` is already capped to the last `Settings.max_log_bytes` (64KB by
 default) while a job streams (see `jobs/process.py::run_process`), but
 that cap exists to bound *stored* size, not to make the field reasonable
-for an LLM tool result. Blender's Cycles renderer logs a line per BVH-build
-step per frame, so an animated `render_sprites` job's `logs` routinely
-sits at the full 64KB cap on every single poll -- and `get_job` is meant to
-be polled repeatedly until a job reaches a terminal state (see
-`mcp/server.py`'s own tool docstrings), so those polls accumulate in one
-MCP client's conversation history. A real incident: an animator agent
+for an LLM tool result. A verbose script or a large animated `render_sprites`
+job can still routinely sit at the full 64KB cap on every single poll -- and
+`get_job` is meant to be polled repeatedly until a job reaches a terminal
+state (see `mcp/server.py`'s own tool docstrings), so those polls accumulate
+in one MCP client's conversation history. A real incident: an animator agent
 polling one animated render several times exceeded its LLM's context
 window purely from this field.
 
