@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@pixel-art-mcp/schema": "workspace:*"
+    "@pixel-art-mcp/schema": "workspace:*",
+    "zod": "^4.6.5"
   }
 }
