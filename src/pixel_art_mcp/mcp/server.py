@@ -43,9 +43,11 @@ imports, browser, shell, or external downloads are needed to author and inspect 
 Start with get_asset_profile(kind, preset, ground_width, ground_depth, background_tiles):
 it returns native layouts, semantic poses, design
 rules, a complete JSON starter definition, ordered tool calls with ID placeholders, and
-camera_perspective -- read it first. pixel-agents renders from a downward-tilted 3/4 camera,
-never a flat front elevation: draw the object's top-facing surface as the dominant visible
-area, not its front face.
+camera_perspective and background_contrast -- read both first. pixel-agents renders from a
+downward-tilted 3/4 camera, never a flat front elevation: draw the object's top-facing surface
+as the dominant visible area, not its front face. Choose broad materials clearly lighter or
+darker than the mid-dark preview floor named in background_contrast; a large connected patch
+close to it in brightness reads as a hole into the background, not a surface.
 Call create_project, configure_asset, write_pixel_art, wait_for_job, render_asset, wait_for_job,
 inspect_asset, inspect_sprite and get_asset_preview. The write_pixel_art schema defines the
 entire versioned pixel format. The server invokes Canvas and PixelArt helpers automatically;
@@ -342,12 +344,40 @@ def create_mcp(service: Service) -> FastMCP:
 
         Configure the asset first. Use this only when a loop or computed pattern is clearer
         than hand-written rows/drawing commands (e.g. repeating a motif across every frame);
-        write_pixel_art alone is sufficient and preferred for everything else. Build a PixelArt
-        with pixel_art_mcp.pixel_art.Canvas/PixelArt and call art.save(bpy.context.scene) --
-        only the saved pixel_art definition is ever rendered. Blender geometry built with bpy
-        has no visual effect: rendering always uses the exact authored pixel grid, never a
-        3D render of the scene. Existing pixel definitions are retained automatically and
-        cannot be removed by a script that doesn't touch them.
+        write_pixel_art alone is sufficient and preferred for everything else. Only the saved
+        pixel_art definition is ever rendered. Blender geometry built with bpy has no visual
+        effect: rendering always uses the exact authored pixel grid, never a 3D render of the
+        scene. Existing pixel definitions are retained automatically and cannot be removed by
+        a script that doesn't touch them.
+
+        The full pixel_art_mcp.pixel_art API available to scripts, with no other import needed:
+        Canvas(width, height) -- a blank native-size grid, '.' transparent everywhere.
+        Canvas.from_rows(rows) -- builds a canvas from a list of equal-length pixel-symbol
+        strings; canvas.rows reads them back.
+        canvas.rect(x, y, width, height, color) -- fills a rectangle; canvas.line(x1, y1, x2,
+        y2, color) -- an inclusive-endpoint Bresenham line; canvas.stamp(x, y, rows) -- pastes
+        a rows patch, skipping its own '.' cells so it doesn't erase what's underneath. All
+        four raise ValueError on out-of-bounds/invalid input and return self, so calls chain:
+        Canvas(8, 8).rect(0, 0, 8, 8, "D").rect(1, 1, 6, 6, "G"). canvas.mirrored() returns a
+        new left-right-flipped canvas; canvas.width/height/pixels are also readable.
+        PixelArt(palette, views) -- palette is {symbol: "#rrggbb"}; views is {angle:
+        (width, height)} for each configured direction, matching configure_asset's resolved
+        layouts exactly.
+        art.layer(name, angle, canvas, x=0, y=0, frame=None, min_pixels=0, connected=False) --
+        adds or replaces one named layer's pose for that angle/frame; returns self, so calls
+        chain like the Canvas methods. frame=None sets the view default; a specific frame
+        overrides it only for that source frame.
+        art.palette and art.layers are plain dicts/lists, directly readable and writable
+        in place (e.g. art.palette["D"] = "#112233", or edit a pose dict's "rows"/"x"/"y"
+        before calling art.layer(...) again, or edit it in place and call art.save(...)
+        directly since layers/poses are mutable structures, not copies).
+        art.save(bpy.context.scene) -- validates and writes the definition; call exactly once,
+        at the end of the script.
+        PixelArt.load(bpy.context.scene) -- reads back the current project's saved definition
+        (whatever the last successful write_pixel_art/execute_blender_python left), for a
+        script that edits an existing asset instead of authoring one from nothing. See
+        examples/modify_chair.py for the pattern: load, mutate art.palette / a layer's pose
+        rows in place, save.
 
         An empty project starts with an empty Blender scene; otherwise the saved scene is loaded.
         bpy and reference_images (reference ID -> image path) are supplied. The service saves the

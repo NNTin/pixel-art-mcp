@@ -186,14 +186,14 @@ def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
             for f in range(9)
         ]
         assert len({im.crop((0, 18, 16, 32)).tobytes() for im in images}) == 1
-        assert images[0].getbbox() == (2, 6, 14, 30)
+        assert images[0].getbbox() == (1, 1, 15, 30)
         _, features = composite_features(
             Image.new("RGBA", (16, 32)), art.poses(0, level * 10), art.palette
         )
         faucet = next(f for f in features if f["name"] == "faucet")
         gauge = next(f for f in features if f["name"] == "level gauge")
-        assert faucet["visible_pixels"] == 10 and faucet["components"] == 1
-        assert gauge["visible_pixels"] == 28 and gauge["components"] == 1
+        assert faucet["visible_pixels"] == 12 and faucet["components"] == 1
+        assert gauge["visible_pixels"] == 24 and gauge["components"] == 1
 
 
 def test_barrel_opening_water_line_distinguishes_empty_partial_and_full(monkeypatch):
@@ -201,7 +201,7 @@ def test_barrel_opening_water_line_distinguishes_empty_partial_and_full(monkeypa
     # so they were pixel-identical at the opening and only the body's small
     # gauge showed which state was active.
     art, options = load_example(monkeypatch, "rain-barrel")
-    mouth_bounds = (2, 6, 14, 13)  # x0, y0, x1, y1 -- above the body's collar rows
+    mouth_bounds = (3, 1, 15, 15)  # x0, y0, x1, y1 -- the opening feature's own bounds
     for angle in (0, 90, 180, 270):
         mouths = [
             composite_features(Image.new("RGBA", (16, 32)), art.poses(angle, f), art.palette)[

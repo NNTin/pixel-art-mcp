@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from pixel_art_mcp.imaging.context import BACKGROUND_COLOR
 from pixel_art_mcp.models import AssetClip, AssetSpec, DomainError, RenderOptions
 
 PROFILES: dict[str, dict[str, Any]] = {
@@ -228,6 +229,15 @@ def get_asset_profile(
             "dominates and eyes/face sit low, near the bottom of the head box -- not a "
             "conventional face with a visible forehead. The back ('up') view is entirely "
             "hair/fur with no face at all."
+        ),
+        "background_contrast": (
+            f"The schematic preview/webview floor is #{bytes(BACKGROUND_COLOR).hex()}, a "
+            "mid-dark tone. Broad materials (a barrel's dry interior, a chair's dark frame, "
+            "a character's hair) must read as clearly lighter or clearly darker than that, "
+            "not a close match -- a large connected patch within a similar brightness range "
+            "reads as a hole into the background instead of a surface. inspect_asset's report "
+            "flags this after rendering (finding code low_context_contrast), but choosing "
+            "palette colors with deliberate contrast up front avoids the rework."
         ),
         "pixel_authoring": {
             "contract_version": 1,

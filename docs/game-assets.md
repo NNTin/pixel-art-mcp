@@ -95,22 +95,23 @@ runs Cycles or downscales artwork: its source comparison is always labeled **aut
 an upscaled copy of the exact exported pixels, not a higher-detail source render. Automatic
 `outline` is rejected with pixel layers; draw outlines explicitly on the native grid.
 
-The rain barrel's mouth tops its 16x32 canvas, matching the top-down 3/4 camera, with a
-taller 20-row body starting at y=10 -- tall and cylindrical rather than squashed short by
-an oversized mouth. The mouth is narrower than the body and sits low enough (y=6) to overlap
-the body's own H highlight collar, which is wider than the mouth and shows through on both
-sides as a wood-toned rim framing whatever fills it -- water reads as sitting in a hole in
-the barrel, not as a flat patch on top of it. The exposed top rows of the mouth (above the
-body) get their own one-pixel metal-rim highlight instead, since nothing sits behind them to
-frame them, and their darkest fill alone sits close enough in luma to the webview's own floor
-tile that a flat, unrimmed fill reads as a hole into the background (`asset_report`'s
-`low_context_contrast` finding catches this class of mistake). Its faucet, side spout, rear
-seams and gauge sit in the mid-band of staves, at absolute canvas offsets independent of the
-body's own top -- not crammed against the bottom rim. The faucet is a connected 10-pixel gold
-glyph; the gauge is a 4x7 frame with a 2x5 interior. A wood gap separates them. The opening
-and fill are broad clusters; rain moves independently above the body. Screws, threads and
-repeated wood texture yield space to these identifying features. This is deliberate pixel art
-direction, not a promise that every small detail can survive at this footprint.
+The rain barrel's mouth tops its 16x32 canvas, matching the top-down 3/4 camera, with an
+18-row cask starting at y=13. The mouth is narrower than the cask and sits low enough (y=1)
+to overlap the cask's own top hoop, which is wider than the mouth and shows through on both
+sides as a wood-toned collar framing whatever fills it -- water reads as sitting in a hole in
+the barrel, not as a flat patch on top of it. The mouth's rows exposed against open background
+(above that overlap) get their own one-pixel metal-rim highlight instead, since nothing sits
+behind them to frame them: see `background_contrast` from `get_asset_profile` and
+`asset_report`'s `low_context_contrast` finding, which both exist because an unrimmed dark
+fill there sits close enough in luma to the webview's own floor tile to read as a hole into
+the background. Its faucet, side spout, rear seams and gauge sit in the mid-band of staves, at
+absolute canvas offsets independent of the cask's own top -- not crammed against the bottom
+rim, and static across every animation phase. The faucet is a connected 12-pixel gold glyph;
+the gauge is a 4x6 frame with a 2x4 interior that recolors (not resizes) as the water level
+rises, so it stays exactly as visible full as empty. The opening and fill are broad clusters;
+rain moves independently above the cask. Screws, threads and repeated wood texture yield space
+to these identifying features. This is deliberate pixel art direction, not a promise that
+every small detail can survive at this footprint.
 
 ## Sizes and placement
 

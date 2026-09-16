@@ -1,6 +1,8 @@
-"""A barrel drawn top-down 3/4 (dominant mouth/opening, compressed staves
-below), matching pixel-agents' own camera convention instead of a flat front
-elevation. Explicit feature budgets throughout."""
+"""A rain barrel redrawn from scratch: the mouth/opening dominates the sprite
+as pixel-agents' downward-tilted 3/4 camera expects, and its dark "empty"
+interior is deliberately kept far from the webview floor's own luma (see
+asset_report's low_context_contrast check) instead of relying on a flat fill
+that happens to read the same as the background."""
 
 import bpy
 
@@ -8,134 +10,117 @@ from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
     {
-        "D": "#293039",
-        "S": "#805437",
-        "W": "#b78752",
-        "H": "#dfb87b",
-        "M": "#71818b",
-        "G": "#f3cf65",
-        "C": "#358fa6",
-        "L": "#9ddacb",
+        "D": "#20262c",
+        "W": "#c98a4b",
+        "S": "#8a5a30",
+        "M": "#b7c4c9",
+        "H": "#e4c98a",
+        "C": "#2f8fae",
+        "L": "#bdeff0",
+        "G": "#d7b23a",
     },
     {angle: (16, 32) for angle in (0, 90, 180, 270)},
 )
-body = Canvas.from_rows(
-    [
-        "..DDDDDDDDDDDD..",
-        "...DHHHHHHHHD...",
-        "..DHHHHHHHHHHD..",
-        "..DHHHHHHHHHHD..",
-        "...DDDDDDDDDD...",
-        "...DMMMMMMMMD...",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "..DHWWWWWWWSSD..",
-        "...DWWWWWWWSD...",
-        "...DDDDDDDDDD...",
-        "...DDDDDDDDDD...",
-        ".....DDDDDD.....",
-    ]
-)
-tap = Canvas.from_rows([".GGG..", "..G...", ".GGGG.", "....G.", "....G."])
-surround = Canvas.from_rows(["DDDDD.", ".DDD..", "DDDDDD", ".DDDDD", "...DDD", "....D."])
-# The body is 20 rows tall (was 16), for a taller, more cylindrical barrel
-# rather than one squashed short by an oversized mouth. BODY_TOP keeps the
-# body's bottom at the same y=29 it always had (10 + 20 - 1).
-BODY_TOP = 10
-# The mouth is narrower than the body (8 wide at its band, vs. the body's 12)
-# and sits low enough to overlap the body's own H highlight collar (rows 1-3
-# of `body`, immediately below BODY_TOP): that collar is wider than the mouth,
-# so it shows through on both sides as a wood-toned rim framing the opening --
-# the same technique the pre-#22 design used to make the mouth read as a hole
-# in the barrel rather than a flat patch sitting on top of it. Without this
-# overlap the mouth had no visible frame and the faucet/gauge, offset from a
-# stale pre-shrink BODY_TOP, sat far lower on the body than intended.
+
+# The cask: a static cylinder of staves, unaffected by fill level or rain.
+# STAVE_TOP is the absolute row where the barrel's own body begins; the
+# mouth (drawn separately, below) overlaps its top two collar rows so that
+# collar shows through on both sides of the opening and frames it, instead
+# of the opening sitting on the body as a borderless patch.
+STAVE_TOP = 13
+
+
+def build_cask(seam_x: tuple[int, ...]) -> Canvas:
+    # Seams are baked into this same canvas/feature (not a separate occluding
+    # layer) so decorative texture never fragments the cask's own connectivity.
+    cask = Canvas(16, 32)
+    cask.rect(2, STAVE_TOP, 12, 2, "H")  # top hoop, lets the mouth's taper overlap it
+    cask.rect(1, STAVE_TOP + 2, 14, 15, "W")  # main cylinder
+    cask.rect(1, STAVE_TOP + 2, 1, 15, "D").rect(14, STAVE_TOP + 2, 1, 15, "D")
+    for x in seam_x:
+        cask.rect(x, STAVE_TOP + 5, 1, 9, "S")
+    cask.rect(1, 29, 14, 1, "D")  # bottom hoop
+    return cask
+
+
+front_cask = build_cask((4, 11))
+side_cask = build_cask((7,))
+back_cask = build_cask((5, 8, 11))
+
+# The mouth: a rounded 14-row-tall opening, built the same way as any other
+# feature -- a point set, not a stack of rects -- so the rim and fill can
+# share one shape. Only its top rows (y<STAVE_TOP-1) are exposed against
+# open background; the bottom two rows sink into the cask's own hoop.
 MOUTH = (
-    {(x, y) for x in range(2, 9) for y in range(0, 2)}
-    | {(x, y) for x in range(1, 10) for y in range(2, 5)}
-    | {(x, y) for x in range(2, 9) for y in range(5, 7)}
+    {(x, y) for x in range(5, 11) for y in (1, 2)}
+    | {(x, y) for x in range(3, 13) for y in range(3, 12)}
+    | {(x, y) for x in range(5, 11) for y in range(12, 15)}
 )
 DELTAS = ((1, 0), (-1, 0), (0, 1), (0, -1))
-MOUTH_RIM = {p for p in MOUTH if any((p[0] + dx, p[1] + dy) not in MOUTH for dx, dy in DELTAS)}
+EXPOSED = {p for p in MOUTH if p[1] < STAVE_TOP - 1}
+RIM = {p for p in EXPOSED if any((p[0] + dx, p[1] + dy) not in MOUTH for dx, dy in DELTAS)}
+WATERLINE = {0: 15, 1: 6, 2: 2}  # local y within the mouth; empty/partial/full
+
 for angle in (0, 90, 180, 270):
-    art.layer("barrel", angle, body, y=BODY_TOP)
-    # Controls sit in the mid-band of staves, not crammed against the bottom
-    # rim -- these are absolute canvas offsets, independent of BODY_TOP.
+    cask = {0: front_cask, 180: back_cask}.get(angle, side_cask)
+    art.layer("cask", angle, cask, min_pixels=180, connected=True)
     if angle == 0:
-        art.layer("tap surround", angle, surround, x=2, y=19)
-        art.layer("faucet", angle, tap, x=2, y=19, min_pixels=10, connected=True)
+        tap = Canvas.from_rows([".GG..", "GGGG.", ".GG..", "..GG.", "..GG."])
+        art.layer("faucet", angle, tap, x=2, y=21, min_pixels=9, connected=True)
     elif angle in (90, 270):
-        side = Canvas.from_rows(["GG.", ".G.", ".GG", "..G"])
+        spout = Canvas.from_rows(["GG.", ".G.", ".GG"])
         art.layer(
             "side faucet",
             angle,
-            side if angle == 90 else side.mirrored(),
+            spout if angle == 90 else spout.mirrored(),
             x=12 if angle == 90 else 1,
-            y=20,
-            min_pixels=6,
+            y=22,
+            min_pixels=5,
             connected=True,
         )
-    else:
-        seams = Canvas(5, 7).rect(0, 0, 1, 7, "S").rect(4, 0, 1, 7, "S")
-        art.layer("rear staves", angle, seams, x=6, y=18)
     for level in range(3):
         for phase in range(9):
             frame = level * 10 + phase
-            # A wide mouth seen from above: a 2-row taper, a 3-row wide band,
-            # then another 2-row taper. Sits low enough (y=6, not y=2) to
-            # overlap the body's own H highlight collar, which is wider than
-            # the mouth and frames it in wood on both sides.
-            #
-            # Rows below `waterline` are wet (C); above it, dry (D). Partial
-            # and full must show different water lines -- filling the whole
-            # mouth for both looked identical and hid which state was which.
-            # The rim (M) takes priority over both: it borders the part of
-            # the mouth exposed against open background (y<4) regardless of
-            # whether what's inside is dry or full to the brim, so a "full"
-            # mouth still reads as a rimmed opening instead of a borderless
-            # water patch merging straight into the background.
-            waterline = {0: 7, 1: 3, 2: 0}[level]
-            opening = Canvas(12, 7)
+            waterline = WATERLINE[level]
+            opening = Canvas(12, 14)
             for x, y in MOUTH:
-                if (x, y) in MOUTH_RIM and y < 4:
+                lx, ly = x - 3, y - 1
+                if not 0 <= lx < 12 or not 0 <= ly < 14:
+                    continue
+                if (x, y) in RIM:
                     color = "M"
-                elif y < waterline:
-                    color = "D"
-                else:
+                elif ly >= waterline:
                     color = "C"
-                opening.rect(x, y, 1, 1, color)
-            if level:
-                glint_y = max(waterline, 0)
-                opening.rect(2 + (phase % 2), glint_y, 5, min(2, 7 - glint_y), "L")
+                else:
+                    color = "S" if ly < 3 else "D"
+                opening.pixels[ly][lx] = color
+            if level and phase:
+                glint_x = 3 + (phase % 3)
+                for gy in range(waterline, min(waterline + 2, 14)):
+                    if opening.pixels[gy][glint_x] != ".":
+                        opening.pixels[gy][glint_x] = "L"
             art.layer(
-                "opening", angle, opening, x=2, y=6, frame=frame, min_pixels=45, connected=True
+                "opening", angle, opening, x=3, y=1, frame=frame, min_pixels=48, connected=True
             )
             if angle == 0:
-                gauge = Canvas(4, 7).rect(0, 0, 4, 7, "D").rect(1, 1, 2, 5, "M")
-                fill = (0, 2, 5)[level]
+                gauge = Canvas(4, 6).rect(0, 0, 4, 6, "D").rect(1, 1, 2, 4, "M")
+                fill = (0, 2, 4)[level]
                 if fill:
-                    gauge.rect(1, 6 - fill, 2, fill, "C").rect(1, 6 - fill, 2, 1, "L")
+                    gauge.rect(1, 5 - fill, 2, fill, "C").rect(1, 5 - fill, 2, 1, "L")
                 art.layer(
                     "level gauge",
                     angle,
                     gauge,
-                    x=9,
-                    y=18,
+                    x=10,
+                    y=19,
                     frame=frame,
-                    min_pixels=28,
+                    min_pixels=24,
                     connected=True,
                 )
             if phase:
-                rain = Canvas(10, 8)
-                for x, shift in ((0, 0), (4, 3), (8, 5)):
-                    y = (phase + shift) % 6
+                rain = Canvas(10, 10)
+                for x, shift in ((0, 0), (4, 4), (8, 2)):
+                    y = (phase * 2 + shift) % 9
                     rain.rect(x, y, 1, 2, "L")
-                art.layer("rain", angle, rain, x=3, y=2, frame=frame)
+                art.layer("rain", angle, rain, x=3, y=0, frame=frame)
 art.save(bpy.context.scene)
