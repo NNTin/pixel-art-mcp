@@ -93,18 +93,24 @@ for angle in (0, 90, 180, 270):
             # overlap the body's own H highlight collar, which is wider than
             # the mouth and frames it in wood on both sides.
             #
-            # Rows below `waterline` are wet (C); above it, dry (D, with the
-            # same M rim as the empty state where exposed against open
-            # background). Partial and full must show different water lines
-            # -- filling the whole mouth for both looked identical and hid
-            # which state was which.
+            # Rows below `waterline` are wet (C); above it, dry (D). Partial
+            # and full must show different water lines -- filling the whole
+            # mouth for both looked identical and hid which state was which.
+            # The rim (M) takes priority over both: it borders the part of
+            # the mouth exposed against open background (y<4) regardless of
+            # whether what's inside is dry or full to the brim, so a "full"
+            # mouth still reads as a rimmed opening instead of a borderless
+            # water patch merging straight into the background.
             waterline = {0: 7, 1: 3, 2: 0}[level]
             opening = Canvas(12, 7)
             for x, y in MOUTH:
-                if y < waterline:
-                    opening.rect(x, y, 1, 1, "M" if (x, y) in MOUTH_RIM and y < 4 else "D")
+                if (x, y) in MOUTH_RIM and y < 4:
+                    color = "M"
+                elif y < waterline:
+                    color = "D"
                 else:
-                    opening.rect(x, y, 1, 1, "C")
+                    color = "C"
+                opening.rect(x, y, 1, 1, color)
             if level:
                 glint_y = max(waterline, 0)
                 opening.rect(2 + (phase % 2), glint_y, 5, min(2, 7 - glint_y), "L")

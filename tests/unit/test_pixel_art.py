@@ -212,6 +212,18 @@ def test_barrel_opening_water_line_distinguishes_empty_partial_and_full(monkeypa
         assert len({im.tobytes() for im in mouths}) == 3, (angle, "empty/partial/full")
 
 
+def test_barrel_full_water_still_has_an_exposed_rim(monkeypatch):
+    # Regression: filling every row down to the waterline with water (C)
+    # took priority over the rim, so "full" (waterline at the very top) had
+    # no M border at all -- the water ran straight into the background
+    # instead of reading as sitting inside a rimmed opening.
+    art, options = load_example(monkeypatch, "rain-barrel")
+    for angle in (0, 90, 180, 270):
+        for frame in (0, 10, 20):  # empty, partial, full
+            pose = next(p for p in art.poses(angle, frame) if p["name"] == "opening")
+            assert "M" in pose["rows"][0], (angle, frame, pose["rows"])
+
+
 def test_barrel_opening_does_not_merge_into_the_webview_floor(monkeypatch):
     # Regression: an earlier redraw enlarged the empty-state mouth to a flat
     # solid fill in the barrel's darkest color, which is close enough in luma
