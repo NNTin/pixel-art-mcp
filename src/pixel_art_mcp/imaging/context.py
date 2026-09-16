@@ -7,6 +7,15 @@ from typing import Any
 
 from PIL import Image, ImageDraw
 
+# The webview's actual floor tile is close to this; used both to paint the
+# approximate preview stage and to judge whether a sprite blends into it.
+BACKGROUND_COLOR = (0x34, 0x3E, 0x42)
+
+
+def luma(rgb: tuple[int, int, int]) -> float:
+    r, g, b = rgb
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
 
 def reference_agent() -> Image.Image:
     """Schematic scale reference, authored here (not copied from the consumer's artwork)."""
@@ -55,7 +64,7 @@ def context_geometry(
 def context_image(sprite: Image.Image, spec: dict[str, Any], layout: dict[str, Any]) -> Image.Image:
     geometry = context_geometry(spec["kind"], layout, spec["category"], layout["angle"])
     stage = Image.new(
-        "RGBA", (max(160, layout["width"] + 96), max(128, layout["height"] + 80)), "#343e42"
+        "RGBA", (max(160, layout["width"] + 96), max(128, layout["height"] + 80)), BACKGROUND_COLOR
     )
     draw = ImageDraw.Draw(stage)
     for x in range(0, stage.width, 16):

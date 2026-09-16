@@ -202,6 +202,32 @@ def test_report_flags_detached_structure_without_rejecting_intentional_effects(t
     assert report["frames"][0]["opaque_connected_components"] == 2
 
 
+def test_report_flags_one_oversized_patch_blending_into_the_floor(tmp_path):
+    # A single large solid patch near the webview floor's own color can stay
+    # under the overall-similarity ratio yet still read as a hole punched into
+    # the background -- catch that even when scattered dark pixels wouldn't.
+    out, _, _ = fixture_export(tmp_path)
+    metadata = json.loads((out / "spritesheet.json").read_text())
+    first = metadata["frames"][0]
+    image = Image.new("RGBA", (16, 16))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, 15, 9), fill="#293039")  # 160px, close to the floor's own luma
+    draw.rectangle((0, 10, 15, 15), fill="#f3cf65")  # 96px, high-contrast
+    image.save(out / first["filename"])
+    report = asset_report(out, metadata)
+    finding = next(f for f in report["findings"] if f["code"] == "low_context_contrast")
+    assert finding["angle"] == first["angle"] and finding["frame"] == first["frame"]
+
+    # Shrink the patch below the connected-blend threshold: no finding.
+    image = Image.new("RGBA", (16, 16))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, 15, 5), fill="#293039")  # 96px
+    draw.rectangle((0, 6, 15, 15), fill="#f3cf65")  # 160px
+    image.save(out / first["filename"])
+    report = asset_report(out, metadata)
+    assert not any(f["code"] == "low_context_contrast" for f in report["findings"])
+
+
 @pytest.mark.parametrize("kind", ["character", "pet"])
 def test_animation_playback_and_duration_match_consumer(tmp_path, kind):
     out, options, _ = fixture_export(tmp_path, kind, colors=64)

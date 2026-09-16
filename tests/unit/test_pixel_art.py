@@ -9,7 +9,8 @@ from PIL import Image
 from pixel_art_mcp.assets import get_asset_profile, normalize_asset, resolve_asset
 from pixel_art_mcp.authoring import PixelDefinition
 from pixel_art_mcp.imaging.asset_export import export_asset
-from pixel_art_mcp.imaging.features import composite_features
+from pixel_art_mcp.imaging.context import BACKGROUND_COLOR, luma
+from pixel_art_mcp.imaging.features import composite_features, largest_component_size
 from pixel_art_mcp.imaging.inspection import inspect_sprite
 from pixel_art_mcp.models import AssetSpec
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
@@ -185,7 +186,7 @@ def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
             for f in range(9)
         ]
         assert len({im.crop((0, 18, 16, 32)).tobytes() for im in images}) == 1
-        assert images[0].getbbox() == (2, 2, 14, 30)
+        assert images[0].getbbox() == (2, 6, 14, 30)
         _, features = composite_features(
             Image.new("RGBA", (16, 32)), art.poses(0, level * 10), art.palette
         )
@@ -193,6 +194,62 @@ def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
         gauge = next(f for f in features if f["name"] == "level gauge")
         assert faucet["visible_pixels"] == 10 and faucet["components"] == 1
         assert gauge["visible_pixels"] == 28 and gauge["components"] == 1
+
+
+def test_barrel_opening_water_line_distinguishes_empty_partial_and_full(monkeypatch):
+    # Regression: partial and full both filled the whole mouth with water,
+    # so they were pixel-identical at the opening and only the body's small
+    # gauge showed which state was active.
+    art, options = load_example(monkeypatch, "rain-barrel")
+    mouth_bounds = (2, 6, 14, 13)  # x0, y0, x1, y1 -- above the body's collar rows
+    for angle in (0, 90, 180, 270):
+        mouths = [
+            composite_features(Image.new("RGBA", (16, 32)), art.poses(angle, f), art.palette)[
+                0
+            ].crop(mouth_bounds)
+            for f in (0, 10, 20)
+        ]
+        assert len({im.tobytes() for im in mouths}) == 3, (angle, "empty/partial/full")
+
+
+def test_barrel_full_water_still_has_an_exposed_rim(monkeypatch):
+    # Regression: filling every row down to the waterline with water (C)
+    # took priority over the rim, so "full" (waterline at the very top) had
+    # no M border at all -- the water ran straight into the background
+    # instead of reading as sitting inside a rimmed opening.
+    art, options = load_example(monkeypatch, "rain-barrel")
+    for angle in (0, 90, 180, 270):
+        for frame in (0, 10, 20):  # empty, partial, full
+            pose = next(p for p in art.poses(angle, frame) if p["name"] == "opening")
+            assert "M" in pose["rows"][0], (angle, frame, pose["rows"])
+
+
+def test_barrel_opening_does_not_merge_into_the_webview_floor(monkeypatch):
+    # Regression: an earlier redraw enlarged the empty-state mouth to a flat
+    # solid fill in the barrel's darkest color, which is close enough in luma
+    # to the webview floor tile that the mouth visually vanished into the
+    # background instead of reading as an opening (see asset_report's
+    # low_context_contrast check, which flags exactly this pattern).
+    art, options = load_example(monkeypatch, "rain-barrel")
+    background_luma = luma(BACKGROUND_COLOR)
+    for angle in (0, 90, 180, 270):
+        for frame in (0, 1, 5, 8):  # the dark "empty" state; "partial"/"full" use water blue.
+            image, _ = composite_features(
+                Image.new("RGBA", (16, 32)), art.poses(angle, frame), art.palette
+            )
+            opaque = similar = 0
+            similar_points = set()
+            for y in range(image.height):
+                for x in range(image.width):
+                    pixel = image.getpixel((x, y))
+                    if not pixel[3]:
+                        continue
+                    opaque += 1
+                    if abs(luma(pixel[:3]) - background_luma) < 16:
+                        similar += 1
+                        similar_points.add((x, y))
+            assert similar / opaque <= 0.85, (angle, frame)
+            assert largest_component_size(similar_points) / opaque <= 0.4, (angle, frame)
 
 
 def test_export_keeps_exact_pixels_and_reports_lost_features(tmp_path):
