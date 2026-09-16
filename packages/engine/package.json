@@ -18,6 +18,11 @@
   },
   "dependencies": {
     "@pixel-art-mcp/schema": "workspace:*",
-    "@pixel-art-mcp/pixel-core": "workspace:*"
+    "@pixel-art-mcp/pixel-core": "workspace:*",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.7.2"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5"
   }
 }

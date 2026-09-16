@@ -21,3 +21,4 @@ tmp/
 node_modules/
 *.tsbuildinfo
 coverage/
+.script-scratch/
