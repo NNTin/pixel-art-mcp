@@ -1,0 +1,616 @@
+{
+  "cases": [
+    {
+      "name": "valid minimal furniture",
+      "status": "valid",
+      "input": {
+        "kind": "furniture",
+        "name": "Oil Lamp",
+        "asset_id": "OIL_LAMP"
+      },
+      "output": {
+        "schema_version": 1,
+        "kind": "furniture",
+        "name": "Oil Lamp",
+        "asset_id": "OIL_LAMP",
+        "preset": null,
+        "placement": "floor",
+        "category": "decor",
+        "ground_width": null,
+        "ground_depth": 1,
+        "background_tiles": null,
+        "width": null,
+        "height": null,
+        "clips": {},
+        "colors": 16,
+        "palette": null,
+        "outline": false,
+        "supersampling": 4
+      }
+    },
+    {
+      "name": "valid minimal character",
+      "status": "valid",
+      "input": {
+        "kind": "character",
+        "name": "Knight"
+      },
+      "output": {
+        "schema_version": 1,
+        "kind": "character",
+        "name": "Knight",
+        "asset_id": null,
+        "preset": null,
+        "placement": "floor",
+        "category": "decor",
+        "ground_width": null,
+        "ground_depth": 1,
+        "background_tiles": null,
+        "width": null,
+        "height": null,
+        "clips": {},
+        "colors": 16,
+        "palette": null,
+        "outline": false,
+        "supersampling": 4
+      }
+    },
+    {
+      "name": "valid minimal pet",
+      "status": "valid",
+      "input": {
+        "kind": "pet",
+        "name": "Tabby Cat",
+        "asset_id": "TABBY_CAT"
+      },
+      "output": {
+        "schema_version": 1,
+        "kind": "pet",
+        "name": "Tabby Cat",
+        "asset_id": "TABBY_CAT",
+        "preset": null,
+        "placement": "floor",
+        "category": "decor",
+        "ground_width": null,
+        "ground_depth": 1,
+        "background_tiles": null,
+        "width": null,
+        "height": null,
+        "clips": {},
+        "colors": 16,
+        "palette": null,
+        "outline": false,
+        "supersampling": 4
+      }
+    },
+    {
+      "name": "missing name",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "asset_id": "X"
+      },
+      "errors": [
+        {
+          "msg": "Field required",
+          "loc": [
+            "name"
+          ],
+          "type": "missing"
+        }
+      ]
+    },
+    {
+      "name": "invalid kind literal",
+      "status": "invalid",
+      "input": {
+        "kind": "bogus",
+        "name": "x"
+      },
+      "errors": [
+        {
+          "msg": "Input should be 'furniture', 'character' or 'pet'",
+          "loc": [
+            "kind"
+          ],
+          "type": "literal_error"
+        }
+      ]
+    },
+    {
+      "name": "invalid asset_id pattern",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "bad"
+      },
+      "errors": [
+        {
+          "msg": "String should match pattern '^[A-Z][A-Z0-9_]{0,63}$'",
+          "loc": [
+            "asset_id"
+          ],
+          "type": "string_pattern_mismatch"
+        }
+      ]
+    },
+    {
+      "name": "extra field forbidden",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "bogus": 1
+      },
+      "errors": [
+        {
+          "msg": "Extra inputs are not permitted",
+          "loc": [
+            "bogus"
+          ],
+          "type": "extra_forbidden"
+        }
+      ]
+    },
+    {
+      "name": "furniture missing asset_id",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x"
+      },
+      "errors": [
+        {
+          "msg": "Value error, Furniture and pets require asset_id",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "invalid preset for kind",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "character"
+      },
+      "errors": [
+        {
+          "msg": "Value error, Invalid preset for furniture: character",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "background_tiles only for furniture",
+      "status": "invalid",
+      "input": {
+        "kind": "character",
+        "name": "x",
+        "background_tiles": 1
+      },
+      "errors": [
+        {
+          "msg": "Value error, background_tiles applies only to furniture",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "placement/ground only for furniture",
+      "status": "invalid",
+      "input": {
+        "kind": "character",
+        "name": "x",
+        "placement": "wall"
+      },
+      "errors": [
+        {
+          "msg": "Value error, Placement and ground tiles apply only to furniture",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "character/pet require 16x32",
+      "status": "invalid",
+      "input": {
+        "kind": "character",
+        "name": "x",
+        "width": 32
+      },
+      "errors": [
+        {
+          "msg": "Value error, Characters and pets require 16x32 front/back frames",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "lowercase clip id required",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "clips": {
+          "BAD": {
+            "frames": [
+              1
+            ]
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, Clip IDs must be lowercase identifiers, up to 24 characters",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "off_frame only for furniture clips",
+      "status": "invalid",
+      "input": {
+        "kind": "character",
+        "name": "x",
+        "clips": {
+          "walk": {
+            "frames": [
+              1
+            ],
+            "off_frame": 5
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, Only furniture clips have off_frame",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "animated furniture clip requires off_frame",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "clips": {
+          "default": {
+            "frames": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, Animated furniture clips require off_frame",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "combined asset/variant id too long",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "clips": {
+          "one": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "twotwotwotwotwo": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, Combined asset and variant ID exceeds 64 characters",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "combined asset/variant name too long",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN",
+        "asset_id": "X",
+        "clips": {
+          "one": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2,
+            "name": "Variant One"
+          },
+          "two": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2,
+            "name": "Variant Two"
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, Combined asset and variant name exceeds 60 characters",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "character clips wrong set",
+      "status": "invalid",
+      "input": {
+        "kind": "character",
+        "name": "x",
+        "clips": {
+          "walk": {
+            "frames": [
+              1,
+              2,
+              3
+            ]
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, character clips must be {'walk': 3, 'typing': 2, 'reading': 2}",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "character clip frame counts wrong",
+      "status": "invalid",
+      "input": {
+        "kind": "character",
+        "name": "x",
+        "clips": {
+          "walk": {
+            "frames": [
+              1,
+              2
+            ]
+          },
+          "typing": {
+            "frames": [
+              4,
+              5
+            ]
+          },
+          "reading": {
+            "frames": [
+              6,
+              7
+            ]
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, character clip frame counts must be {'walk': 3, 'typing': 2, 'reading': 2}",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pet clips wrong set",
+      "status": "invalid",
+      "input": {
+        "kind": "pet",
+        "name": "x",
+        "asset_id": "X",
+        "clips": {
+          "walk": {
+            "frames": [
+              1,
+              2,
+              3
+            ]
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, pet clips must be {'walk': 3, 'idle': 3}",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "invalid palette hex",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "palette": [
+          "#zzzzzz",
+          "#ffffff"
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Palette colors must be #RRGGBB",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "duplicate palette colors",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "palette": [
+          "#ffffff",
+          "#FFFFFF"
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Palette colors must be distinct",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "clips dict too long",
+      "status": "invalid",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "clips": {
+          "c0": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c1": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c2": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c3": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c4": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c5": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c6": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c7": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c8": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c9": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c10": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c11": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c12": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c13": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c14": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c15": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          },
+          "c16": {
+            "frames": [
+              1
+            ],
+            "off_frame": 2
+          }
+        }
+      },
+      "errors": [
+        {
+          "msg": "Dictionary should have at most 16 items after validation, not 17",
+          "loc": [
+            "clips"
+          ],
+          "type": "too_long"
+        }
+      ]
+    }
+  ]
+}

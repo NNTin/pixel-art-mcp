@@ -27,6 +27,21 @@ export default defineConfig([
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    rules: {
+      // Numbers (and, for error-message formatting, `string | undefined` covered by an
+      // explicit `??`) are always safe to interpolate; the default is overly strict for a
+      // codebase built around formatting Pydantic-style validation messages.
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        { allowNumber: true, allowNullish: true },
+      ],
+      // Standard convention for a deliberately-discarded destructured binding
+      // (e.g. `const { views: _views, ...rest } = data`).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", destructuredArrayIgnorePattern: "^_" },
+      ],
+    },
   },
   eslintConfigPrettier,
 ]);

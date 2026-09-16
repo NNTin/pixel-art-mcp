@@ -1,0 +1,387 @@
+{
+  "cases": [
+    {
+      "name": "resolve furniture default",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X"
+      },
+      "status": "ok",
+      "output": {
+        "schema_version": 1,
+        "asset": {
+          "schema_version": 1,
+          "kind": "furniture",
+          "name": "x",
+          "asset_id": "X",
+          "preset": "small",
+          "placement": "floor",
+          "category": "decor",
+          "ground_width": null,
+          "ground_depth": 1,
+          "background_tiles": null,
+          "width": null,
+          "height": null,
+          "clips": {
+            "default": {
+              "schema_version": 1,
+              "frames": [
+                1
+              ],
+              "name": null,
+              "off_frame": null
+            }
+          },
+          "colors": 16,
+          "palette": null,
+          "outline": false,
+          "supersampling": 4
+        },
+        "asset_configuration_id": null,
+        "frame_sequence": [
+          1
+        ],
+        "asset_layouts": [
+          {
+            "angle": 0,
+            "width": 16,
+            "height": 16,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 15,
+            "content_height": 14
+          },
+          {
+            "angle": 90,
+            "width": 16,
+            "height": 16,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 15,
+            "content_height": 14
+          },
+          {
+            "angle": 180,
+            "width": 16,
+            "height": 16,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 15,
+            "content_height": 14
+          },
+          {
+            "angle": 270,
+            "width": 16,
+            "height": 16,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 15,
+            "content_height": 14
+          }
+        ],
+        "states": null,
+        "tile_width": 1,
+        "tile_height": 1,
+        "width": 16,
+        "height": 16,
+        "angles": [
+          0.0,
+          90.0,
+          180.0,
+          270.0
+        ],
+        "frame_start": 1,
+        "frame_end": 1,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 16,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.0,
+        "meters_per_tile": null,
+        "pixel_agents": null,
+        "character": null,
+        "pet": null
+      }
+    },
+    {
+      "name": "resolve character default",
+      "input": {
+        "kind": "character",
+        "name": "x"
+      },
+      "status": "ok",
+      "output": {
+        "schema_version": 1,
+        "asset": {
+          "schema_version": 1,
+          "kind": "character",
+          "name": "x",
+          "asset_id": null,
+          "preset": "character",
+          "placement": "floor",
+          "category": "decor",
+          "ground_width": null,
+          "ground_depth": 1,
+          "background_tiles": null,
+          "width": null,
+          "height": null,
+          "clips": {
+            "walk": {
+              "schema_version": 1,
+              "frames": [
+                1,
+                2,
+                3
+              ],
+              "name": null,
+              "off_frame": null
+            },
+            "typing": {
+              "schema_version": 1,
+              "frames": [
+                4,
+                5
+              ],
+              "name": null,
+              "off_frame": null
+            },
+            "reading": {
+              "schema_version": 1,
+              "frames": [
+                6,
+                7
+              ],
+              "name": null,
+              "off_frame": null
+            }
+          },
+          "colors": 16,
+          "palette": null,
+          "outline": false,
+          "supersampling": 4
+        },
+        "asset_configuration_id": null,
+        "frame_sequence": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "asset_layouts": [
+          {
+            "angle": 0,
+            "width": 16,
+            "height": 32,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 31,
+            "content_height": 29
+          },
+          {
+            "angle": 180,
+            "width": 16,
+            "height": 32,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 31,
+            "content_height": 29
+          },
+          {
+            "angle": 90,
+            "width": 16,
+            "height": 32,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 31,
+            "content_height": 29
+          }
+        ],
+        "states": null,
+        "tile_width": 1,
+        "tile_height": 1,
+        "width": 16,
+        "height": 32,
+        "angles": [
+          0.0,
+          180.0,
+          90.0
+        ],
+        "frame_start": 1,
+        "frame_end": 1,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 16,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.0,
+        "meters_per_tile": null,
+        "pixel_agents": null,
+        "character": null,
+        "pet": null
+      }
+    },
+    {
+      "name": "resolve pet default",
+      "input": {
+        "kind": "pet",
+        "name": "x",
+        "asset_id": "X"
+      },
+      "status": "ok",
+      "output": {
+        "schema_version": 1,
+        "asset": {
+          "schema_version": 1,
+          "kind": "pet",
+          "name": "x",
+          "asset_id": "X",
+          "preset": "pet",
+          "placement": "floor",
+          "category": "decor",
+          "ground_width": null,
+          "ground_depth": 1,
+          "background_tiles": null,
+          "width": null,
+          "height": null,
+          "clips": {
+            "walk": {
+              "schema_version": 1,
+              "frames": [
+                1,
+                2,
+                3
+              ],
+              "name": null,
+              "off_frame": null
+            },
+            "idle": {
+              "schema_version": 1,
+              "frames": [
+                4,
+                5,
+                6
+              ],
+              "name": null,
+              "off_frame": null
+            }
+          },
+          "colors": 16,
+          "palette": null,
+          "outline": false,
+          "supersampling": 4
+        },
+        "asset_configuration_id": null,
+        "frame_sequence": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "asset_layouts": [
+          {
+            "angle": 0,
+            "width": 16,
+            "height": 32,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 31,
+            "content_height": 22
+          },
+          {
+            "angle": 180,
+            "width": 16,
+            "height": 32,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 31,
+            "content_height": 22
+          },
+          {
+            "angle": 90,
+            "width": 32,
+            "height": 32,
+            "footprint_w": 1,
+            "footprint_h": 1,
+            "ground_width": 1,
+            "ground_depth": 1,
+            "background_tiles": 0,
+            "margin": 1,
+            "bottom": 31,
+            "content_height": 22
+          }
+        ],
+        "states": null,
+        "tile_width": 1,
+        "tile_height": 1,
+        "width": 32,
+        "height": 32,
+        "angles": [
+          0.0,
+          180.0,
+          90.0
+        ],
+        "frame_start": 1,
+        "frame_end": 1,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 16,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.0,
+        "meters_per_tile": null,
+        "pixel_agents": null,
+        "character": null,
+        "pet": null
+      }
+    }
+  ]
+}

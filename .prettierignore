@@ -9,3 +9,10 @@ tests/
 vendor/
 contracts/pixel_index/
 pnpm-lock.yaml
+
+# Build output.
+dist/
+
+# Golden fixture corpus: an exact, byte-for-byte capture of the real Pydantic models' output
+# (see contracts/fixtures/generate_fixtures.py) -- not hand-formatted source.
+contracts/fixtures/*.json

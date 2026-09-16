@@ -1,0 +1,410 @@
+{
+  "cases": [
+    {
+      "name": "move_pose on existing pose",
+      "definition": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "frame": null,
+                "rows": [
+                  "D"
+                ],
+                "x": 0,
+                "y": 0
+              }
+            ]
+          }
+        ]
+      },
+      "edits": [
+        {
+          "op": "move_pose",
+          "layer": "marker",
+          "angle": 0,
+          "frame": null,
+          "x": 5,
+          "y": 5
+        }
+      ],
+      "status": "ok",
+      "output": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "rows": [
+                  "D"
+                ],
+                "drawing": null,
+                "frame": null,
+                "x": 5,
+                "y": 5,
+                "min_pixels": 0,
+                "connected": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "move_pose on unknown layer",
+      "definition": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "frame": null,
+                "rows": [
+                  "D"
+                ],
+                "x": 0,
+                "y": 0
+              }
+            ]
+          }
+        ]
+      },
+      "edits": [
+        {
+          "op": "move_pose",
+          "layer": "nope",
+          "angle": 0,
+          "frame": null,
+          "x": 5,
+          "y": 5
+        }
+      ],
+      "status": "error",
+      "error": "edits[0] move_pose: unknown layer 'nope'"
+    },
+    {
+      "name": "move_pose on unstored pose",
+      "definition": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "frame": null,
+                "rows": [
+                  "D"
+                ],
+                "x": 0,
+                "y": 0
+              }
+            ]
+          }
+        ]
+      },
+      "edits": [
+        {
+          "op": "move_pose",
+          "layer": "marker",
+          "angle": 90,
+          "frame": null,
+          "x": 5,
+          "y": 5
+        }
+      ],
+      "status": "error",
+      "error": "edits[0] move_pose: no stored pose (90, None) in 'marker'; defaults are not implicit edit targets"
+    },
+    {
+      "name": "set_layer appends new layer",
+      "definition": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "frame": null,
+                "rows": [
+                  "D"
+                ],
+                "x": 0,
+                "y": 0
+              }
+            ]
+          }
+        ]
+      },
+      "edits": [
+        {
+          "op": "set_layer",
+          "layer": {
+            "name": "extra",
+            "poses": [
+              {
+                "angle": 0,
+                "rows": [
+                  "D"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "status": "ok",
+      "output": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "rows": [
+                  "D"
+                ],
+                "drawing": null,
+                "frame": null,
+                "x": 0,
+                "y": 0,
+                "min_pixels": 0,
+                "connected": false
+              }
+            ]
+          },
+          {
+            "name": "extra",
+            "poses": [
+              {
+                "angle": 0,
+                "rows": [
+                  "D"
+                ],
+                "drawing": null,
+                "frame": null,
+                "x": 0,
+                "y": 0,
+                "min_pixels": 0,
+                "connected": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "delete_layer leaves definition with no layers (re-validation fails)",
+      "definition": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "frame": null,
+                "rows": [
+                  "D"
+                ],
+                "x": 0,
+                "y": 0
+              }
+            ]
+          }
+        ]
+      },
+      "edits": [
+        {
+          "op": "delete_layer",
+          "name": "marker"
+        }
+      ],
+      "status": "revalidation_error",
+      "errors": [
+        {
+          "msg": "List should have at least 1 item after validation, not 0",
+          "loc": [
+            "layers"
+          ],
+          "type": "too_short"
+        }
+      ]
+    },
+    {
+      "name": "delete_layer unknown",
+      "definition": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "frame": null,
+                "rows": [
+                  "D"
+                ],
+                "x": 0,
+                "y": 0
+              }
+            ]
+          }
+        ]
+      },
+      "edits": [
+        {
+          "op": "delete_layer",
+          "name": "nope"
+        }
+      ],
+      "status": "error",
+      "error": "edits[0] delete_layer: unknown layer 'nope'"
+    },
+    {
+      "name": "set_palette replaces palette keeping symbols in use",
+      "definition": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "frame": null,
+                "rows": [
+                  "D"
+                ],
+                "x": 0,
+                "y": 0
+              }
+            ]
+          }
+        ]
+      },
+      "edits": [
+        {
+          "op": "set_palette",
+          "palette": {
+            "D": "#000000",
+            "G": "#ffffff"
+          }
+        }
+      ],
+      "status": "ok",
+      "output": {
+        "version": 1,
+        "palette": {
+          "D": "#000000",
+          "G": "#ffffff"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "rows": [
+                  "D"
+                ],
+                "drawing": null,
+                "frame": null,
+                "x": 0,
+                "y": 0,
+                "min_pixels": 0,
+                "connected": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "set_palette drops a symbol still in use (re-validation fails)",
+      "definition": {
+        "version": 1,
+        "palette": {
+          "D": "#293039",
+          "G": "#f3cf65"
+        },
+        "layers": [
+          {
+            "name": "marker",
+            "poses": [
+              {
+                "angle": 0,
+                "frame": null,
+                "rows": [
+                  "D"
+                ],
+                "x": 0,
+                "y": 0
+              }
+            ]
+          }
+        ]
+      },
+      "edits": [
+        {
+          "op": "set_palette",
+          "palette": {
+            "A": "#000000",
+            "B": "#ffffff"
+          }
+        }
+      ],
+      "status": "revalidation_error",
+      "errors": [
+        {
+          "msg": "Value error, Unknown palette symbol in layer 'marker'",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    }
+  ]
+}
