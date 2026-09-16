@@ -1,0 +1,23 @@
+{
+  "name": "@pixel-art-mcp/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The subprocess entrypoint a job actually runs (script exec / render).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pixel-art-mcp/schema": "workspace:*",
+    "@pixel-art-mcp/pixel-core": "workspace:*"
+  }
+}

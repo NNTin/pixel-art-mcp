@@ -17,3 +17,7 @@ tmp/
 .ao/
 .claude/
 .vercel
+
+node_modules/
+*.tsbuildinfo
+coverage/

@@ -1,0 +1,19 @@
+{
+  "name": "@pixel-art-mcp/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CodeMirror6 + render-pane web IDE (placeholder until Phase 9).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}

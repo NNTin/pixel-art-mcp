@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/schema" },
+    { "path": "packages/pixel-core" },
+    { "path": "packages/imaging" },
+    { "path": "packages/storage" },
+    { "path": "packages/jobs" },
+    { "path": "packages/engine" },
+    { "path": "packages/service" },
+    { "path": "apps/server" },
+    { "path": "apps/web" },
+    { "path": "tools/contracts-pixel-index" }
+  ]
+}

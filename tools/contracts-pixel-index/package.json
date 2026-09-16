@@ -1,0 +1,19 @@
+{
+  "name": "@pixel-art-mcp/contracts-pixel-index",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone live pixel-index schema-compatibility checker. Not part of the main app's dependency graph.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}

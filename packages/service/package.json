@@ -1,0 +1,26 @@
+{
+  "name": "@pixel-art-mcp/service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Orchestration layer binding storage/jobs/imaging/pixel-core into the public service API.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pixel-art-mcp/schema": "workspace:*",
+    "@pixel-art-mcp/storage": "workspace:*",
+    "@pixel-art-mcp/jobs": "workspace:*",
+    "@pixel-art-mcp/imaging": "workspace:*",
+    "@pixel-art-mcp/pixel-core": "workspace:*"
+  }
+}

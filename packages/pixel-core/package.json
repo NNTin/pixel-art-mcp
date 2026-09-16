@@ -1,0 +1,19 @@
+{
+  "name": "@pixel-art-mcp/pixel-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Protected Canvas/PixelArt core. No other package may be granted write access to this source.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}

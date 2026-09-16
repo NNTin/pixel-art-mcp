@@ -1,0 +1,11 @@
+# Pre-existing Python-era tree -- out of scope for the new TS monorepo's format gate.
+docs/*.md
+!docs/typescript-rewrite.md
+docs/investigations/
+examples/
+scripts/
+src/
+tests/
+vendor/
+contracts/pixel_index/
+pnpm-lock.yaml

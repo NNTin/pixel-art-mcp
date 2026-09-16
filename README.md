@@ -4,6 +4,14 @@ A local MCP service for creating **Pixel Agents furniture, characters, and pets*
 consumer's native pixel resolution. Author recognizable shapes on the final grid, save named
 layers and animation poses in scene revisions, and export installable packages.
 
+> **In progress:** this service is being rewritten from Python to strict TypeScript, with a new
+> web IDE (CodeMirror editor + live render preview) added alongside the existing MCP tools. The
+> `src/`/`tests/` Python tree below is still the live, deployed service; `packages/`, `apps/`,
+> and `tools/` are the new TypeScript monorepo being built up phase by phase. See
+> [`docs/typescript-rewrite.md`](docs/typescript-rewrite.md) for the full migration plan — it's
+> a hard cutover (no coexistence deployment), so the Python tree is removed once the TypeScript
+> app reaches full tool parity.
+
 `write_pixel_art` accepts a typed pixel definition and runs the mandatory `PixelArt` and `Canvas`
 helpers on the server. No client-side imports or filesystem tools are needed. Important features
 are designed explicitly, not recovered by adding colors or shrinking a detailed model. Authored
