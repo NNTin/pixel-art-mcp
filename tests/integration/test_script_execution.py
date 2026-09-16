@@ -1,22 +1,13 @@
 import json
-import os
-import shutil
 
-import pytest
 from conftest import wait_job
 from PIL import Image
 
 from pixel_art_mcp.jobs.worker import Worker
 from pixel_art_mcp.models import AssetSpec
 
-pytestmark = pytest.mark.blender
-
 
 async def test_real_chair_edit_and_sprite_export(service, example_dir, png):
-    binary = os.environ.get("PIXEL_BLENDER_BINARY", "blender")
-    if not shutil.which(binary):
-        pytest.skip("A real Blender executable is required")
-    service.settings.blender_binary = binary
     worker = Worker(service)
     await worker.start()
     try:

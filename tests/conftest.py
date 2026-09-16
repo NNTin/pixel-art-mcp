@@ -1,6 +1,5 @@
 import asyncio
 import io
-import sys
 from pathlib import Path
 
 import pytest
@@ -9,10 +8,15 @@ from PIL import Image
 from pixel_art_mcp.config import Settings
 from pixel_art_mcp.projects.service import Service
 
+# Scripts run for real (the engine is plain Python; see engine/runner.py), so tests
+# that need a failing or long-running job just submit one instead of faking a process.
+FAILING_SCRIPT = "raise RuntimeError('boom')\n"
+SLOW_SCRIPT = "print('started', flush=True)\nimport time\ntime.sleep(60)\n"
+
 
 @pytest.fixture
 def settings(tmp_path):
-    return Settings(data_dir=tmp_path / "data", blender_binary="/missing/blender", _env_file=None)
+    return Settings(data_dir=tmp_path / "data", _env_file=None)
 
 
 @pytest.fixture
@@ -27,47 +31,6 @@ def png():
     stream = io.BytesIO()
     Image.new("RGB", (24, 32), "coral").save(stream, "PNG")
     return stream.getvalue()
-
-
-@pytest.fixture
-def fake_blender(tmp_path):
-    """A process fixture for job lifecycle tests, not a substitute for Blender render tests."""
-    path = tmp_path / "fake-blender"
-    path.write_text(
-        f"#!{sys.executable}\n"
-        + r"""
-import json
-import sys
-import time
-from types import SimpleNamespace
-from pathlib import Path
-if "--version" in sys.argv:
-    print("Blender TEST FIXTURE")
-    raise SystemExit(0)
-request = json.loads(Path(sys.argv[sys.argv.index("--") + 1]).read_text())
-script = Path(request["script_path"]).read_text()
-if "# fail" in script:
-    print("Example Blender traceback: modeling failed", flush=True)
-    raise SystemExit(1)
-if "# slow" in script:
-    print("started", flush=True)
-    time.sleep(60)
-output = Path(request["output_dir"])
-output.mkdir(parents=True)
-scene = {}
-if request.get("input_blend"):
-    scene = json.loads(Path(request["input_blend"]).read_text().split("\n", 1)[1])
-# Execute source-only edits against a dictionary scene; geometry tests use real Blender.
-exec(script, {"bpy": SimpleNamespace(context=SimpleNamespace(scene=scene))})
-(output / "scene.blend").write_text("BLENDER-vTEST-fixture\n" + json.dumps(scene))
-summary = {"objects": [{"name": "Seat"}],
-           "pixel_art": json.loads(scene["pixel_art"]) if "pixel_art" in scene else None}
-(output / "result.json").write_text(json.dumps({"summary": summary}))
-print("saved", flush=True)
-"""
-    )
-    path.chmod(0o755)
-    return str(path)
 
 
 async def wait_job(service: Service, job_id: str, timeout: float = 10):

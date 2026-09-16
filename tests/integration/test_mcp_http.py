@@ -6,8 +6,7 @@ from helpers import MCPClient
 from pixel_art_mcp.app import create_app
 
 
-async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_blender, png):
-    settings.blender_binary = fake_blender
+async def test_mcp_initialize_tools_upload_script_and_inspect(settings, png):
     app = create_app(settings)
     async with (
         app.router.lifespan_context(app),
@@ -17,7 +16,7 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
     ):
         client = MCPClient(http)
         initialized = await client.initialize()
-        assert "execute_blender_python" in initialized["instructions"]
+        assert "execute_pixel_script" in initialized["instructions"]
         listing = await client.request("tools/list", {})
         tools = {tool["name"]: tool for tool in listing["tools"]}
         assert {
@@ -26,7 +25,7 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
             "render_asset",
             "inspect_asset",
         } <= tools.keys()
-        assert tools["execute_blender_python"]["annotations"]["readOnlyHint"] is False
+        assert tools["execute_pixel_script"]["annotations"]["readOnlyHint"] is False
         assert tools["inspect_scene"]["annotations"]["readOnlyHint"] is True
         assert tools["wait_for_job"]["annotations"]["readOnlyHint"] is True
         assert tools["inspect_sprite"]["annotations"]["readOnlyHint"] is True
@@ -61,12 +60,12 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         image = await client.call("get_reference_image", {"reference_id": reference["id"]})
         assert any(content["type"] == "image" for content in image["content"])
         created = await client.data(
-            "execute_blender_python",
+            "execute_pixel_script",
             {"project_id": project["id"], "script": "print('chair')", "expected_revision_id": None},
         )
         completed = await client.wait(created["id"])
         scene = await client.data("inspect_scene", {"project_id": project["id"]})
-        assert scene["summary"]["objects"][0]["name"] == "Seat"
+        assert scene["summary"]["pixel_art"] is None
         assert scene["revision_id"] == completed["result_revision_id"]
         script = next(a for a in completed["artifacts"] if a["filename"] == "script.py")
         artifact = await http.get(f"/artifacts/{script['id']}")
@@ -75,8 +74,7 @@ async def test_mcp_initialize_tools_upload_script_and_inspect(settings, fake_ble
         assert bad["isError"]
 
 
-async def test_geometry_alone_cannot_render(settings, fake_blender):
-    settings.blender_binary = fake_blender
+async def test_geometry_alone_cannot_render(settings):
     app = create_app(settings)
     async with (
         app.router.lifespan_context(app),
@@ -96,7 +94,7 @@ async def test_geometry_alone_cannot_render(settings, fake_blender):
             },
         )
         job = await client.data(
-            "execute_blender_python",
+            "execute_pixel_script",
             {
                 "project_id": project["id"],
                 "script": "print('geometry')",
@@ -120,7 +118,7 @@ async def test_http_upload_validation_and_local_boundary(settings, png):
         ) as http,
     ):
         assert (await http.get("/health/live")).status_code == 200
-        assert (await http.get("/health/ready")).status_code == 503
+        assert (await http.get("/health/ready")).status_code == 200
         project = (await http.post("/projects", json={"name": "Reference"})).json()
         uploaded = await http.post(
             f"/projects/{project['id']}/references", files={"file": ("chair.png", png, "image/png")}
@@ -139,18 +137,9 @@ async def test_http_upload_validation_and_local_boundary(settings, png):
             files={"file": ("bad.png", b"not an image", "image/png")},
         )
         assert bad_image.status_code == 400
-        mcp = MCPClient(http)
-        await mcp.initialize()
-        unavailable = await mcp.call(
-            "execute_blender_python",
-            {"project_id": project["id"], "script": "print('a')", "expected_revision_id": None},
-            allow_error=True,
-        )
-        assert unavailable["isError"]
 
 
-async def test_wait_for_job_collapses_polling_into_one_call(settings, fake_blender):
-    settings.blender_binary = fake_blender
+async def test_wait_for_job_collapses_polling_into_one_call(settings):
     app = create_app(settings)
     async with (
         app.router.lifespan_context(app),
@@ -162,15 +151,16 @@ async def test_wait_for_job_collapses_polling_into_one_call(settings, fake_blend
         await client.initialize()
         project = await client.data("create_project", {"name": "Wait target"})
         job = await client.data(
-            "execute_blender_python",
+            "execute_pixel_script",
             {"project_id": project["id"], "script": "print('chair')", "expected_revision_id": None},
         )
         result = await client.data("wait_for_job", {"job_id": job["id"], "timeout_seconds": 10})
         assert result["status"] == "succeeded"
 
 
-async def test_wait_for_job_returns_non_terminal_when_timeout_elapses_first(settings, fake_blender):
-    settings.blender_binary = fake_blender
+async def test_wait_for_job_returns_non_terminal_when_timeout_elapses_first(settings):
+    from conftest import SLOW_SCRIPT
+
     app = create_app(settings)
     async with (
         app.router.lifespan_context(app),
@@ -182,10 +172,10 @@ async def test_wait_for_job_returns_non_terminal_when_timeout_elapses_first(sett
         await client.initialize()
         project = await client.data("create_project", {"name": "Slow wait target"})
         job = await client.data(
-            "execute_blender_python",
+            "execute_pixel_script",
             {
                 "project_id": project["id"],
-                "script": "# slow\nprint('create')",
+                "script": SLOW_SCRIPT,
                 "expected_revision_id": None,
             },
         )
@@ -209,8 +199,7 @@ async def test_http_body_limit_before_parsing(settings):
         assert response.status_code == 413
 
 
-async def test_asset_configuration_shared_by_http_and_mcp(settings, fake_blender):
-    settings.blender_binary = fake_blender
+async def test_asset_configuration_shared_by_http_and_mcp(settings):
     app = create_app(settings)
     async with (
         app.router.lifespan_context(app),

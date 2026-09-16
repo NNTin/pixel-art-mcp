@@ -73,11 +73,8 @@ def routes(service: Service) -> APIRouter:
 
     @router.get("/health/ready")
     async def ready() -> JSONResponse:
-        good = service.worker_ready and service.blender_version is not None
-        return JSONResponse(
-            {"ready": good, "blender_version": service.blender_version},
-            status_code=200 if good else 503,
-        )
+        good = service.worker_ready
+        return JSONResponse({"ready": good}, status_code=200 if good else 503)
 
     @router.post("/projects", response_model=Project, status_code=201)
     async def create_project(body: CreateProject) -> Project:

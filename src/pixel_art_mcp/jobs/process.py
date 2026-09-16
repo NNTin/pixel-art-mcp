@@ -13,7 +13,7 @@ class ProcessFailure(Exception):
 
 
 async def stop_process(process: asyncio.subprocess.Process) -> None:
-    # Kill the entire group even if the original Blender process already exited.
+    # Kill the entire group even if the original process already exited.
     with contextlib.suppress(ProcessLookupError):
         os.killpg(process.pid, signal.SIGTERM)
     try:
@@ -73,7 +73,7 @@ async def run_process(
             await reader
             if process.returncode != 0:
                 raise ProcessFailure(
-                    f"Blender exited with code {process.returncode}; inspect job logs"
+                    f"Renderer exited with code {process.returncode}; inspect job logs"
                 )
     except TimeoutError as exc:
         raise ProcessFailure(f"Execution exceeded {timeout:g} seconds") from exc

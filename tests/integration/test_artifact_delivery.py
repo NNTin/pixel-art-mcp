@@ -39,7 +39,7 @@ async def delivery(settings):
     "filename,data",
     [
         ("sprites.zip", b"PK\x03\x04\x00\xff\x81binary"),
-        ("scene.blend", b"BLENDER-v450\x00\xfe"),
+        ("scene.bin", b"OPAQUE-BINARY-v1\x00\xfe"),
         ("empty.zip", b""),
     ],
 )

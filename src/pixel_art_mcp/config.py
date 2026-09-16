@@ -10,8 +10,6 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     base_url: str = "http://localhost:8000"
     listen_host: str = "127.0.0.1"
-    blender_binary: str = "blender"
-    blender_threads: int = Field(default=2, ge=1, le=64)
     script_timeout: float = Field(default=120, gt=0, le=3600)
     render_timeout: float = Field(default=600, gt=0, le=86400)
     max_upload_bytes: int = Field(default=20 * 1024 * 1024, ge=1)

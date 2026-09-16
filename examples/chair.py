@@ -2,8 +2,6 @@
 thin legs peeking below), matching pixel-agents' own CUSHIONED_CHAIR reference art
 instead of a flat front elevation."""
 
-import bpy
-
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
@@ -150,4 +148,4 @@ ROWS = {
 }
 for angle, rows in ROWS.items():
     art.layer("body", angle, Canvas.from_rows(rows))
-art.save(bpy.context.scene)
+art.save(scene)

@@ -3,7 +3,7 @@
 See docs/custom-asset-zip-contract.md (pixel-agents-hq/index): row 0 (y=0..32) is
 walkDown[0..2]+idleDown[0..2] at 16x32 each; row 1 (y=32..64) is the same for `up`;
 row 2 (y=64..96) is walkRight[0..2] at 32x32 each -- rendered at double width by
-blender/runner.py's per-angle resolution_x (see angle_widths() below, shared with
+engine/render.py's per-angle resolution_x (see angle_widths() below, shared with
 jobs/worker.py). idleRight doesn't exist in the contract: idle-state right-facing
 frames are still rendered (one shared render pass covers every state at every angle)
 but are simply not used here.
@@ -32,7 +32,7 @@ MAX_PET_PNG_BYTES = 512 * 1024
 def angle_widths(width: int, angles: list[float]) -> list[int]:
     """Per-angle render width for a pet job: double width for the `right` (90deg) row,
     matching the contract's wider side-view canvas. Used both by worker.py (to tell
-    the Blender renderer, from the raw job options dict) and by this module (to decode
+    the renderer, from the raw job options dict) and by this module (to decode
     the resulting raw PNGs, from a validated RenderOptions)."""
     return [PET_WIDE_WIDTH if angle == PET_WIDE_ANGLE else width for angle in angles]
 
@@ -54,21 +54,21 @@ def export_pet_sheet(
     entries = manifest["frames"]
     rendered_frames = options.render_frames()
     if len(entries) != len(options.angles) * len(rendered_frames):
-        raise DomainError("Blender returned an incomplete pet frame sequence")
+        raise DomainError("Render output has an incomplete pet frame sequence")
     by_key = {(entry["angle"], entry["frame"]): entry for entry in entries}
     widths = dict(zip(options.angles, angle_widths(options.width, options.angles), strict=True))
 
     def load(angle: float, frame: int, width: int) -> Image.Image:
         entry = by_key.get((angle, frame))
         if entry is None:
-            raise DomainError("Blender did not render a required pet frame")
+            raise DomainError("Render output is missing a required pet frame")
         path = (raw_dir / entry["filename"]).resolve()
         if not path.is_relative_to(raw_dir.resolve()) or path.suffix != ".png":
             raise DomainError("Invalid render output path")
         with Image.open(path) as source:
             expected_size = (width * options.supersampling, options.height * options.supersampling)
             if source.size != expected_size:
-                raise DomainError("Blender returned unexpected image dimensions")
+                raise DomainError("Render output has unexpected image dimensions")
             return source.convert("RGBA")
 
     # The ordered list of (angle, frame, width) cells this pet needs. One shared
@@ -141,7 +141,6 @@ def export_pet_sheet(
             "install": "Upload pet.png + manifest.json to pixel-index with assetKind=pet.",
         },
         "camera": manifest["camera"],
-        "blender_version": manifest["blender_version"],
     }
     (output_dir / "spritesheet.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     with ZipFile(output_dir / "sprites.zip", "w", ZIP_DEFLATED) as archive:

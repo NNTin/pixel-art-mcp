@@ -54,7 +54,7 @@ def fixture_export(tmp_path, kind="furniture", **kwargs):
                     "pixel_layers": art.poses(row["angle"], frame),
                 }
             )
-    manifest = {"frames": entries, "camera": {"views": views}, "blender_version": "fixture"}
+    manifest = {"frames": entries, "camera": {"views": views}}
     manifest["pixel_art"] = art.to_dict()
     export_asset(raw, out, manifest, options, "project", "revision")
     return out, options, manifest
@@ -293,12 +293,11 @@ def test_asset_export_rejects_invalid_source_frames(tmp_path, problem):
         export_asset(raw, tmp_path / "invalid", manifest, options, "project", "revision")
 
 
-async def test_render_captures_configuration_and_scene_revision(service, fake_blender):
+async def test_render_captures_configuration_and_scene_revision(service):
     from conftest import wait_job
 
     from pixel_art_mcp.jobs.worker import Worker
 
-    service.settings.blender_binary = fake_blender
     worker = Worker(service)
     await worker.start()
     project = str(service.create_project("Snapshot").id)
@@ -315,7 +314,6 @@ async def test_render_captures_configuration_and_scene_revision(service, fake_bl
         await worker.stop()
     # Hold the queue so subsequent configuration edits happen before rendering starts.
     service.worker_ready = True
-    service.blender_version = "fixture"
     job = service.render_asset(project)
     second = service.configure_asset(project, AssetSpec(kind="pet", name="Second", asset_id="PET"))
     snapshot = service.store.job(str(job.id))

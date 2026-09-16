@@ -1,4 +1,4 @@
-"""Native-grid authoring shared by Blender scripts and the exporter (stdlib only)."""
+"""Native-grid authoring shared by authoring scripts and the exporter (stdlib only)."""
 
 import json
 import re

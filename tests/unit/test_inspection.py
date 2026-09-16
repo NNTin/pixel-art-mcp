@@ -21,7 +21,6 @@ def make_export(tmp_path, gauge_height):
     manifest = {
         "frames": [{"angle": 0, "frame": 1, "pivot": [4, 7]}],
         "camera": {},
-        "blender_version": "fixture",
     }
     output = tmp_path / str(gauge_height)
     pack_sprites(

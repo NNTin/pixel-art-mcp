@@ -146,7 +146,7 @@ def export_sheet(
     rendered_frames = options.render_frames()
     expected = len(options.angles) * len(rendered_frames)
     if len(entries) != expected:
-        raise DomainError("Blender returned an incomplete frame sequence")
+        raise DomainError("Render output has an incomplete frame sequence")
 
     columns, rows = len(options.frames()), len(options.angles)
     high_width = options.width * options.supersampling
@@ -160,7 +160,7 @@ def export_sheet(
         for index, entry in enumerate(entries):
             row, column = divmod(index, len(rendered_frames))
             if entry["angle"] != options.angles[row] or entry["frame"] != rendered_frames[column]:
-                raise DomainError("Blender returned frames in an unexpected order")
+                raise DomainError("Render output has frames in an unexpected order")
             path = (raw_dir / entry["filename"]).resolve()
             if not path.is_relative_to(raw_dir.resolve()) or path.suffix != ".png":
                 raise DomainError("Invalid render output path")
@@ -170,7 +170,7 @@ def export_sheet(
                     options.height * options.supersampling,
                 )
                 if source.size != expected_size:
-                    raise DomainError("Blender returned unexpected image dimensions")
+                    raise DomainError("Render output has unexpected image dimensions")
                 if column < columns:
                     high_sheet.paste(
                         source.convert("RGBA"), (column * high_width, row * high_height)
@@ -242,7 +242,7 @@ def pack_sprites(
     for index, (im, entry) in enumerate(zip(frames, entries, strict=True)):
         row, column = divmod(index, columns)
         if entry["angle"] != options.angles[row] or entry["frame"] != options.frames()[column]:
-            raise DomainError("Blender returned frames in an unexpected order")
+            raise DomainError("Render output has frames in an unexpected order")
         name = f"direction_{row:02d}_frame_{entry['frame']:06d}.png"
         im.save(frame_dir / name)
         x, y = column * options.width, row * options.height
@@ -332,7 +332,6 @@ def pack_sprites(
         "comparison": comparison,
         "off_image": off_image,
         "camera": manifest["camera"],
-        "blender_version": manifest["blender_version"],
     }
     (output_dir / "spritesheet.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     with zipfile.ZipFile(output_dir / "sprites.zip", "w", zipfile.ZIP_DEFLATED) as archive:

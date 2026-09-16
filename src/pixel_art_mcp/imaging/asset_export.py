@@ -288,17 +288,17 @@ def export_asset(
     entries = manifest["frames"]
     expected = [(row["angle"], f) for row in layouts for f in options.frames()]
     if [(e["angle"], e["frame"]) for e in entries] != expected:
-        raise DomainError("Blender returned incomplete or unordered asset frames")
+        raise DomainError("Render output has incomplete or unordered asset frames")
     by_angle = {row["angle"]: row for row in layouts}
     sizes = [(by_angle[e["angle"]]["width"], by_angle[e["angle"]]["height"]) for e in entries]
     sources = []
     for entry, size in zip(entries, sizes, strict=True):
         path = (raw_dir / entry["filename"]).resolve()
         if not path.is_relative_to(raw_dir.resolve()) or path.suffix != ".png":
-            raise DomainError("Invalid Blender image path")
+            raise DomainError("Invalid render output image path")
         with Image.open(path) as opened:
             if opened.size != tuple(v * options.supersampling for v in size):
-                raise DomainError("Blender returned wrong asset canvas dimensions")
+                raise DomainError("Render output has wrong asset canvas dimensions")
             source = opened.convert("RGBA")
         sources.append(source)
     rendered = [Image.new("RGBA", size) for size in sizes]
@@ -392,7 +392,6 @@ def export_asset(
         "directions": [{"angle": row["angle"]} for row in layouts],
         "package": package,
         "camera": manifest["camera"],
-        "blender_version": manifest["blender_version"],
         "animations": animation_files,
         "playback": {
             key: {

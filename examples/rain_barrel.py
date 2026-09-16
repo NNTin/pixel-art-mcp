@@ -2,8 +2,6 @@
 below), matching pixel-agents' own camera convention instead of a flat front
 elevation. Explicit feature budgets throughout."""
 
-import bpy
-
 from pixel_art_mcp.pixel_art import Canvas, PixelArt
 
 art = PixelArt(
@@ -138,4 +136,4 @@ for angle in (0, 90, 180, 270):
                     y = (phase + shift) % 6
                     rain.rect(x, y, 1, 2, "L")
                 art.layer("rain", angle, rain, x=3, y=2, frame=frame)
-art.save(bpy.context.scene)
+art.save(scene)

@@ -52,7 +52,7 @@ def test_state_export_shared_palette_layout_idle_player_and_combined_package(tmp
             im.save(raw / name)
             entries.append({"angle": angle, "frame": frame, "filename": name, "pivot": [4, 7]})
     out = tmp_path / "out"
-    manifest = {"frames": entries, "camera": {"pivot": [4, 7]}, "blender_version": "fixture"}
+    manifest = {"frames": entries, "camera": {"pivot": [4, 7]}}
     export_sheet(raw, out, manifest, options, "p", "r")
     meta = json.loads((out / "spritesheet.json").read_text())
     assert meta["size"] == [16, 32]
@@ -147,7 +147,7 @@ def test_generic_static_monochrome_states(tmp_path):
     export_sheet(
         raw,
         tmp_path / "out",
-        {"frames": entries, "camera": {}, "blender_version": "fixture"},
+        {"frames": entries, "camera": {}},
         options,
         "p",
         "r",
@@ -185,7 +185,7 @@ def test_states_mix_a_static_state_with_animated_states(tmp_path):
             Image.new("RGBA", (8, 8), (frame * 20, int(angle), 128, 255)).save(raw / name)
             entries.append({"angle": angle, "filename": name, "frame": frame, "pivot": [4, 7]})
     out = tmp_path / "out"
-    manifest = {"frames": entries, "camera": {"pivot": [4, 7]}, "blender_version": "fixture"}
+    manifest = {"frames": entries, "camera": {"pivot": [4, 7]}}
     export_sheet(raw, out, manifest, options, "p", "r")
 
     meta = json.loads((out / "spritesheet.json").read_text())

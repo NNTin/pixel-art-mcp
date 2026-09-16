@@ -88,7 +88,7 @@ async def generate(base_url: str, output: Path, only: list[str]) -> None:
             for filename in example.get("scripts", []):
                 modeled = await wait(
                     await call(
-                        "execute_blender_python",
+                        "execute_pixel_script",
                         {
                             "project_id": project["id"],
                             "expected_revision_id": revision,

@@ -44,7 +44,6 @@ class Service:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.store = Store(settings.data_dir)
-        self.blender_version: str | None = None
         self.worker_ready = False
         self.wake = asyncio.Event()
         self.cancel_events: dict[str, asyncio.Event] = {}
@@ -56,7 +55,6 @@ class Service:
             "pixel_authoring_required": True,
             "authoring_contract_version": AUTHORING_VERSION,
             "mcp_sdk_version": importlib.metadata.version("mcp"),
-            "blender_version": self.blender_version,
             "worker_ready": self.worker_ready,
             "transport": "streamable-http",
             "authentication": "none",
@@ -116,7 +114,7 @@ class Service:
                 "agents without image or vision support",
                 "downscaling": "One shared palette and local alpha-weighted color voting; "
                 "native pixel layers bypass conversion entirely",
-                "pixel_layers": "Named per-view/per-frame layers saved in Blender revisions; "
+                "pixel_layers": "Named per-view/per-frame layers saved in scene revisions; "
                 "optional projected object anchors; final visibility and connectivity checks",
                 "states": "Named states share framing/palette; one generated HTML comparison "
                 "player and one pixel-agents ZIP containing separate selectable variants.",
@@ -207,11 +205,11 @@ class Service:
         except ValueError as exc:
             raise DomainError(f"Invalid pixel-art definition: {exc}") from exc
         validated_art(data, options.model_dump())
-        # A generated script uses the same worker/revision transaction as geometry edits.
+        # A generated script uses the same worker/revision transaction as authoring edits.
         script = (
             "import json\nfrom pixel_art_mcp.pixel_art import PixelArt\n"
             f"art = PixelArt.from_dict(json.loads({json.dumps(data)!r}))\n"
-            "art.save(bpy.context.scene)\n"
+            "art.save(scene)\n"
         )
         return self.submit_script(project_id, script, expected_revision_id, require_pixel_art=True)
 
@@ -339,7 +337,7 @@ class Service:
                 original_artifact_id=original["id"],
                 image_artifact_id=image["id"],
                 thumbnail_artifact_id=thumbnail["id"],
-                blender_path=str(directory / "image.png"),
+                image_path=str(directory / "image.png"),
             )
             with self.store.transaction():
                 for artifact in (original, image, thumbnail):
@@ -474,8 +472,8 @@ class Service:
     def _submit(
         self, project_id: str, operation: str, revision_id: str | None, params: dict[str, Any]
     ) -> Job:
-        if not self.worker_ready or not self.blender_version:
-            raise DomainError("Blender worker is unavailable; check /health/ready", 503)
+        if not self.worker_ready:
+            raise DomainError("The render worker is unavailable; check /health/ready", 503)
         job: dict[str, Any] = {
             "id": identifier(),
             "project_id": project_id,

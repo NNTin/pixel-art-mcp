@@ -77,7 +77,6 @@ def test_pack_preserves_converted_pixels_and_rejects_incomplete_frames(tmp_path)
     manifest = {
         "frames": [{"angle": 0, "frame": 1, "pivot": [4, 7]}],
         "camera": {},
-        "blender_version": "fixture",
     }
     out = tmp_path / "out"
     pack_sprites([sprite], ["#646464", "#656565"], out, manifest, options, "p", "r")
@@ -103,7 +102,6 @@ def test_sheet_order_metadata_zip_and_pivot(tmp_path):
     manifest = {
         "frames": frames,
         "camera": {"projection": "orthographic"},
-        "blender_version": "fixture",
     }
     out = tmp_path / "export"
     export_sheet(raw, out, manifest, options, "project", "revision")
@@ -154,7 +152,7 @@ def test_animation_pixels_timing_transparency_and_offline_player(tmp_path, frame
             im.save(raw / name)
             entries.append({"filename": name, "angle": angle, "frame": frame, "pivot": [8, 6]})
     out = tmp_path / "out"
-    manifest = {"frames": entries, "camera": {}, "blender_version": "fixture"}
+    manifest = {"frames": entries, "camera": {}}
     export_sheet(raw, out, manifest, options, "p", "r")
     metadata = json.loads((out / "spritesheet.json").read_text())
     for row, direction in enumerate(metadata["directions"]):

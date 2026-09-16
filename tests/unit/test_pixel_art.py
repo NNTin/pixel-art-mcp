@@ -1,7 +1,5 @@
 import json
-import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from PIL import Image
@@ -88,7 +86,7 @@ def test_invalid_authoring(operation):
         operation()
 
 
-def load_example(monkeypatch, key):
+def load_example(key):
     data = json.loads((ROOT / "examples/asset-specs.json").read_text())[key]
     options = resolve_asset(AssetSpec.model_validate(data["specification"]))
     if "definition" in data:
@@ -96,11 +94,10 @@ def load_example(monkeypatch, key):
             (ROOT / "examples" / data["definition"]).read_text()
         )
         return definition.to_art(options.asset_layouts), options
-    scene = {}
-    monkeypatch.setitem(sys.modules, "bpy", SimpleNamespace(context=SimpleNamespace(scene=scene)))
+    scene: dict = {}
     for script in data["scripts"]:
         path = ROOT / "examples" / script
-        exec(compile(path.read_text(), str(path), "exec"), {})
+        exec(compile(path.read_text(), str(path), "exec"), {"scene": scene})
     return PixelArt.load(scene), options
 
 
@@ -118,8 +115,8 @@ def load_example(monkeypatch, key):
         "pet",
     ],
 )
-def test_examples_respect_native_layouts_and_feature_budgets(monkeypatch, key):
-    art, options = load_example(monkeypatch, key)
+def test_examples_respect_native_layouts_and_feature_budgets(key):
+    art, options = load_example(key)
     assert options.asset
     assert len(art.palette) <= options.asset.colors
     for layout in options.asset_layouts:
@@ -139,8 +136,8 @@ def test_examples_respect_native_layouts_and_feature_budgets(monkeypatch, key):
             assert set(image.getchannel("A").get_flattened_data()) <= {0, 255}
 
 
-def test_thermometer_keeps_readable_column_scale_and_directional_casing(monkeypatch):
-    art, options = load_example(monkeypatch, "thermometer")
+def test_thermometer_keeps_readable_column_scale_and_directional_casing():
+    art, options = load_example("thermometer")
     art.validate_target(options.asset_layouts, options.frames(), options.asset.model_dump())
     assert options.asset.placement == options.asset.category == "wall"
     assert options.asset.clips.keys() == {"cold", "room", "hot"}
@@ -175,8 +172,8 @@ def test_thermometer_keeps_readable_column_scale_and_directional_casing(monkeypa
         )
 
 
-def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
-    art, options = load_example(monkeypatch, "rain-barrel")
+def test_barrel_controls_and_lower_body_are_temporally_stable():
+    art, options = load_example("rain-barrel")
     assert normalize_asset(options.asset).clips["full"].off_frame == 20
     for level in range(3):
         images = [
@@ -196,11 +193,11 @@ def test_barrel_controls_and_lower_body_are_temporally_stable(monkeypatch):
         assert gauge["visible_pixels"] == 28 and gauge["components"] == 1
 
 
-def test_barrel_opening_water_line_distinguishes_empty_partial_and_full(monkeypatch):
+def test_barrel_opening_water_line_distinguishes_empty_partial_and_full():
     # Regression: partial and full both filled the whole mouth with water,
     # so they were pixel-identical at the opening and only the body's small
     # gauge showed which state was active.
-    art, options = load_example(monkeypatch, "rain-barrel")
+    art, options = load_example("rain-barrel")
     mouth_bounds = (2, 6, 14, 13)  # x0, y0, x1, y1 -- above the body's collar rows
     for angle in (0, 90, 180, 270):
         mouths = [
@@ -212,25 +209,25 @@ def test_barrel_opening_water_line_distinguishes_empty_partial_and_full(monkeypa
         assert len({im.tobytes() for im in mouths}) == 3, (angle, "empty/partial/full")
 
 
-def test_barrel_full_water_still_has_an_exposed_rim(monkeypatch):
+def test_barrel_full_water_still_has_an_exposed_rim():
     # Regression: filling every row down to the waterline with water (C)
     # took priority over the rim, so "full" (waterline at the very top) had
     # no M border at all -- the water ran straight into the background
     # instead of reading as sitting inside a rimmed opening.
-    art, options = load_example(monkeypatch, "rain-barrel")
+    art, options = load_example("rain-barrel")
     for angle in (0, 90, 180, 270):
         for frame in (0, 10, 20):  # empty, partial, full
             pose = next(p for p in art.poses(angle, frame) if p["name"] == "opening")
             assert "M" in pose["rows"][0], (angle, frame, pose["rows"])
 
 
-def test_barrel_opening_does_not_merge_into_the_webview_floor(monkeypatch):
+def test_barrel_opening_does_not_merge_into_the_webview_floor():
     # Regression: an earlier redraw enlarged the empty-state mouth to a flat
     # solid fill in the barrel's darkest color, which is close enough in luma
     # to the webview floor tile that the mouth visually vanished into the
     # background instead of reading as an opening (see asset_report's
     # low_context_contrast check, which flags exactly this pattern).
-    art, options = load_example(monkeypatch, "rain-barrel")
+    art, options = load_example("rain-barrel")
     background_luma = luma(BACKGROUND_COLOR)
     for angle in (0, 90, 180, 270):
         for frame in (0, 1, 5, 8):  # the dark "empty" state; "partial"/"full" use water blue.
@@ -293,7 +290,6 @@ def test_export_keeps_exact_pixels_and_reports_lost_features(tmp_path):
     manifest = {
         "frames": entries,
         "pixel_art": art.to_dict(),
-        "blender_version": "fixture",
         "camera": {"views": [{**v, "objects": []} for v in options.asset_layouts]},
     }
     export_asset(raw, output, manifest, options, "project", "revision")

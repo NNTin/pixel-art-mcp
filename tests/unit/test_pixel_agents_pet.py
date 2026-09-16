@@ -71,9 +71,7 @@ def test_pet_package_manifest_and_asymmetric_grid(tmp_path):
             image.save(raw / name)
             entries.append({"filename": name, "angle": angle, "frame": frame, "pivot": [0, 0]})
 
-    export_sheet(
-        raw, out, {"frames": entries, "camera": {}, "blender_version": "test"}, options, "p", "r"
-    )
+    export_sheet(raw, out, {"frames": entries, "camera": {}}, options, "p", "r")
 
     with zipfile.ZipFile(out / "pixel-agents-pet.zip") as archive:
         assert sorted(archive.namelist()) == ["TABBY_CAT/manifest.json", "TABBY_CAT/pet.png"]

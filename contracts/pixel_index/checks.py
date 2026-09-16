@@ -169,7 +169,7 @@ def _build_character_manifest_fixture() -> dict[str, Any]:
 def _build_pet_manifest_fixture() -> dict[str, Any]:
     """Builds one manifest the same way imaging/pet.py actually builds it (a full
     round trip through export_pet_sheet with synthetic raw frames standing in for
-    Blender's renders), for the same reason as the furniture fixture above."""
+    the rendered ones), for the same reason as the furniture fixture above."""
     options = RenderOptions(
         tile_width=1,
         tile_height=2,
@@ -195,7 +195,7 @@ def _build_pet_manifest_fixture() -> dict[str, Any]:
         export_pet_sheet(
             raw_dir,
             output_dir,
-            {"frames": entries, "camera": {}, "blender_version": "test"},
+            {"frames": entries, "camera": {}},
             options,
             "p",
             "r",

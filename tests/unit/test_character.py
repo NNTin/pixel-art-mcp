@@ -68,9 +68,7 @@ def test_character_package_has_manifest_and_matches_the_general_spritesheet(tmp_
             name = f"{row}_{frame}.png"
             image.save(raw / name)
             entries.append({"filename": name, "angle": angle, "frame": frame, "pivot": [8, 28]})
-    export_sheet(
-        raw, out, {"frames": entries, "camera": {}, "blender_version": "test"}, options, "p", "r"
-    )
+    export_sheet(raw, out, {"frames": entries, "camera": {}}, options, "p", "r")
 
     metadata = out / "spritesheet.json"
     assert '"character"' in metadata.read_text()
