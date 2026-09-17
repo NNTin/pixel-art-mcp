@@ -43,14 +43,16 @@ describe("exportSheet with options.pet", () => {
     const options = RenderOptionsSchema.parse({ ...baseOptions(), supersampling: 1 });
     const raw = path.join(dir, "raw");
     const out = path.join(dir, "out");
-    const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] = [];
+    const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] =
+      [];
     const frames = renderOptionsRenderFrames(options);
     options.angles.forEach((angle, row) => {
       const width = angle === 90 ? 32 : 16;
       for (const frame of frames) {
         const image = createImage(width, 32);
         const [r, g, b, a] = color(angle, frame);
-        for (let y = 0; y < 32; y++) for (let x = 0; x < width; x++) setPixel(image, x, y, [r, g, b, a]);
+        for (let y = 0; y < 32; y++)
+          for (let x = 0; x < width; x++) setPixel(image, x, y, [r, g, b, a]);
         const name = `${String(row)}_${String(frame)}.png`;
         writePng(path.join(raw, name), image);
         entries.push({ filename: name, angle, frame, pivot: [0, 0] });
@@ -73,7 +75,12 @@ describe("exportSheet with options.pet", () => {
 
     function cellPixel(x: number, y: number): [number, number, number, number] {
       const offset = (y * pet.width + x) * 4;
-      return [pet.data[offset] ?? 0, pet.data[offset + 1] ?? 0, pet.data[offset + 2] ?? 0, pet.data[offset + 3] ?? 0];
+      return [
+        pet.data[offset] ?? 0,
+        pet.data[offset + 1] ?? 0,
+        pet.data[offset + 2] ?? 0,
+        pet.data[offset + 3] ?? 0,
+      ];
     }
     const walkFrames = [0, 1, 2];
     const idleFrames = [10, 11, 12];

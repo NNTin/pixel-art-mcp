@@ -5,7 +5,12 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { DomainError, RenderOptionsSchema, renderOptionsFrames, renderOptionsRenderFrames } from "@pixel-art-mcp/schema";
+import {
+  DomainError,
+  RenderOptionsSchema,
+  renderOptionsFrames,
+  renderOptionsRenderFrames,
+} from "@pixel-art-mcp/schema";
 import { unzipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -42,13 +47,15 @@ describe("exportSheet with options.states", () => {
     expect(renderOptionsRenderFrames(options)).toEqual([1, 2, 11, 12, 0, 10]);
 
     const raw = path.join(dir, "raw");
-    const entries: { angle: number; frame: number; filename: string; pivot: [number, number] }[] = [];
+    const entries: { angle: number; frame: number; filename: string; pivot: [number, number] }[] =
+      [];
     for (const angle of options.angles) {
       for (const frame of renderOptionsRenderFrames(options)) {
         const name = `${String(angle)}-${String(frame)}.png`;
         const image = createImage(16, 16);
         for (let y = 0; y < 16; y++) {
-          for (let x = 0; x < 16; x++) setPixel(image, x, y, [(frame * 20) % 256, Math.trunc(angle) % 256, 128, 255]);
+          for (let x = 0; x < 16; x++)
+            setPixel(image, x, y, [(frame * 20) % 256, Math.trunc(angle) % 256, 128, 255]);
         }
         writePng(path.join(raw, name), image);
         entries.push({ angle, frame, filename: name, pivot: [4, 7] });
@@ -60,7 +67,10 @@ describe("exportSheet with options.states", () => {
 
     const meta = JSON.parse(readFileSync(path.join(out, "spritesheet.json"), "utf-8")) as {
       size: [number, number];
-      states: { id: string; directions: { animation: string | null; frame_indices: number[]; row: number }[] }[];
+      states: {
+        id: string;
+        directions: { animation: string | null; frame_indices: number[]; row: number }[];
+      }[];
       frames: { rect: [number, number, number, number]; filename: string }[];
       camera: unknown;
     };
@@ -90,7 +100,9 @@ describe("exportSheet with options.states", () => {
 
     for (const state of options.states ?? []) {
       const childDir = path.join(out, "states", state.id);
-      const childMeta = JSON.parse(readFileSync(path.join(childDir, "spritesheet.json"), "utf-8")) as {
+      const childMeta = JSON.parse(
+        readFileSync(path.join(childDir, "spritesheet.json"), "utf-8"),
+      ) as {
         camera: unknown;
         palette: string[];
         settings: { pixel_agents: { off_frame: number | null } };
@@ -129,10 +141,26 @@ describe("exportSheet with options.states", () => {
     expect(Object.keys(spritesArchive)).toContain("preview.gif");
     expect(Object.keys(spritesArchive)).toContain("states/full/preview.gif");
 
-    expect(() => { exportSheet(raw, path.join(dir, "bad"), { ...manifest, frames: entries.slice(0, -1) }, options, "p", "r"); },
-    ).toThrow(DomainError);
-    expect(() => { exportSheet(raw, path.join(dir, "bad2"), { ...manifest, frames: entries.slice(0, -1) }, options, "p", "r"); },
-    ).toThrow(/incomplete or unordered/);
+    expect(() => {
+      exportSheet(
+        raw,
+        path.join(dir, "bad"),
+        { ...manifest, frames: entries.slice(0, -1) },
+        options,
+        "p",
+        "r",
+      );
+    }).toThrow(DomainError);
+    expect(() => {
+      exportSheet(
+        raw,
+        path.join(dir, "bad2"),
+        { ...manifest, frames: entries.slice(0, -1) },
+        options,
+        "p",
+        "r",
+      );
+    }).toThrow(/incomplete or unordered/);
   });
 
   it("mixes a static state with an animated state", () => {
@@ -150,13 +178,15 @@ describe("exportSheet with options.states", () => {
     expect(renderOptionsRenderFrames(options)).toEqual([1, 2, 3]);
 
     const raw = path.join(dir, "raw");
-    const entries: { angle: number; frame: number; filename: string; pivot: [number, number] }[] = [];
+    const entries: { angle: number; frame: number; filename: string; pivot: [number, number] }[] =
+      [];
     for (const angle of options.angles) {
       for (const frame of renderOptionsRenderFrames(options)) {
         const name = `${String(angle)}-${String(frame)}.png`;
         const image = createImage(8, 8);
         for (let y = 0; y < 8; y++) {
-          for (let x = 0; x < 8; x++) setPixel(image, x, y, [(frame * 20) % 256, Math.trunc(angle) % 256, 128, 255]);
+          for (let x = 0; x < 8; x++)
+            setPixel(image, x, y, [(frame * 20) % 256, Math.trunc(angle) % 256, 128, 255]);
         }
         writePng(path.join(raw, name), image);
         entries.push({ angle, frame, filename: name, pivot: [4, 7] });
@@ -176,7 +206,9 @@ describe("exportSheet with options.states", () => {
 
     const html = readFileSync(path.join(out, "preview.html"), "utf-8");
     const afterMarker = html.split("const data=", 2)[1];
-    const data = JSON.parse((afterMarker ?? "").split(";", 1)[0] ?? "{}") as { states: { columns: number }[] };
+    const data = JSON.parse((afterMarker ?? "").split(";", 1)[0] ?? "{}") as {
+      states: { columns: number }[];
+    };
     expect(data.states[0]?.columns).toBe(1);
     expect(data.states[1]?.columns).toBe(2);
 

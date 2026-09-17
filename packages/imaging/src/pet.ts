@@ -13,9 +13,21 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { DomainError, renderOptionsRenderFrames, renderStateFrames, type RenderOptions } from "@pixel-art-mcp/schema";
+import {
+  DomainError,
+  renderOptionsRenderFrames,
+  renderStateFrames,
+  type RenderOptions,
+} from "@pixel-art-mcp/schema";
 
-import { createImage, isWithinDirectory, pasteFull, readPng, writePng, type RGBAImage } from "./image.js";
+import {
+  createImage,
+  isWithinDirectory,
+  pasteFull,
+  readPng,
+  writePng,
+  type RGBAImage,
+} from "./image.js";
 import { at, defined } from "./internal.js";
 import { writeSpritesZip, zipDirectory } from "./pack-zip.js";
 import { pixelate } from "./pixels.js";
@@ -112,7 +124,11 @@ export function exportPetSheet(
   const cells: [number, number, number][] = [];
   for (const angle of [0, 180]) {
     for (const frame of [...walkFrames, ...idleFrames]) {
-      cells.push([angle, frame, defined(widthsByAngle.get(angle), `render width for angle ${String(angle)}`)]);
+      cells.push([
+        angle,
+        frame,
+        defined(widthsByAngle.get(angle), `render width for angle ${String(angle)}`),
+      ]);
     }
   }
   for (const frame of walkFrames) {
@@ -185,6 +201,10 @@ export function exportPetSheet(
     },
     camera: manifest.camera,
   };
-  fs.writeFileSync(path.join(outputDir, "spritesheet.json"), JSON.stringify(metadata, null, 2), "utf-8");
+  fs.writeFileSync(
+    path.join(outputDir, "spritesheet.json"),
+    JSON.stringify(metadata, null, 2),
+    "utf-8",
+  );
   writeSpritesZip(outputDir);
 }

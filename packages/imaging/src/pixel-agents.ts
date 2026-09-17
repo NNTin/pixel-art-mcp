@@ -12,7 +12,12 @@ import { renderOptionsFrames, type RenderOptions } from "@pixel-art-mcp/schema";
 import { writePng, type RGBAImage } from "./image.js";
 import { at } from "./internal.js";
 
-export const ORIENTATIONS: Record<number, string> = { 0: "front", 90: "right", 180: "back", 270: "left" };
+export const ORIENTATIONS: Record<number, string> = {
+  0: "front",
+  90: "right",
+  180: "back",
+  270: "left",
+};
 
 export const ACTIVATION =
   "pixel-agents plays on-state furniture at 5 fps only when activated by a nearby working agent. " +
@@ -45,7 +50,8 @@ function zipOwnVariant(directory: string, packageRoot: string, destination: stri
   for (const name of fs.readdirSync(directory).sort()) {
     const filePath = path.join(directory, name);
     if (fs.statSync(filePath).isFile()) {
-      entries[path.relative(packageRoot, filePath).split(path.sep).join("/")] = fs.readFileSync(filePath);
+      entries[path.relative(packageRoot, filePath).split(path.sep).join("/")] =
+        fs.readFileSync(filePath);
     }
   }
   fs.writeFileSync(destination, zipSync(entries, { level: 6 }));

@@ -11,7 +11,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { PixelArt, type PixelArtDict, type AssetLayout as CoreAssetLayout } from "@pixel-art-mcp/pixel-core";
+import {
+  PixelArt,
+  type PixelArtDict,
+  type AssetLayout as CoreAssetLayout,
+} from "@pixel-art-mcp/pixel-core";
 import {
   AssetSpecSchema,
   DomainError,
@@ -27,7 +31,12 @@ import {
 
 import { encodeApng } from "./apng.js";
 import { BACKGROUND_COLOR, exportContext, luma, type ExportContextMetadata } from "./context.js";
-import { compositeFeatures, largestComponentSize, type FeaturePatch, type FeatureReport } from "./features.js";
+import {
+  compositeFeatures,
+  largestComponentSize,
+  type FeaturePatch,
+  type FeatureReport,
+} from "./features.js";
 import { saveAnimatedGif } from "./gif.js";
 import {
   createImage,
@@ -86,11 +95,15 @@ function validatedArt(data: Record<string, unknown>, options: RenderOptions): Pi
     if (!options.asset_layouts) {
       throw new Error("Render options are missing asset_layouts");
     }
-    art.validateTarget(options.asset_layouts as unknown as CoreAssetLayout[], renderOptionsFrames(options), {
-      outline: spec.outline,
-      colors: spec.colors,
-      palette: spec.palette,
-    });
+    art.validateTarget(
+      options.asset_layouts as unknown as CoreAssetLayout[],
+      renderOptionsFrames(options),
+      {
+        outline: spec.outline,
+        colors: spec.colors,
+        palette: spec.palette,
+      },
+    );
     return art;
   } catch (exc) {
     const message = exc instanceof Error ? exc.message : String(exc);
@@ -130,7 +143,10 @@ export function packageAsset(
     const clipEntries = Object.entries(spec.clips);
     const variants: Record<string, unknown>[] = [];
     for (const [key, clip] of clipEntries) {
-      const assetId = clipEntries.length > 1 ? `${String(spec.asset_id)}_${key.toUpperCase()}` : String(spec.asset_id);
+      const assetId =
+        clipEntries.length > 1
+          ? `${String(spec.asset_id)}_${key.toUpperCase()}`
+          : String(spec.asset_id);
       const name = clipEntries.length > 1 ? `${spec.name} — ${clip.name ?? key}` : spec.name;
       const options: RenderOptions = RenderOptionsSchema.parse({
         width: firstLayout.width,
@@ -150,13 +166,18 @@ export function packageAsset(
         },
       });
       const on = angles.flatMap((angle) =>
-        clip.frames.map((frame) => defined(cells.get(cellKey(angle, frame)), `on cell ${String(angle)}:${String(frame)}`)),
+        clip.frames.map((frame) =>
+          defined(cells.get(cellKey(angle, frame)), `on cell ${String(angle)}:${String(frame)}`),
+        ),
       );
       const offFrame = clip.off_frame;
       const off =
         offFrame !== null
           ? angles.map((angle) =>
-              defined(cells.get(cellKey(angle, offFrame)), `off cell ${String(angle)}:${String(offFrame)}`),
+              defined(
+                cells.get(cellKey(angle, offFrame)),
+                `off cell ${String(angle)}:${String(offFrame)}`,
+              ),
             )
           : null;
       const variant = exportPixelAgents(output, options, on, off, layouts);
@@ -179,7 +200,12 @@ export function packageAsset(
       character: { asset_id: String(spec.asset_id), name: spec.name },
     });
     const cellFrames = angles.flatMap((angle) =>
-      frames.map((frame) => defined(cells.get(cellKey(angle, frame)), `character cell ${String(angle)}:${String(frame)}`)),
+      frames.map((frame) =>
+        defined(
+          cells.get(cellKey(angle, frame)),
+          `character cell ${String(angle)}:${String(frame)}`,
+        ),
+      ),
     );
     const target = exportCharacter(output, options, cellFrames);
     return { kind: spec.kind, ...(target ?? {}) };
@@ -195,7 +221,12 @@ export function packageAsset(
     const frames = [...walkFrames, ...idleFrames];
     const width = angle === 90 ? 32 : 16;
     frames.forEach((frame, column) => {
-      pasteFull(sheet, defined(cells.get(cellKey(angle, frame)), `pet cell ${String(angle)}:${String(frame)}`), column * width, row * 32);
+      pasteFull(
+        sheet,
+        defined(cells.get(cellKey(angle, frame)), `pet cell ${String(angle)}:${String(frame)}`),
+        column * width,
+        row * 32,
+      );
     });
   });
   const petPngPath = path.join(directory, "pet.png");
@@ -222,7 +253,10 @@ interface CameraView {
 }
 
 export interface AssetReportMetadata {
-  asset: { kind: string; clips: Record<string, { frames: readonly number[]; off_frame?: number | null }> };
+  asset: {
+    kind: string;
+    clips: Record<string, { frames: readonly number[]; off_frame?: number | null }>;
+  };
   layouts: readonly AssetLayout[];
   frames: readonly {
     angle: number;
@@ -236,7 +270,10 @@ export interface AssetReportMetadata {
   package: { archive: string };
 }
 
-export function assetReport(output: string, metadata: AssetReportMetadata): Record<string, unknown> {
+export function assetReport(
+  output: string,
+  metadata: AssetReportMetadata,
+): Record<string, unknown> {
   const spec = metadata.asset;
   const reports: Record<string, unknown>[] = [];
   const findings: Record<string, unknown>[] = [];
@@ -253,7 +290,9 @@ export function assetReport(output: string, metadata: AssetReportMetadata): Reco
     const bounds = analysis.occupied_bounds;
     const [width, height] = inspected.size;
     if (!bounds) {
-      throw new DomainError(`Empty sprite at angle ${String(entry.angle)}, frame ${String(entry.frame)}; enlarge geometry`);
+      throw new DomainError(
+        `Empty sprite at angle ${String(entry.angle)}, frame ${String(entry.frame)}; enlarge geometry`,
+      );
     }
     const [x, y, w, h] = bounds;
     const layout = defined(layouts.get(entry.angle), `layout for angle ${String(entry.angle)}`);
@@ -312,7 +351,9 @@ export function assetReport(output: string, metadata: AssetReportMetadata): Reco
         image.data[offset + 2] ?? 0,
       ];
       if (Math.abs(luma(rgb) - backgroundLuma) < 16) {
-        similarPoints.add(`${String(index % image.width)},${String(Math.floor(index / image.width))}`);
+        similarPoints.add(
+          `${String(index % image.width)},${String(Math.floor(index / image.width))}`,
+        );
       }
     }
     // A sprite can stay under the overall-similarity ratio yet still read as broken if one solid
@@ -320,13 +361,15 @@ export function assetReport(output: string, metadata: AssetReportMetadata): Reco
     // dark fill -- so check both.
     if (
       opaqueCount > 0 &&
-      (similarPoints.size / opaqueCount > 0.85 || largestComponentSize(similarPoints) / opaqueCount > 0.4)
+      (similarPoints.size / opaqueCount > 0.85 ||
+        largestComponentSize(similarPoints) / opaqueCount > 0.4)
     ) {
       findings.push({
         code: "low_context_contrast",
         angle: entry.angle,
         frame: entry.frame,
-        suggestion: "Most pixels blend into the dark preview floor; brighten broad materials or add an outline.",
+        suggestion:
+          "Most pixels blend into the dark preview floor; brighten broad materials or add an outline.",
       });
     }
     if (analysis.occupied_pixels < 12 || w < 3 || h < 3) {
@@ -354,7 +397,12 @@ export function assetReport(output: string, metadata: AssetReportMetadata): Reco
     for (const direction of metadata.directions) {
       const angle = direction.angle;
       const images = clip.frames.map((frame) =>
-        readPng(path.join(output, defined(byKey.get(cellKey(angle, frame)), `animation frame ${String(frame)}`).filename)),
+        readPng(
+          path.join(
+            output,
+            defined(byKey.get(cellKey(angle, frame)), `animation frame ${String(frame)}`).filename,
+          ),
+        ),
       );
       const rotated = [...images.slice(1), ...images.slice(0, 1)];
       const changes = images.map((a, index) => {
@@ -363,7 +411,12 @@ export function assetReport(output: string, metadata: AssetReportMetadata): Reco
         const pixels = a.width * a.height;
         for (let p = 0; p < pixels; p++) {
           const o = p * 4;
-          if (a.data[o] !== b.data[o] || a.data[o + 1] !== b.data[o + 1] || a.data[o + 2] !== b.data[o + 2] || a.data[o + 3] !== b.data[o + 3]) {
+          if (
+            a.data[o] !== b.data[o] ||
+            a.data[o + 1] !== b.data[o + 1] ||
+            a.data[o + 2] !== b.data[o + 2] ||
+            a.data[o + 3] !== b.data[o + 3]
+          ) {
             count++;
           }
         }
@@ -385,7 +438,9 @@ export function assetReport(output: string, metadata: AssetReportMetadata): Reco
   for (const view of metadata.camera.views ?? []) {
     for (const obj of view.objects) features.push({ angle: view.angle, ...obj });
   }
-  const thin = features.filter((f) => Math.min(f["pixel_width"] as number, f["pixel_height"] as number) < 2);
+  const thin = features.filter(
+    (f) => Math.min(f["pixel_width"] as number, f["pixel_height"] as number) < 2,
+  );
 
   return {
     status: findings.length > 0 ? "review" : "checks_passed",
@@ -460,7 +515,10 @@ export function exportAsset(
       throw new DomainError("Invalid render output image path");
     }
     const opened = readPng(resolvedPath);
-    if (opened.width !== size[0] * options.supersampling || opened.height !== size[1] * options.supersampling) {
+    if (
+      opened.width !== size[0] * options.supersampling ||
+      opened.height !== size[1] * options.supersampling
+    ) {
       throw new DomainError("Render output has wrong asset canvas dimensions");
     }
     return opened;
@@ -468,7 +526,11 @@ export function exportAsset(
 
   const rendered: RGBAImage[] = sizes.map((size) => createImage(size[0], size[1]));
   const updatedEntries: AssetExportManifestFrame[] = entries.map((entry, index) => {
-    const { image, reports } = compositeFeatures(at(rendered, index), entry.pixel_layers, art.palette);
+    const { image, reports } = compositeFeatures(
+      at(rendered, index),
+      entry.pixel_layers,
+      art.palette,
+    );
     rendered[index] = image;
     const previousSource = at(sources, index);
     sources[index] = resizeNearest(image, previousSource.width, previousSource.height);
@@ -476,7 +538,9 @@ export function exportAsset(
   });
 
   const cells = new Map<string, RGBAImage>();
-  updatedEntries.forEach((entry, index) => cells.set(cellKey(entry.angle, entry.frame), at(rendered, index)));
+  updatedEntries.forEach((entry, index) =>
+    cells.set(cellKey(entry.angle, entry.frame), at(rendered, index)),
+  );
 
   fs.mkdirSync(output, { recursive: true });
   writeJson(path.join(output, "pixel-art.json"), art.toDict());
@@ -487,7 +551,10 @@ export function exportAsset(
   const maxHeight = Math.max(...sizes.map((s) => s[1]));
   const columns = framesList.length;
   const sheet = createImage(maxWidth * columns, maxHeight * layouts.length);
-  const highSheet = createImage(sheet.width * options.supersampling, sheet.height * options.supersampling);
+  const highSheet = createImage(
+    sheet.width * options.supersampling,
+    sheet.height * options.supersampling,
+  );
 
   const frameMetadata: Record<string, unknown>[] = updatedEntries.map((entry, index) => {
     const im = at(rendered, index);
@@ -506,7 +573,10 @@ export function exportAsset(
   });
   writePng(path.join(output, "spritesheet.png"), sheet);
   writePng(path.join(output, "comparison/high-resolution.png"), highSheet);
-  const previewScale = Math.min(4, Math.max(1, Math.floor(1024 / Math.max(sheet.width, sheet.height))));
+  const previewScale = Math.min(
+    4,
+    Math.max(1, Math.floor(1024 / Math.max(sheet.width, sheet.height))),
+  );
   writePng(
     path.join(output, "preview.png"),
     resizeNearest(sheet, sheet.width * previewScale, sheet.height * previewScale),
@@ -519,10 +589,17 @@ export function exportAsset(
     for (const angle of byAngle.keys()) {
       const sourceAngle = spec.kind === "pet" && key === "idle" && angle === 90 ? 0 : angle;
       const sequence = clipPlayback(spec.kind, key, clip).map((frame) =>
-        defined(cells.get(cellKey(sourceAngle, frame)), `animation cell ${String(sourceAngle)}:${String(frame)}`),
+        defined(
+          cells.get(cellKey(sourceAngle, frame)),
+          `animation cell ${String(sourceAngle)}:${String(frame)}`,
+        ),
       );
       const name = `animations/${key}_${pad(angle, 3)}.apng`;
-      const apng = encodeApng(sequence, { delayMs: clipDurationMs(spec.kind, key), disposeOp: 0, blendOp: 0 });
+      const apng = encodeApng(sequence, {
+        delayMs: clipDurationMs(spec.kind, key),
+        disposeOp: 0,
+        blendOp: 0,
+      });
       fs.writeFileSync(path.join(output, name), apng);
       animationFiles.push(name);
     }
@@ -533,10 +610,18 @@ export function exportAsset(
       const [firstKey, firstClip] = firstAnimated;
       const firstLayout = defined(layouts[0], "first layout");
       const gifFrames = clipPlayback(spec.kind, firstKey, firstClip).map((frame) => {
-        const cell = defined(cells.get(cellKey(firstLayout.angle, frame)), `gif cell ${String(frame)}`);
+        const cell = defined(
+          cells.get(cellKey(firstLayout.angle, frame)),
+          `gif cell ${String(frame)}`,
+        );
         return resizeNearest(cell, firstLayout.width * 4, firstLayout.height * 4);
       });
-      saveAnimatedGif(gifFrames, palette, 1000 / clipDurationMs(spec.kind, firstKey), path.join(output, "preview.gif"));
+      saveAnimatedGif(
+        gifFrames,
+        palette,
+        1000 / clipDurationMs(spec.kind, firstKey),
+        path.join(output, "preview.gif"),
+      );
     }
   }
 

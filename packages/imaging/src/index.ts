@@ -75,13 +75,7 @@ export {
   type RGBAImage,
 } from "./image.js";
 
-export {
-  hexToRgb,
-  medianCutPalette,
-  nearestPaletteIndex,
-  rgbToHex,
-  type Rgb,
-} from "./quantize.js";
+export { hexToRgb, medianCutPalette, nearestPaletteIndex, rgbToHex, type Rgb } from "./quantize.js";
 
 export { zipDirectory, writeSpritesZip } from "./pack-zip.js";
 

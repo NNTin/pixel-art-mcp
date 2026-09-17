@@ -181,10 +181,7 @@ interface SpecFunctionCase {
   error?: string;
 }
 
-function runSpecFunctionFixtures(
-  filename: string,
-  fn: (spec: AssetSpec) => unknown,
-): void {
+function runSpecFunctionFixtures(filename: string, fn: (spec: AssetSpec) => unknown): void {
   describe(filename, () => {
     for (const testCase of loadFixture<SpecFunctionCase>(filename)) {
       it(testCase.name, () => {

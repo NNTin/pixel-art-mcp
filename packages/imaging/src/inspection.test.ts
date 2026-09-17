@@ -29,7 +29,10 @@ function makeExport(dir: string, gaugeHeight: number): string {
     for (let x = 1; x < 7; x++) setPixel(sprite, x, y, [96, 48, 16, 255]);
   }
   for (let y = 7 - gaugeHeight; y < 7; y++) setPixel(sprite, 5, y, [64, 223, 224, 255]);
-  const manifest: RenderManifestLike = { frames: [{ filename: "", angle: 0, frame: 1, pivot: [4, 7] }], camera: {} };
+  const manifest: RenderManifestLike = {
+    frames: [{ filename: "", angle: 0, frame: 1, pivot: [4, 7] }],
+    camera: {},
+  };
   const output = path.join(dir, String(gaugeHeight));
   packSprites([sprite], ["#603010", "#40dfe0"], output, manifest, options, "project", "revision");
   return output;
@@ -97,7 +100,9 @@ describe("inspectSprite / compareInspections", () => {
     expect(detached.analysis.opaque_connected_components).toBe(2);
     expect(detached.analysis.opaque_singleton_components).toBe(1);
     expect(detached.analysis.color_singleton_components).toBe(2);
-    expect(detached.metric_definitions["color_singleton_components"]).toContain("not necessarily detached");
+    expect(detached.metric_definitions["color_singleton_components"]).toContain(
+      "not necessarily detached",
+    );
   });
 
   it("handles an empty sprite and treats diagonal-only neighbors as disconnected", () => {
@@ -127,7 +132,9 @@ describe("inspectSprite / compareInspections", () => {
     setPixel(image, 0, 0, [1, 2, 3, 255]); // not in ["#603010", "#40dfe0"]
     writePng(filePath, image);
     expect(() => inspectSprite(root)).toThrow(DomainError);
-    expect(() => inspectSprite(root)).toThrow("Sprite contains opaque colors outside its declared shared palette");
+    expect(() => inspectSprite(root)).toThrow(
+      "Sprite contains opaque colors outside its declared shared palette",
+    );
   });
 
   it("reports the ASCII grid with zero-padded row labels and two-character palette tokens", () => {
@@ -146,7 +153,9 @@ describe("inspectSprite / compareInspections", () => {
     const boundaries = result.analysis.lowest_contrast_boundaries;
     expect(boundaries.length).toBeGreaterThan(0);
     for (let i = 1; i < boundaries.length; i++) {
-      expect(at(boundaries, i).rgb_distance).toBeGreaterThanOrEqual(at(boundaries, i - 1).rgb_distance);
+      expect(at(boundaries, i).rgb_distance).toBeGreaterThanOrEqual(
+        at(boundaries, i - 1).rgb_distance,
+      );
     }
     const [a, b] = at(boundaries, 0).colors;
     expect(a < b).toBe(true); // symbols within a pair are always emitted low-to-high.

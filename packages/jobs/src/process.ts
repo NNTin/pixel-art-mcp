@@ -110,7 +110,9 @@ export async function runProcess(options: RunProcessOptions): Promise<void> {
       lineBuffer = lineBuffer.subarray(newlineIndex + 1);
       if (line.toString("utf8").startsWith(PROGRESS_PREFIX)) {
         try {
-          const parsed: unknown = JSON.parse(line.subarray(PROGRESS_PREFIX.length).toString("utf8"));
+          const parsed: unknown = JSON.parse(
+            line.subarray(PROGRESS_PREFIX.length).toString("utf8"),
+          );
           // Only the last progress line in this drained batch wins, and malformed JSON is
           // silently swallowed -- both match `jobs/process.py`'s `drain()` exactly.
           if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
@@ -172,7 +174,9 @@ export async function runProcess(options: RunProcessOptions): Promise<void> {
       } else if (timedOut) {
         reject(new ProcessFailure(`Execution exceeded ${formatSeconds(timeout)} seconds`));
       } else if (exitCode !== 0) {
-        reject(new ProcessFailure(`Renderer exited with code ${String(exitCode)}; inspect job logs`));
+        reject(
+          new ProcessFailure(`Renderer exited with code ${String(exitCode)}; inspect job logs`),
+        );
       } else {
         resolve();
       }

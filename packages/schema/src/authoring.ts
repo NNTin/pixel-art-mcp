@@ -32,7 +32,10 @@ export const AUTHORING_VERSION = 1;
 
 /** `Color = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]` */
 export const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
-export const ColorSchema = stringField({ pattern: COLOR_PATTERN, patternText: "^#[0-9a-fA-F]{6}$" });
+export const ColorSchema = stringField({
+  pattern: COLOR_PATTERN,
+  patternText: "^#[0-9a-fA-F]{6}$",
+});
 
 const ANGLE_VALUES = [0, 90, 180, 270] as const;
 export type Angle = (typeof ANGLE_VALUES)[number];
@@ -202,7 +205,12 @@ export const PixelDefinitionSchema = modelObject(
             throw new Error("Invariant violated: validated pose has neither rows nor drawing");
           }
           pixels += rows.reduce((sum, row) => sum + row.length, 0);
-          symbols = new Set(rows.join("").split("").filter((c) => c !== "."));
+          symbols = new Set(
+            rows
+              .join("")
+              .split("")
+              .filter((c) => c !== "."),
+          );
         }
         const unknown = [...symbols].filter((s) => !(s in value.palette));
         if (unknown.length > 0) {
@@ -294,13 +302,7 @@ export const SetPaletteSchema = modelObject({
 });
 export type SetPalette = z.infer<typeof SetPaletteSchema>;
 
-export type PixelEdit =
-  | MovePose
-  | SetPose
-  | DeletePose
-  | SetLayer
-  | DeleteLayer
-  | SetPalette;
+export type PixelEdit = MovePose | SetPose | DeletePose | SetLayer | DeleteLayer | SetPalette;
 
 export const PixelEditSchema = taggedUnion("op", {
   move_pose: MovePoseSchema,
@@ -328,7 +330,10 @@ export type PixelEdits = z.infer<typeof PixelEditsSchema>;
 export function applyPixelEdits(definition: PixelDefinition, edits: PixelEdits): PixelDefinition {
   const data = structuredClone(definition) as {
     palette: Record<string, string>;
-    layers: { name: string; poses: { angle: number; frame: number | null; x: number; y: number }[] }[];
+    layers: {
+      name: string;
+      poses: { angle: number; frame: number | null; x: number; y: number }[];
+    }[];
   };
   const layers = data.layers;
 
@@ -337,7 +342,12 @@ export function applyPixelEdits(definition: PixelDefinition, edits: PixelEdits):
       data.palette = { ...edit.palette };
       return;
     }
-    const name = edit.op === "set_layer" ? edit.layer.name : edit.op === "delete_layer" ? edit.name : edit.layer;
+    const name =
+      edit.op === "set_layer"
+        ? edit.layer.name
+        : edit.op === "delete_layer"
+          ? edit.name
+          : edit.layer;
     const layerIndex = layers.findIndex((layer) => layer.name === name);
 
     if (edit.op === "set_layer") {

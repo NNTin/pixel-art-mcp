@@ -42,7 +42,11 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-async function pngBuffer(width: number, height: number, rgb: [number, number, number]): Promise<Buffer> {
+async function pngBuffer(
+  width: number,
+  height: number,
+  rgb: [number, number, number],
+): Promise<Buffer> {
   return sharp({
     create: { width, height, channels: 3, background: { r: rgb[0], g: rgb[1], b: rgb[2] } },
   })
@@ -262,7 +266,10 @@ interface TestServer {
 }
 
 async function startTestServer(
-  handler: (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void,
+  handler: (
+    req: import("node:http").IncomingMessage,
+    res: import("node:http").ServerResponse,
+  ) => void,
 ): Promise<TestServer> {
   const server = https.createServer({ cert: testCert, key: testKey }, handler);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -284,7 +291,9 @@ function pinAtTestServer(port: number, reject = new Set<string>()) {
   return (url: string): Promise<PinnedTarget> => {
     const parsed = new URL(url);
     if (reject.has(parsed.hostname)) {
-      return Promise.reject(new DomainError("Reference URL must resolve only to public HTTPS addresses"));
+      return Promise.reject(
+        new DomainError("Reference URL must resolve only to public HTTPS addresses"),
+      );
     }
     return Promise.resolve({
       pinnedIp: "127.0.0.1",
@@ -383,7 +392,11 @@ describe.skipIf(!opensslAvailable)("downloadReference (local HTTPS server)", () 
     });
     try {
       await expect(
-        downloadReference(`https://${TEST_HOSTNAME}/redirect`, LIMITS, pinAtTestServer(server.port)),
+        downloadReference(
+          `https://${TEST_HOSTNAME}/redirect`,
+          LIMITS,
+          pinAtTestServer(server.port),
+        ),
       ).rejects.toThrow("Reference download returned an invalid redirect");
     } finally {
       await server.close();
@@ -398,7 +411,11 @@ describe.skipIf(!opensslAvailable)("downloadReference (local HTTPS server)", () 
     });
     try {
       await expect(
-        downloadReference(`https://${TEST_HOSTNAME}/big`, { ...LIMITS, maxUploadBytes: 1024 }, pinAtTestServer(server.port)),
+        downloadReference(
+          `https://${TEST_HOSTNAME}/big`,
+          { ...LIMITS, maxUploadBytes: 1024 },
+          pinAtTestServer(server.port),
+        ),
       ).rejects.toThrow(/size limit/);
     } finally {
       await server.close();

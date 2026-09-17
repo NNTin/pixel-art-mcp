@@ -96,7 +96,11 @@ function decodeApng(buffer: Buffer): {
   return { ihdr, acTL, frames };
 }
 
-function solid(width: number, height: number, color: readonly [number, number, number, number]): RGBAImage {
+function solid(
+  width: number,
+  height: number,
+  color: readonly [number, number, number, number],
+): RGBAImage {
   const image = createImage(width, height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) setPixel(image, x, y, color);

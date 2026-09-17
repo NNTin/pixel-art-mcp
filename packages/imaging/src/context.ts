@@ -76,7 +76,8 @@ function strokeRect(
     }
   }
   for (let y = top; y <= bottom; y++) {
-    if (left >= 0 && left < image.width && y >= 0 && y < image.height) setPixel(image, left, y, color);
+    if (left >= 0 && left < image.width && y >= 0 && y < image.height)
+      setPixel(image, left, y, color);
     if (right >= 0 && right < image.width && y >= 0 && y < image.height) {
       setPixel(image, right, y, color);
     }
@@ -219,7 +220,8 @@ export function exportContext(outputDir: string, metadata: ExportContextMetadata
   const spec = metadata.asset;
   const layouts = metadata.layouts;
   const byKey = new Map<string, ContextFrameEntry>();
-  for (const entry of metadata.frames) byKey.set(`${String(entry.angle)}:${String(entry.frame)}`, entry);
+  for (const entry of metadata.frames)
+    byKey.set(`${String(entry.angle)}:${String(entry.frame)}`, entry);
   const firstClip = defined(Object.values(spec.clips)[0], "first clip");
   // Show the actual default pose for animated furniture, including extinguished lamps.
   const firstFrame = firstClip.off_frame ?? defined(firstClip.frames[0], "first clip frame");
@@ -230,7 +232,10 @@ export function exportContext(outputDir: string, metadata: ExportContextMetadata
   );
   const image = readPng(path.join(outputDir, entry.filename));
   const stage = contextImage(image, spec, firstLayout);
-  writePng(path.join(outputDir, "context.png"), resizeNearest(stage, stage.width * 4, stage.height * 4));
+  writePng(
+    path.join(outputDir, "context.png"),
+    resizeNearest(stage, stage.width * 4, stage.height * 4),
+  );
 
   const agentPath = path.join(outputDir, "comparison", "reference-agent.png");
   writePng(agentPath, referenceAgent());
@@ -242,7 +247,10 @@ export function exportContext(outputDir: string, metadata: ExportContextMetadata
     reference: encode(agentPath),
     package: metadata.package.archive,
     geometry: Object.fromEntries(
-      layouts.map((row) => [String(row.angle), contextGeometry(spec.kind, row, spec.category, row.angle)]),
+      layouts.map((row) => [
+        String(row.angle),
+        contextGeometry(spec.kind, row, spec.category, row.angle),
+      ]),
     ),
     cells: metadata.frames.map((e) => ({
       ...e,

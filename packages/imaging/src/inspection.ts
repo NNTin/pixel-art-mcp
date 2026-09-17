@@ -519,8 +519,7 @@ export function inspectSprite(
     metric_definitions: {
       connectivity: "Four-neighbor (edge sharing), not diagonal.",
       opaque_connected_components: "Connected nontransparent regions, ignoring color.",
-      opaque_singleton_components:
-        "Isolated one-pixel nontransparent regions, ignoring color.",
+      opaque_singleton_components: "Isolated one-pixel nontransparent regions, ignoring color.",
       color_components:
         "Sum of connected regions of each palette color; highlights and ticks can add " +
         "regions within one solid object.",

@@ -152,6 +152,8 @@ describe("runner.js CLI (real subprocess)", () => {
     const request = baseRequest({ operation: "sprites", options: {} });
     const requestPath = path.join(dir, "request.json");
     writeFileSync(requestPath, JSON.stringify(request), "utf8");
-    expect(() => execFileSync(process.execPath, [RUNNER_JS, requestPath], { stdio: "pipe" })).toThrow();
+    expect(() =>
+      execFileSync(process.execPath, [RUNNER_JS, requestPath], { stdio: "pipe" }),
+    ).toThrow();
   });
 });

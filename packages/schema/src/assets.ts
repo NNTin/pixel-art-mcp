@@ -46,7 +46,11 @@ export interface AssetLayout {
 
 const DEFAULT_CLIPS: Record<AssetSpec["kind"], Record<string, { frames: number[] }>> = {
   furniture: { default: { frames: [1] } },
-  character: { walk: { frames: [1, 2, 3] }, typing: { frames: [4, 5] }, reading: { frames: [6, 7] } },
+  character: {
+    walk: { frames: [1, 2, 3] },
+    typing: { frames: [4, 5] },
+    reading: { frames: [6, 7] },
+  },
   pet: { walk: { frames: [1, 2, 3] }, idle: { frames: [4, 5, 6] } },
 };
 
@@ -155,7 +159,10 @@ export function assetLayouts(specInput: AssetSpec): AssetLayout[] {
 }
 
 /** Port of `resolve_asset`. */
-export function resolveAsset(specInput: AssetSpec, configurationId: string | null = null): RenderOptions {
+export function resolveAsset(
+  specInput: AssetSpec,
+  configurationId: string | null = null,
+): RenderOptions {
   const spec = normalizeAsset(specInput);
   const layouts = assetLayouts(spec);
   const seen = new Map<number, true>();

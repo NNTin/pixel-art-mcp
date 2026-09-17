@@ -173,7 +173,10 @@ export async function normalizeReference(
   // full-decode call further down still passes the real limit as defense-in-depth.
   let metadata: Metadata;
   try {
-    metadata = await sharp(Buffer.from(data), { animated: true, limitInputPixels: false }).metadata();
+    metadata = await sharp(Buffer.from(data), {
+      animated: true,
+      limitInputPixels: false,
+    }).metadata();
   } catch {
     throw new DomainError(INVALID_IMAGE_MESSAGE);
   }
@@ -334,7 +337,10 @@ function firstHeaderValue(value: string | string[] | undefined): string | undefi
  * event; with no listener attached, Node treats that as an unhandled error and crashes the
  * process, so a no-op listener is always attached first.
  */
-function abandonBody(body: { on: (event: "error", listener: (err: Error) => void) => void; destroy: () => void }): void {
+function abandonBody(body: {
+  on: (event: "error", listener: (err: Error) => void) => void;
+  destroy: () => void;
+}): void {
   body.on("error", () => {
     /* deliberately unconsumed -- see doc comment */
   });

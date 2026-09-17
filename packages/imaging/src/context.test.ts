@@ -7,7 +7,13 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { BACKGROUND_COLOR, contextGeometry, contextImage, luma, referenceAgent } from "./context.js";
+import {
+  BACKGROUND_COLOR,
+  contextGeometry,
+  contextImage,
+  luma,
+  referenceAgent,
+} from "./context.js";
 import { createImage, getPixel } from "./image.js";
 
 describe("luma", () => {
@@ -77,7 +83,11 @@ describe("contextImage", () => {
     }
     for (let i = 3; i < sprite.data.length; i += 4) sprite.data[i] = 255; // alpha=255 everywhere.
 
-    const stage = contextImage(sprite, { kind: "furniture", category: "decor", placement: "floor" }, layout);
+    const stage = contextImage(
+      sprite,
+      { kind: "furniture", category: "decor", placement: "floor" },
+      layout,
+    );
     expect(stage.width).toBeGreaterThanOrEqual(layout.width + 96);
     expect(stage.height).toBeGreaterThanOrEqual(layout.height + 80);
     // The sprite was pasted at geometry.x=48, geometry.y=32 (furniture, background_tiles=0).

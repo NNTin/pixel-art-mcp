@@ -182,7 +182,14 @@ export class Service {
       ],
       pixel_editing: {
         tool: "edit_pixel_art",
-        operations: ["move_pose", "set_pose", "delete_pose", "set_layer", "delete_layer", "set_palette"],
+        operations: [
+          "move_pose",
+          "set_pose",
+          "delete_pose",
+          "set_layer",
+          "delete_layer",
+          "set_palette",
+        ],
         atomic: true,
         expected_revision_required: true,
       },
@@ -194,7 +201,8 @@ export class Service {
         chunk_encoding:
           "Decode each base64 chunk separately, concatenate raw bytes by offset; next_offset=null ends the file",
         download_base_url: trimTrailingSlashes(this.settings.base_url),
-        local_saving: "Client attachment/download integration required; no arbitrary filesystem writes",
+        local_saving:
+          "Client attachment/download integration required; no arbitrary filesystem writes",
       },
       asset_profiles: assetProfiles,
       export_features: {
@@ -294,7 +302,10 @@ export class Service {
     }
     let data: PixelArtDict;
     try {
-      data = definitionToArt(definition, options.asset_layouts as unknown as AssetLayout[]).toDict();
+      data = definitionToArt(
+        definition,
+        options.asset_layouts as unknown as AssetLayout[],
+      ).toDict();
     } catch (exc) {
       const message = exc instanceof Error ? exc.message : String(exc);
       throw new DomainError(`Invalid pixel-art definition: ${message}`);
@@ -319,13 +330,16 @@ export class Service {
       revision_id: revision.id,
       definition,
       authored_views: data["views"],
-      configuration_id: configuration ? (configuration.id) : null,
+      configuration_id: configuration ? configuration.id : null,
     });
   }
 
   editPixelArt(projectId: string, edits: PixelEdits, expectedRevisionId: string): Job {
     if (this.store.project(projectId).current_revision_id !== expectedRevisionId) {
-      throw new DomainError("Scene revision changed; get_pixel_art and retry with its current ID", 409);
+      throw new DomainError(
+        "Scene revision changed; get_pixel_art and retry with its current ID",
+        409,
+      );
     }
     const source = this.getPixelArt(projectId, expectedRevisionId);
     let definition: PixelDefinition;
@@ -340,7 +354,10 @@ export class Service {
 
   exportRoot(jobId: string): string {
     const job = this.job(jobId);
-    if (job.status !== "succeeded" || (job.operation !== "preview" && job.operation !== "sprites")) {
+    if (
+      job.status !== "succeeded" ||
+      (job.operation !== "preview" && job.operation !== "sprites")
+    ) {
       throw new DomainError("Inspection requires a succeeded render job");
     }
     const paths = job.artifacts
@@ -358,9 +375,14 @@ export class Service {
   inspectAsset(jobId: string): Record<string, unknown> {
     const reportPath = path.join(this.exportRoot(jobId), "asset-report.json");
     if (!fs.existsSync(reportPath) || !fs.statSync(reportPath).isFile()) {
-      throw new DomainError("This legacy render has no asset report; use configure_asset/render_asset");
+      throw new DomainError(
+        "This legacy render has no asset report; use configure_asset/render_asset",
+      );
     }
-    return { job_id: jobId, ...(JSON.parse(fs.readFileSync(reportPath, "utf8")) as Record<string, unknown>) };
+    return {
+      job_id: jobId,
+      ...(JSON.parse(fs.readFileSync(reportPath, "utf8")) as Record<string, unknown>),
+    };
   }
 
   artifactRecord(
@@ -412,7 +434,11 @@ export class Service {
     return resolved;
   }
 
-  async readArtifactChunk(artifactId: string, offset: unknown, length: unknown): Promise<ArtifactChunk> {
+  async readArtifactChunk(
+    artifactId: string,
+    offset: unknown,
+    length: unknown,
+  ): Promise<ArtifactChunk> {
     const artifact = this.artifact(artifactId);
     const filePath = this.artifactPath(artifactId);
     return readArtifactChunk(filePath, artifact, offset, length);
@@ -444,7 +470,11 @@ export class Service {
         info.width,
         info.height,
       );
-      const thumbnail = this.artifactRecord(projectId, path.join(directory, "thumbnail.png"), "thumbnail");
+      const thumbnail = this.artifactRecord(
+        projectId,
+        path.join(directory, "thumbnail.png"),
+        "thumbnail",
+      );
       const trimmedName = path.basename(filename).slice(0, 255) || "reference.png";
       const reference = ReferenceSchema.parse({
         id: referenceId,
@@ -511,7 +541,10 @@ export class Service {
     const project = this.store.project(projectId);
     const resolvedId = revisionId ?? project.current_revision_id;
     if (resolvedId === null) {
-      throw new DomainError("Project has no revision; call configure_asset then write_pixel_art", 409);
+      throw new DomainError(
+        "Project has no revision; call configure_asset then write_pixel_art",
+        409,
+      );
     }
     const revision = this.store.record(resolvedId, "revision");
     if (revision.project_id !== projectId) {
@@ -528,7 +561,10 @@ export class Service {
   ): Job {
     const project = this.store.project(projectId);
     if (expectedRevisionId !== project.current_revision_id) {
-      throw new DomainError("Scene revision changed; get_project and retry with its current ID", 409);
+      throw new DomainError(
+        "Scene revision changed; get_project and retry with its current ID",
+        409,
+      );
     }
     if (!script.trim() || Buffer.byteLength(script, "utf8") > this.settings.max_script_bytes) {
       throw new DomainError("Script is empty or exceeds the script size limit");
@@ -568,7 +604,9 @@ export class Service {
     preview = false,
   ): Job {
     if (options.asset === null) {
-      throw new DomainError("Generic rendering is unavailable; use configure_asset and render_asset");
+      throw new DomainError(
+        "Generic rendering is unavailable; use configure_asset and render_asset",
+      );
     }
     const revision = this.revision(projectId, revisionId);
     const summary = revision["summary"] as Record<string, unknown>;
@@ -674,7 +712,11 @@ export class Service {
   cancelJob(jobId: string): Job {
     const job = this.store.job(jobId);
     if (job.status === "queued") {
-      this.store.updateJob(jobId, { status: "cancelled", stage: "cancelled", finished_at: timestamp() });
+      this.store.updateJob(jobId, {
+        status: "cancelled",
+        stage: "cancelled",
+        finished_at: timestamp(),
+      });
     } else if (job.status === "running") {
       this.worker?.cancel(jobId);
       this.store.updateJob(jobId, { stage: "cancelling" });

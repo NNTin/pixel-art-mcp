@@ -108,8 +108,6 @@ describe("executeScript", () => {
         scene["never"] = true;
       }
     `;
-    await expect(executeScript(source, {}, {})).rejects.toThrow(
-      /must have a default export/,
-    );
+    await expect(executeScript(source, {}, {})).rejects.toThrow(/must have a default export/);
   });
 });

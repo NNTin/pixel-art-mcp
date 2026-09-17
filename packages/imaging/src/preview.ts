@@ -67,7 +67,9 @@ export function assetPreview(
   if (!Number.isInteger(scale) || scale < 1 || scale > 8) {
     throw new DomainError("Preview scale must be an integer from 1 to 8");
   }
-  const raw = JSON.parse(fs.readFileSync(path.join(root, "spritesheet.json"), "utf-8")) as AssetPreviewMetadata;
+  const raw = JSON.parse(
+    fs.readFileSync(path.join(root, "spritesheet.json"), "utf-8"),
+  ) as AssetPreviewMetadata;
   const kind = raw.asset.kind;
   const resolvedClipId = clipId ?? defined(Object.keys(raw.asset.clips)[0], "first clip id");
   const firstLayout = defined(raw.layouts[0], "first layout");
@@ -75,7 +77,11 @@ export function assetPreview(
   let sourceAngle = requestedAngle;
   let mirrored = kind !== "furniture" && requestedAngle === 270;
   if (mirrored) sourceAngle = 90;
-  if (kind === "pet" && resolvedClipId === "idle" && (requestedAngle === 90 || requestedAngle === 270)) {
+  if (
+    kind === "pet" &&
+    resolvedClipId === "idle" &&
+    (requestedAngle === 90 || requestedAngle === 270)
+  ) {
     sourceAngle = requestedAngle === 90 ? 0 : 180;
     mirrored = false;
   }

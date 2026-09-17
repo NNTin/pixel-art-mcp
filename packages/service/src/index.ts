@@ -31,11 +31,7 @@ export { guessMediaType, readImageDimensions } from "./media-type.js";
 
 export { DEFAULT_SERVICE_SETTINGS, type ServiceSettings } from "./settings.js";
 
-export {
-  buildSaveScript,
-  definitionToArt,
-  validateAuthoredArt,
-} from "./pixel-authoring.js";
+export { buildSaveScript, definitionToArt, validateAuthoredArt } from "./pixel-authoring.js";
 
 export { Service, type WorkerHandle } from "./service.js";
 

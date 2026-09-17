@@ -34,7 +34,8 @@ describe("exportSheet with options.character", () => {
     });
     const raw = path.join(dir, "raw");
     const out = path.join(dir, "out");
-    const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] = [];
+    const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] =
+      [];
     options.angles.forEach((angle, row) => {
       for (let frame = 0; frame <= 6; frame++) {
         const image = createImage(16, 32);
@@ -58,7 +59,9 @@ describe("exportSheet with options.character", () => {
     const sheet = readPng(path.join(out, "spritesheet.png"));
     const archive = unzipSync(readFileSync(path.join(out, "pixel-agents-character.zip")));
     expect(new Set(Object.keys(archive))).toEqual(new Set(["character.png", "manifest.json"]));
-    expect(JSON.parse(Buffer.from(archive["manifest.json"] as Uint8Array).toString("utf-8"))).toEqual({
+    expect(
+      JSON.parse(Buffer.from(archive["manifest.json"] as Uint8Array).toString("utf-8")),
+    ).toEqual({
       id: "HERO",
       name: "Hero",
     });
@@ -68,11 +71,13 @@ describe("exportSheet with options.character", () => {
     const character = decodePngBuffer(Buffer.from(characterBytes));
     expect([character.width, character.height]).toEqual([112, 96]);
 
-    ([
-      ["down", 0],
-      ["up", 180],
-      ["right", 90],
-    ] as const).forEach(([, angle], rowIndex) => {
+    (
+      [
+        ["down", 0],
+        ["up", 180],
+        ["right", 90],
+      ] as const
+    ).forEach(([, angle], rowIndex) => {
       const sourceRow = options.angles.indexOf(angle);
       for (let column = 0; column < 7; column++) {
         for (let y = 0; y < 32; y++) {

@@ -440,12 +440,10 @@ function tileDimensionsPreprocess(raw: unknown): unknown {
     const values: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
     for (const axis of ["width", "height"] as const) {
       const tileKey = `tile_${axis}`;
-      const tile = Object.prototype.hasOwnProperty.call(values, tileKey)
-        ? values[tileKey]
-        : 1;
+      const tile = Object.prototype.hasOwnProperty.call(values, tileKey) ? values[tileKey] : 1;
       const isPlainInt = typeof tile === "number" && Number.isInteger(tile);
       if (!(axis in values) && isPlainInt) {
-        values[axis] = (tile) * 16;
+        values[axis] = tile * 16;
       }
     }
     return values;
@@ -473,16 +471,18 @@ const AnglesSchema = arrayField(numberField(), {
   minLength: 1,
   maxLength: 32,
   description: "Camera views in degrees. pixel-agents: 0=front, 90=right, 180=back, 270=left.",
-}).superRefine((values, ctx) => {
-  if (values.some((v) => !Number.isFinite(v))) {
-    valueError(ctx, "Angles must be finite");
-    return;
-  }
-  const normalized = values.map((v) => round6(pyModulo(v, 360)));
-  if (new Set(normalized).size !== normalized.length) {
-    valueError(ctx, "Angles must be distinct modulo 360");
-  }
-}).transform((values) => values.map((v) => round6(pyModulo(v, 360))));
+})
+  .superRefine((values, ctx) => {
+    if (values.some((v) => !Number.isFinite(v))) {
+      valueError(ctx, "Angles must be finite");
+      return;
+    }
+    const normalized = values.map((v) => round6(pyModulo(v, 360)));
+    if (new Set(normalized).size !== normalized.length) {
+      valueError(ctx, "Angles must be distinct modulo 360");
+    }
+  })
+  .transform((values) => values.map((v) => round6(pyModulo(v, 360))));
 
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 

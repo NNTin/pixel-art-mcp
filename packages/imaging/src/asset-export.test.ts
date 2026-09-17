@@ -19,7 +19,12 @@ import {
 import { unzipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { assetReport, exportAsset, type AssetExportManifest, type AssetExportManifestFrame } from "./asset-export.js";
+import {
+  assetReport,
+  exportAsset,
+  type AssetExportManifest,
+  type AssetExportManifestFrame,
+} from "./asset-export.js";
 import { createImage, readPng, setPixel, writePng, type RGBAImage } from "./image.js";
 import { inspectSprite } from "./inspection.js";
 
@@ -32,7 +37,8 @@ function fillRectInclusive(
   color: readonly [number, number, number, number],
 ): void {
   for (let y = Math.max(0, y0); y <= Math.min(image.height - 1, y1); y++) {
-    for (let x = Math.max(0, x0); x <= Math.min(image.width - 1, x1); x++) setPixel(image, x, y, color);
+    for (let x = Math.max(0, x0); x <= Math.min(image.width - 1, x1); x++)
+      setPixel(image, x, y, color);
   }
 }
 
@@ -58,8 +64,15 @@ function fixtureExport(
     art.layer("detail", row.angle, Canvas.fromRows(["GG", "GG"]), { x: 5, y: 5 });
     views.push({ ...row, objects: [{ name: "Body", pixel_width: 12, pixel_height: 20 }] });
     for (const frame of frames) {
-      art.layer("detail", row.angle, Canvas.fromRows(["GG", "GG"]), { x: 5 + (frame % 3), y: 5, frame });
-      const size: [number, number] = [row.width * options.supersampling, row.height * options.supersampling];
+      art.layer("detail", row.angle, Canvas.fromRows(["GG", "GG"]), {
+        x: 5 + (frame % 3),
+        y: 5,
+        frame,
+      });
+      const size: [number, number] = [
+        row.width * options.supersampling,
+        row.height * options.supersampling,
+      ];
       const im = createImage(size[0], size[1]);
       const inset = 3 * options.supersampling;
       fillRectInclusive(im, inset, inset, size[0] - inset, size[1] - inset, [
@@ -112,7 +125,9 @@ describe("exportAsset", () => {
         for (let i = 0; i < image.width * image.height; i++) {
           const offset = i * 4;
           if (image.data[offset + 3] === 0) {
-            expect([image.data[offset], image.data[offset + 1], image.data[offset + 2]]).toEqual([0, 0, 0]);
+            expect([image.data[offset], image.data[offset + 1], image.data[offset + 2]]).toEqual([
+              0, 0, 0,
+            ]);
           }
         }
       }
@@ -181,9 +196,20 @@ describe("exportAsset", () => {
     });
     const archive = unzipSync(readFileSync(path.join(out, "pixel-agents.zip")));
     const manifestNames = Object.keys(archive).filter((n) => n.endsWith("manifest.json"));
-    const manifests = manifestNames.map((n) => JSON.parse(Buffer.from(archive[n] as Uint8Array).toString("utf-8")) as Record<string, unknown>);
-    expect(new Set(manifests.map((m) => m["id"]))).toEqual(new Set(["FIXTURE_EMPTY", "FIXTURE_FULL"]));
-    const staticManifest = manifests.find((m) => m["id"] === "FIXTURE_EMPTY") as { backgroundTiles: number; members: { width: number; height: number }[] };
+    const manifests = manifestNames.map(
+      (n) =>
+        JSON.parse(Buffer.from(archive[n] as Uint8Array).toString("utf-8")) as Record<
+          string,
+          unknown
+        >,
+    );
+    expect(new Set(manifests.map((m) => m["id"]))).toEqual(
+      new Set(["FIXTURE_EMPTY", "FIXTURE_FULL"]),
+    );
+    const staticManifest = manifests.find((m) => m["id"] === "FIXTURE_EMPTY") as {
+      backgroundTiles: number;
+      members: { width: number; height: number }[];
+    };
     expect(staticManifest.backgroundTiles).toBe(1);
     expect(staticManifest.members.map((m) => [m.width, m.height])).toEqual([
       [48, 32],
@@ -196,7 +222,9 @@ describe("exportAsset", () => {
 
   it("flags a disconnected silhouette without rejecting intentional detached effects", () => {
     const { out } = fixtureExport(dir);
-    const metadata = JSON.parse(readFileSync(path.join(out, "spritesheet.json"), "utf-8")) as Record<string, unknown>;
+    const metadata = JSON.parse(
+      readFileSync(path.join(out, "spritesheet.json"), "utf-8"),
+    ) as Record<string, unknown>;
     const original = assetReport(out, metadata as never);
     const originalFrames = original["frames"] as { opaque_connected_components: number }[];
     expect(originalFrames.every((row) => row.opaque_connected_components === 1)).toBe(true);
@@ -211,7 +239,11 @@ describe("exportAsset", () => {
     fillRectInclusive(image, 8, 8, 11, 11, [0x52, 0x85, 0xb8, 255]);
     writePng(path.join(out, first.filename), image);
     const report = assetReport(out, metadata as never);
-    const findings = report["findings"] as { code: string; components: number; suggestion: string }[];
+    const findings = report["findings"] as {
+      code: string;
+      components: number;
+      suggestion: string;
+    }[];
     const finding = findings.find((f) => f.code === "disconnected_silhouette");
     expect(finding).toBeDefined();
     expect(finding?.components).toBe(2);
@@ -223,7 +255,9 @@ describe("exportAsset", () => {
 
   it("flags one oversized patch blending into the preview floor, but not a shrunk one", () => {
     const { out } = fixtureExport(dir);
-    const metadata = JSON.parse(readFileSync(path.join(out, "spritesheet.json"), "utf-8")) as Record<string, unknown>;
+    const metadata = JSON.parse(
+      readFileSync(path.join(out, "spritesheet.json"), "utf-8"),
+    ) as Record<string, unknown>;
     const first = (metadata["frames"] as { filename: string; angle: number; frame: number }[])[0];
     expect(first).toBeDefined();
     if (!first) return;
@@ -248,33 +282,36 @@ describe("exportAsset", () => {
     expect(findings2.some((f) => f.code === "low_context_contrast")).toBe(false);
   });
 
-  it.each(["character", "pet"] as const)("matches consumer animation playback and duration for kind=%s", (kind) => {
-    const { out } = fixtureExport(dir, kind, { colors: 64 });
-    const metadata = JSON.parse(readFileSync(path.join(out, "spritesheet.json"), "utf-8")) as {
-      playback: Record<string, { frames: number[]; duration_ms: number }>;
-      palette: string[];
-      frames: { filename: string }[];
-    };
-    expect(metadata.playback["walk"]).toEqual({
-      frames: kind === "character" ? [1, 2, 3, 2] : [1, 2, 1, 3],
-      duration_ms: 150,
-    });
-    const palette = new Set(metadata.palette.map((hex) => hex.toLowerCase()));
-    for (const entry of metadata.frames) {
-      const image = readPng(path.join(out, entry.filename));
-      for (let i = 0; i < image.width * image.height; i++) {
-        const offset = i * 4;
-        const alpha = image.data[offset + 3];
-        expect(alpha === 0 || alpha === 255).toBe(true);
-        if (alpha) {
-          const hex = `#${[0, 1, 2]
-            .map((c) => (image.data[offset + c] ?? 0).toString(16).padStart(2, "0"))
-            .join("")}`;
-          expect(palette.has(hex)).toBe(true);
+  it.each(["character", "pet"] as const)(
+    "matches consumer animation playback and duration for kind=%s",
+    (kind) => {
+      const { out } = fixtureExport(dir, kind, { colors: 64 });
+      const metadata = JSON.parse(readFileSync(path.join(out, "spritesheet.json"), "utf-8")) as {
+        playback: Record<string, { frames: number[]; duration_ms: number }>;
+        palette: string[];
+        frames: { filename: string }[];
+      };
+      expect(metadata.playback["walk"]).toEqual({
+        frames: kind === "character" ? [1, 2, 3, 2] : [1, 2, 1, 3],
+        duration_ms: 150,
+      });
+      const palette = new Set(metadata.palette.map((hex) => hex.toLowerCase()));
+      for (const entry of metadata.frames) {
+        const image = readPng(path.join(out, entry.filename));
+        for (let i = 0; i < image.width * image.height; i++) {
+          const offset = i * 4;
+          const alpha = image.data[offset + 3];
+          expect(alpha === 0 || alpha === 255).toBe(true);
+          if (alpha) {
+            const hex = `#${[0, 1, 2]
+              .map((c) => (image.data[offset + c] ?? 0).toString(16).padStart(2, "0"))
+              .join("")}`;
+            expect(palette.has(hex)).toBe(true);
+          }
         }
       }
-    }
-  });
+    },
+  );
 
   it.each(["empty", "wrong_size", "path"] as const)(
     "rejects invalid render output source frames (%s)",
@@ -295,13 +332,17 @@ describe("exportAsset", () => {
         const originalPath = path.join(raw, mutableEntry.filename);
         writePng(originalPath, createImage(8, 8));
       }
-      const expectedMessage = { empty: /Empty sprite/, wrong_size: /canvas dimensions/, path: /image path/ }[problem];
-      expect(() => { exportAsset(raw, path.join(dir, "invalid"), manifest, options, "project", "revision"); }).toThrow(
-        DomainError,
-      );
-      expect(() => { exportAsset(raw, path.join(dir, "invalid2"), manifest, options, "project", "revision"); }).toThrow(
-        expectedMessage,
-      );
+      const expectedMessage = {
+        empty: /Empty sprite/,
+        wrong_size: /canvas dimensions/,
+        path: /image path/,
+      }[problem];
+      expect(() => {
+        exportAsset(raw, path.join(dir, "invalid"), manifest, options, "project", "revision");
+      }).toThrow(DomainError);
+      expect(() => {
+        exportAsset(raw, path.join(dir, "invalid2"), manifest, options, "project", "revision");
+      }).toThrow(expectedMessage);
     },
   );
 });

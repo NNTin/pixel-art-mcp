@@ -79,18 +79,18 @@ const IPV6_PRIVATE_EXCEPTIONS: readonly Network[] = [
   ["2001:30::", 28],
 ];
 
-function matchesAny(
-  address: ipaddr.IPv4 | ipaddr.IPv6,
-  networks: readonly Network[],
-): boolean {
+function matchesAny(address: ipaddr.IPv4 | ipaddr.IPv6, networks: readonly Network[]): boolean {
   return networks.some(([base, bits]) => {
-    const parsedBase = address.kind() === "ipv4" ? ipaddr.IPv4.parse(base) : ipaddr.IPv6.parse(base);
+    const parsedBase =
+      address.kind() === "ipv4" ? ipaddr.IPv4.parse(base) : ipaddr.IPv6.parse(base);
     return address.match(parsedBase, bits);
   });
 }
 
 function isPrivateIPv4(address: ipaddr.IPv4): boolean {
-  return matchesAny(address, IPV4_PRIVATE_NETWORKS) && !matchesAny(address, IPV4_PRIVATE_EXCEPTIONS);
+  return (
+    matchesAny(address, IPV4_PRIVATE_NETWORKS) && !matchesAny(address, IPV4_PRIVATE_EXCEPTIONS)
+  );
 }
 
 /** `IPv4Address.is_global`: not Shared Address Space, and not otherwise private. */
@@ -102,7 +102,9 @@ function isGlobalIPv4(address: ipaddr.IPv4): boolean {
 
 function isPrivateIPv6(address: ipaddr.IPv6): boolean {
   if (address.isIPv4MappedAddress()) return isPrivateIPv4(address.toIPv4Address());
-  return matchesAny(address, IPV6_PRIVATE_NETWORKS) && !matchesAny(address, IPV6_PRIVATE_EXCEPTIONS);
+  return (
+    matchesAny(address, IPV6_PRIVATE_NETWORKS) && !matchesAny(address, IPV6_PRIVATE_EXCEPTIONS)
+  );
 }
 
 /**

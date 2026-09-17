@@ -23,8 +23,7 @@
  */
 declare module "gifenc" {
   export type GifColor =
-    | readonly [number, number, number]
-    | readonly [number, number, number, number];
+    readonly [number, number, number] | readonly [number, number, number, number];
 
   export interface WriteFrameOptions {
     palette?: readonly GifColor[];
@@ -39,12 +38,7 @@ declare module "gifenc" {
 
   export interface GifEncoderInstance {
     writeHeader(): void;
-    writeFrame(
-      index: Uint8Array,
-      width: number,
-      height: number,
-      opts?: WriteFrameOptions,
-    ): void;
+    writeFrame(index: Uint8Array, width: number, height: number, opts?: WriteFrameOptions): void;
     finish(): void;
     bytes(): Uint8Array;
     bytesView(): Uint8Array;

@@ -92,13 +92,19 @@ function parseGif(buffer: Buffer): ParsedGif {
       pos += 1; // LZW minimum code size byte.
       offset = skipSubBlocks(pos);
     } else {
-      throw new Error(`Unrecognized GIF block marker 0x${marker.toString(16)} at offset ${String(offset)}`);
+      throw new Error(
+        `Unrecognized GIF block marker 0x${marker.toString(16)} at offset ${String(offset)}`,
+      );
     }
   }
   return { loopCount, graphicControlExtensions, imageDescriptorCount, globalColorTableSize };
 }
 
-function solid(width: number, height: number, color: readonly [number, number, number, number]): RGBAImage {
+function solid(
+  width: number,
+  height: number,
+  color: readonly [number, number, number, number],
+): RGBAImage {
   const image = createImage(width, height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) setPixel(image, x, y, color);
@@ -156,7 +162,12 @@ describe("saveAnimatedGif", () => {
 
   it("creates parent directories that don't exist yet", () => {
     const filePath = path.join(dir, "nested", "deep", "preview.gif");
-    saveAnimatedGif([solid(1, 1, [1, 2, 3, 255]), solid(1, 1, [4, 5, 6, 255])], ["#010203", "#040506"], 5, filePath);
+    saveAnimatedGif(
+      [solid(1, 1, [1, 2, 3, 255]), solid(1, 1, [4, 5, 6, 255])],
+      ["#010203", "#040506"],
+      5,
+      filePath,
+    );
     expect(readFileSync(filePath).length).toBeGreaterThan(0);
   });
 });

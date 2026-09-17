@@ -73,9 +73,21 @@ export function rectangularRowsError(rows: readonly string[]): string | null {
 
 /** `RepeatedCommand(PixelModel)` */
 const repeatedCommandShape = {
-  repeat: intField({ ge: 1, le: 128, description: "Number of copies, including the first." }).default(1),
-  dx: intField({ ge: -512, le: 512, description: "Pixel x offset added for each next copy." }).default(0),
-  dy: intField({ ge: -512, le: 512, description: "Pixel y offset added for each next copy." }).default(0),
+  repeat: intField({
+    ge: 1,
+    le: 128,
+    description: "Number of copies, including the first.",
+  }).default(1),
+  dx: intField({
+    ge: -512,
+    le: 512,
+    description: "Pixel x offset added for each next copy.",
+  }).default(0),
+  dy: intField({
+    ge: -512,
+    le: 512,
+    description: "Pixel y offset added for each next copy.",
+  }).default(0),
 };
 
 export interface RepeatedCommandBounds {

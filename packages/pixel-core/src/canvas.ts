@@ -95,18 +95,16 @@ export class Canvas {
     if (color.length !== 1 || ![x1, y1, x2, y2].every((v) => Number.isInteger(v))) {
       throw new Error("Use integer line coordinates and a palette symbol");
     }
-    if (
-      !(
-        x1 >= 0 &&
-        x1 < this.width &&
-        x2 >= 0 &&
-        x2 < this.width &&
-        y1 >= 0 &&
-        y1 < this.height &&
-        y2 >= 0 &&
-        y2 < this.height
-      )
-    ) {
+    if (!(
+      x1 >= 0 &&
+      x1 < this.width &&
+      x2 >= 0 &&
+      x2 < this.width &&
+      y1 >= 0 &&
+      y1 < this.height &&
+      y2 >= 0 &&
+      y2 < this.height
+    )) {
       throw new Error("Line exceeds canvas");
     }
     // Integer Bresenham: inclusive endpoints, no fractional coverage or antialiasing.

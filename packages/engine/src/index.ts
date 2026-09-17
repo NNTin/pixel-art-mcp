@@ -10,7 +10,12 @@ export { main, progress, runRender, runScript } from "./runner.js";
 export type { EngineOperation, EngineRequest, ScriptResult } from "./runner.js";
 
 export { nativeRender } from "./render.js";
-export type { CameraView, FrameManifestEntry, NativeRenderOptions, RenderManifest } from "./render.js";
+export type {
+  CameraView,
+  FrameManifestEntry,
+  NativeRenderOptions,
+  RenderManifest,
+} from "./render.js";
 
 export { executeScript, ScriptCompileError, ScriptRuntimeError } from "./script-runtime.js";
 export type { CompileDiagnostic } from "./script-runtime.js";

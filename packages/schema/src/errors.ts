@@ -438,7 +438,9 @@ export function taggedUnion<Members extends Record<string, z.ZodType>>(
         // at each call site; forwarding an issue produced by an independent `safeParse` (whose
         // `$ZodIssue` union doesn't structurally match that inferred parameter type) needs an
         // explicit cast here. The object itself is untouched -- only the static type is coerced.
-        ctx.addIssue({ ...issue, path: [tag, ...issue.path] } as Parameters<typeof ctx.addIssue>[0]);
+        ctx.addIssue({ ...issue, path: [tag, ...issue.path] } as Parameters<
+          typeof ctx.addIssue
+        >[0]);
       }
       return z.NEVER;
     }

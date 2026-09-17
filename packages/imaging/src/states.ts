@@ -29,7 +29,12 @@ import {
 import { defined } from "./internal.js";
 import { zipDirectory } from "./pack-zip.js";
 import { ACTIVATION } from "./pixel-agents.js";
-import { exportSheet, paletteFromSamples, sampleSourceColors, type RenderManifestLike } from "./pixels.js";
+import {
+  exportSheet,
+  paletteFromSamples,
+  sampleSourceColors,
+  type RenderManifestLike,
+} from "./pixels.js";
 import { rgbToHex, type Rgb } from "./quantize.js";
 import { STATES_PLAYER_HTML_TEMPLATE } from "./templates.js";
 
@@ -97,7 +102,8 @@ export function exportStates(
   const renderedFrames = renderOptionsRenderFrames(options);
   const entries = manifest.frames;
   const expectedKeys: [number, number][] = [];
-  for (const angle of options.angles) for (const frame of renderedFrames) expectedKeys.push([angle, frame]);
+  for (const angle of options.angles)
+    for (const frame of renderedFrames) expectedKeys.push([angle, frame]);
   const actualKeys: [number, number][] = entries.map((e) => [e.angle, e.frame]);
   if (!sameSequence(actualKeys, expectedKeys)) {
     throw new DomainError("Render output is an incomplete or unordered state sequence");
@@ -114,11 +120,16 @@ export function exportStates(
       throw new DomainError("Invalid render output path");
     }
     const source = readPng(resolvedPath);
-    if (source.width !== options.width * options.supersampling || source.height !== options.height * options.supersampling) {
+    if (
+      source.width !== options.width * options.supersampling ||
+      source.height !== options.height * options.supersampling
+    ) {
       throw new DomainError("Render output has unexpected image dimensions");
     }
     if (options.palette === null) {
-      sourceSamples = sourceSamples.concat(sampleSourceColors(source, sampleBudget, options.alpha_threshold));
+      sourceSamples = sourceSamples.concat(
+        sampleSourceColors(source, sampleBudget, options.alpha_threshold),
+      );
     }
   }
   const colors = paletteFromSamples(sourceSamples, options);
@@ -129,7 +140,10 @@ export function exportStates(
 
   const columns = Math.max(...states.map((state) => renderStateFrames(state).length));
   const directionCount = options.angles.length;
-  const sheet = createImage(columns * options.width, states.length * directionCount * options.height);
+  const sheet = createImage(
+    columns * options.width,
+    states.length * directionCount * options.height,
+  );
   const overview = createImage(states.length * options.width, directionCount * options.height);
 
   const statesOut: Record<string, unknown>[] = [];
@@ -162,7 +176,14 @@ export function exportStates(
         defined(byKey.get(cellKey(angle, frame)), `state frame ${String(angle)}:${String(frame)}`),
       ),
     );
-    exportSheet(rawDir, stateDir, { ...manifest, frames: childEntries }, child, projectId, revisionId);
+    exportSheet(
+      rawDir,
+      stateDir,
+      { ...manifest, frames: childEntries },
+      child,
+      projectId,
+      revisionId,
+    );
     const childMeta = JSON.parse(
       fs.readFileSync(path.join(stateDir, "spritesheet.json"), "utf-8"),
     ) as ChildSpritesheetMetadata;
@@ -244,13 +265,23 @@ export function exportStates(
   });
 
   writePng(path.join(outputDir, "spritesheet.png"), sheet);
-  const previewScale = Math.min(4, Math.max(1, Math.floor(1024 / Math.max(overview.width, overview.height))));
-  let preview = resizeNearest(overview, overview.width * previewScale, overview.height * previewScale);
+  const previewScale = Math.min(
+    4,
+    Math.max(1, Math.floor(1024 / Math.max(overview.width, overview.height))),
+  );
+  let preview = resizeNearest(
+    overview,
+    overview.width * previewScale,
+    overview.height * previewScale,
+  );
   if (Math.max(preview.width, preview.height) > 1024) preview = thumbnailNearest(preview, 1024);
   writePng(path.join(outputDir, "preview.png"), preview);
 
   if (columns > 1) {
-    const gifScale = Math.min(4, Math.max(1, Math.floor(1024 / Math.max(overview.width, overview.height))));
+    const gifScale = Math.min(
+      4,
+      Math.max(1, Math.floor(1024 / Math.max(overview.width, overview.height))),
+    );
     const gifFrames: RGBAImage[] = [];
     for (let column = 0; column < columns; column++) {
       let composite = createImage(overview.width, overview.height);
@@ -270,7 +301,8 @@ export function exportStates(
         }
       });
       composite = resizeNearest(composite, composite.width * gifScale, composite.height * gifScale);
-      if (Math.max(composite.width, composite.height) > 1024) composite = thumbnailNearest(composite, 1024);
+      if (Math.max(composite.width, composite.height) > 1024)
+        composite = thumbnailNearest(composite, 1024);
       gifFrames.push(composite);
     }
     saveAnimatedGif(gifFrames, palette, options.fps, path.join(outputDir, "preview.gif"));
@@ -303,7 +335,11 @@ export function exportStates(
         }
       : null,
   };
-  fs.writeFileSync(path.join(outputDir, "spritesheet.json"), JSON.stringify(metadata, null, 2), "utf-8");
+  fs.writeFileSync(
+    path.join(outputDir, "spritesheet.json"),
+    JSON.stringify(metadata, null, 2),
+    "utf-8",
+  );
 
   const player = {
     name: target ? target.name : "Sprite states",

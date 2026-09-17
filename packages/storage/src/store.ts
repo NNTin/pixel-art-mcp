@@ -151,11 +151,7 @@ export class Store {
   createProject(name: string): ProjectRow {
     const projectId = identifier();
     this.transaction((db) => {
-      db.prepare("INSERT INTO projects VALUES (?, ?, ?, NULL)").run(
-        projectId,
-        name,
-        timestamp(),
-      );
+      db.prepare("INSERT INTO projects VALUES (?, ?, ?, NULL)").run(projectId, name, timestamp());
     });
     return this.project(projectId);
   }
@@ -182,7 +178,8 @@ export class Store {
       .prepare("SELECT payload FROM records WHERE id=? AND kind=?")
       .get(recordId, kind) as { payload: string } | undefined;
     if (row === undefined) {
-      const label = kind.length > 0 ? kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase() : kind;
+      const label =
+        kind.length > 0 ? kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase() : kind;
       throw new DomainError(`${label} not found`, 404);
     }
     return RecordPayloadSchema.parse(JSON.parse(row.payload));
@@ -217,8 +214,7 @@ export class Store {
 
   job(jobId: string): JobPayload {
     const row = this.db.prepare("SELECT payload FROM jobs WHERE id=?").get(jobId) as
-      | { payload: string }
-      | undefined;
+      { payload: string } | undefined;
     if (row === undefined) throw new DomainError("Job not found", 404);
     return JobPayloadSchema.parse(JSON.parse(row.payload));
   }
@@ -253,7 +249,9 @@ export class Store {
   /** On startup, flips any job left `"running"` by a crashed/killed process to `"failed"`. */
   recover(): void {
     this.transaction((db) => {
-      const rows = db.prepare("SELECT id FROM jobs WHERE status='running'").all() as unknown as JobRow[];
+      const rows = db
+        .prepare("SELECT id FROM jobs WHERE status='running'")
+        .all() as unknown as JobRow[];
       for (const row of rows) {
         this.updateJob(row.id, {
           status: "failed",

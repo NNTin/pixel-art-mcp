@@ -149,7 +149,10 @@ export async function main(requestPath: string): Promise<void> {
  * `sys.argv[1]` in Python (index 1, script name excluded) is `process.argv[2]` here (index 2,
  * both the node executable and this script's own path excluded).
  */
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
+) {
   const requestPath = process.argv[2];
   if (!requestPath) {
     console.error("Usage: node runner.js <request.json path>");

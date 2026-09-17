@@ -42,7 +42,13 @@ function drawingToCanvas(drawing: PixelDrawing): Canvas {
       if (command.op === "rect") {
         canvas.rect(command.x + dx, command.y + dy, command.width, command.height, command.color);
       } else if (command.op === "line") {
-        canvas.line(command.x1 + dx, command.y1 + dy, command.x2 + dx, command.y2 + dy, command.color);
+        canvas.line(
+          command.x1 + dx,
+          command.y1 + dy,
+          command.x2 + dx,
+          command.y2 + dy,
+          command.color,
+        );
       } else {
         canvas.stamp(command.x + dx, command.y + dy, command.rows);
       }
@@ -66,9 +72,15 @@ function poseCanvas(pose: PixelPose): Canvas {
  * Port of `PixelDefinition.to_art`: builds a real, engine-validated `PixelArt` from an authored
  * definition plus the target's resolved per-angle canvases.
  */
-export function definitionToArt(definition: PixelDefinition, layouts: readonly AssetLayout[]): PixelArt {
+export function definitionToArt(
+  definition: PixelDefinition,
+  layouts: readonly AssetLayout[],
+): PixelArt {
   const views: ViewsInput = Object.fromEntries(
-    layouts.map((layout): [number, readonly number[]] => [layout.angle, [layout.width, layout.height]]),
+    layouts.map((layout): [number, readonly number[]] => [
+      layout.angle,
+      [layout.width, layout.height],
+    ]),
   );
   const art = new PixelArt(definition.palette, views);
   for (const layer of definition.layers) {
@@ -93,7 +105,10 @@ export function definitionToArt(definition: PixelDefinition, layouts: readonly A
  * `packages/imaging/src/asset-export.ts`'s identically-shaped private helper exactly, including
  * the one-try/one-`DomainError`-wrapper structure.
  */
-export function validateAuthoredArt(data: Record<string, unknown>, options: RenderOptions): PixelArt {
+export function validateAuthoredArt(
+  data: Record<string, unknown>,
+  options: RenderOptions,
+): PixelArt {
   try {
     const { views: _views, ...rest } = data;
     PixelDefinitionSchema.parse(rest);

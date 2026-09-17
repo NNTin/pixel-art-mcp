@@ -14,7 +14,11 @@ import path from "node:path";
 import { DomainError, type Artifact } from "@pixel-art-mcp/schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MAX_ARTIFACT_CHUNK_BYTES, MAX_INLINE_ARTIFACT_BYTES, readArtifactChunk } from "./artifacts.js";
+import {
+  MAX_ARTIFACT_CHUNK_BYTES,
+  MAX_INLINE_ARTIFACT_BYTES,
+  readArtifactChunk,
+} from "./artifacts.js";
 
 // `node:fs/promises`' ESM module namespace can't be spied on directly ("Module namespace is not
 // configurable in ESM") -- this wraps `open` in a `vi.fn` that passes through to the real
@@ -100,34 +104,30 @@ describe("readArtifactChunk", () => {
     expect(chunk.data_base64).toBe("");
   });
 
-  it(
-    "bounds every chunk to the requested length and reassembles a large file exactly",
-    async () => {
-      const pattern = Buffer.from(Array.from({ length: 256 }, (_, i) => i));
-      const buffer = Buffer.alloc(pattern.length * 4097);
-      for (let i = 0; i < 4097; i++) pattern.copy(buffer, i * pattern.length);
-      const { filePath, artifact } = writeFixture("large.zip", buffer);
+  it("bounds every chunk to the requested length and reassembles a large file exactly", async () => {
+    const pattern = Buffer.from(Array.from({ length: 256 }, (_, i) => i));
+    const buffer = Buffer.alloc(pattern.length * 4097);
+    for (let i = 0; i < 4097; i++) pattern.copy(buffer, i * pattern.length);
+    const { filePath, artifact } = writeFixture("large.zip", buffer);
 
-      let offset: number | null = 0;
-      const parts: Buffer[] = [];
-      while (offset !== null) {
-        const chunk = await readArtifactChunk(filePath, artifact, offset, MAX_ARTIFACT_CHUNK_BYTES);
-        const raw = Buffer.from(chunk.data_base64, "base64");
-        expect(raw.length).toBeLessThanOrEqual(MAX_ARTIFACT_CHUNK_BYTES);
-        expect(chunk.bytes_read).toBe(raw.length);
-        parts.push(raw);
-        offset = chunk.next_offset;
-      }
-      expect(Buffer.concat(parts)).toEqual(buffer);
+    let offset: number | null = 0;
+    const parts: Buffer[] = [];
+    while (offset !== null) {
+      const chunk = await readArtifactChunk(filePath, artifact, offset, MAX_ARTIFACT_CHUNK_BYTES);
+      const raw = Buffer.from(chunk.data_base64, "base64");
+      expect(raw.length).toBeLessThanOrEqual(MAX_ARTIFACT_CHUNK_BYTES);
+      expect(chunk.bytes_read).toBe(raw.length);
+      parts.push(raw);
+      offset = chunk.next_offset;
+    }
+    expect(Buffer.concat(parts)).toEqual(buffer);
 
-      const eof = await readArtifactChunk(filePath, artifact, buffer.length, 5);
-      expect(eof.bytes_read).toBe(0);
-      expect(eof.next_offset).toBeNull();
-      expect(eof.data_base64).toBe("");
-    },
-    20_000, // Reads/hashes/base64-encodes ~1MB across many small chunks; can run slower under
-    // full-suite parallel CI load than the default 5s per-test timeout allows.
-  );
+    const eof = await readArtifactChunk(filePath, artifact, buffer.length, 5);
+    expect(eof.bytes_read).toBe(0);
+    expect(eof.next_offset).toBeNull();
+    expect(eof.data_base64).toBe("");
+  }, 20_000); // Reads/hashes/base64-encodes ~1MB across many small chunks; can run slower under
+  // full-suite parallel CI load than the default 5s per-test timeout allows.
 
   it.each([
     ["negative offset", { offset: -1, length: 5 }],
@@ -139,7 +139,9 @@ describe("readArtifactChunk", () => {
     ["fractional length", { offset: 0, length: 1.5 }],
   ])("rejects invalid byte ranges: %s", async (_name, { offset, length }) => {
     const { filePath, artifact } = writeFixture("tiny.zip", Buffer.from("abc"));
-    await expect(readArtifactChunk(filePath, artifact, offset, length)).rejects.toThrow(DomainError);
+    await expect(readArtifactChunk(filePath, artifact, offset, length)).rejects.toThrow(
+      DomainError,
+    );
   });
 
   it("rejects an offset beyond the recorded size", async () => {

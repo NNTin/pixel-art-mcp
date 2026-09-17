@@ -146,7 +146,9 @@ function compile(scratchDir: string, scriptPath: string, envPath: string): strin
   }
 
   const emitResult = program.emit();
-  const emitErrors = emitResult.diagnostics.filter((d) => d.category === ts.DiagnosticCategory.Error);
+  const emitErrors = emitResult.diagnostics.filter(
+    (d) => d.category === ts.DiagnosticCategory.Error,
+  );
   if (emitErrors.length > 0) {
     throw new ScriptCompileError(emitErrors.map(toCompileDiagnostic));
   }

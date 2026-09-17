@@ -120,12 +120,7 @@ describe("Canvas", () => {
     it("draws an exact horizontal/vertical/diagonal integer Bresenham line", () => {
       expect(new Canvas(4, 1).line(0, 0, 3, 0, "D").rows).toEqual(["DDDD"]);
       expect(new Canvas(1, 4).line(0, 0, 0, 3, "D").rows).toEqual(["D", "D", "D", "D"]);
-      expect(new Canvas(4, 4).line(0, 0, 3, 3, "D").rows).toEqual([
-        "D...",
-        ".D..",
-        "..D.",
-        "...D",
-      ]);
+      expect(new Canvas(4, 4).line(0, 0, 3, 3, "D").rows).toEqual(["D...", ".D..", "..D.", "...D"]);
     });
 
     it("returns the canvas for chaining", () => {

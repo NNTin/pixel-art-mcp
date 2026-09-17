@@ -32,9 +32,20 @@ import path from "node:path";
 
 import type { EngineOperation, EngineRequest } from "@pixel-art-mcp/engine";
 import { exportSheet, angleWidths, type RenderManifestLike } from "@pixel-art-mcp/imaging";
-import { ProcessCancelled, ProcessFailure, runProcess, type JobExecutor } from "@pixel-art-mcp/jobs";
+import {
+  ProcessCancelled,
+  ProcessFailure,
+  runProcess,
+  type JobExecutor,
+} from "@pixel-art-mcp/jobs";
 import { DomainError, RenderOptionsSchema } from "@pixel-art-mcp/schema";
-import { identifier, timestamp, type JobChanges, type JobPayload, type RecordPayload } from "@pixel-art-mcp/storage";
+import {
+  identifier,
+  timestamp,
+  type JobChanges,
+  type JobPayload,
+  type RecordPayload,
+} from "@pixel-art-mcp/storage";
 
 import { readImageDimensions } from "./media-type.js";
 import { validateAuthoredArt } from "./pixel-authoring.js";
@@ -179,7 +190,8 @@ export function createJobExecutor(service: Service): JobExecutor {
         script_path: scriptPath,
         references,
         options: requestOptions,
-        authoring_options: (params["authoring_options"] as Record<string, unknown> | null | undefined) ?? null,
+        authoring_options:
+          (params["authoring_options"] as Record<string, unknown> | null | undefined) ?? null,
         pixel_art_required: (params["pixel_art_required"] as boolean | undefined) ?? false,
       };
       const requestPath = path.join(scratch, "request.json");
@@ -187,7 +199,9 @@ export function createJobExecutor(service: Service): JobExecutor {
 
       const command = [process.execPath, engineRunnerPath(), requestPath];
       const timeout =
-        job.operation === "script" ? service.settings.script_timeout : service.settings.render_timeout;
+        job.operation === "script"
+          ? service.settings.script_timeout
+          : service.settings.render_timeout;
 
       await runProcess({
         command,
@@ -222,7 +236,8 @@ export function createJobExecutor(service: Service): JobExecutor {
       if (job.operation === "script") {
         const scriptResult = result as unknown as ScriptResultShape;
         const data = scriptResult.summary.pixel_art;
-        const authoringOptions = params["authoring_options"] as Record<string, unknown> | null | undefined;
+        const authoringOptions = params["authoring_options"] as
+          Record<string, unknown> | null | undefined;
         if (data !== null) {
           if (!authoringOptions) {
             throw new DomainError("Call configure_asset before authoring pixel layers");
@@ -244,7 +259,14 @@ export function createJobExecutor(service: Service): JobExecutor {
       } else {
         store.updateJob(jobId, { stage: "converting", progress: 0.9 });
         const options = RenderOptionsSchema.parse(params["options"]);
-        exportSheet(raw, staged, result as unknown as RenderManifestLike, options, projectId, String(revisionId));
+        exportSheet(
+          raw,
+          staged,
+          result as unknown as RenderManifestLike,
+          options,
+          projectId,
+          String(revisionId),
+        );
       }
 
       if (isCancelled(cancel)) throw new JobCancelledError();
@@ -263,18 +285,23 @@ export function createJobExecutor(service: Service): JobExecutor {
           height = dimensions?.height ?? null;
         }
         const parentName = path.basename(path.dirname(filePath));
-        let kind = parentName === "frames" ? "frame" : path.basename(filePath, path.extname(filePath));
+        let kind =
+          parentName === "frames" ? "frame" : path.basename(filePath, path.extname(filePath));
         if (parentName === "animations") kind = "animation";
         else if (path.basename(filePath) === "preview.html") kind = "player";
         artifacts.push(service.artifactRecord(projectId, filePath, kind, jobId, width, height));
       }
 
       if (job.operation === "script") {
-        const byName = new Map(artifacts.map((artifact) => [artifact["filename"] as string, artifact]));
+        const byName = new Map(
+          artifacts.map((artifact) => [artifact["filename"] as string, artifact]),
+        );
         const stateArtifact = byName.get("state.json");
         const scriptArtifact = byName.get("script.ts");
         if (!stateArtifact || !scriptArtifact) {
-          throw new Error("Invariant violated: expected state.json/script.ts artifacts after a script job");
+          throw new Error(
+            "Invariant violated: expected state.json/script.ts artifacts after a script job",
+          );
         }
         newRevision = {
           id: identifier(),

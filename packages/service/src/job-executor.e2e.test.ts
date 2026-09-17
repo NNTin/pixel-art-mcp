@@ -58,69 +58,73 @@ function furnitureScript(): string {
 }
 
 describe("createJobExecutor + Worker + engine subprocess + imaging (real end-to-end)", () => {
-  it(
-    "runs a real script job, then a real render job, against a real Store",
-    async () => {
-      const project = service.createProject("Chair");
-      expect(project.current_revision_id).toBeNull();
+  it("runs a real script job, then a real render job, against a real Store", async () => {
+    const project = service.createProject("Chair");
+    expect(project.current_revision_id).toBeNull();
 
-      service.configureAsset(
-        project.id,
-        AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR" }),
+    service.configureAsset(
+      project.id,
+      AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR" }),
+    );
+
+    const scriptJob = service.submitScript(
+      project.id,
+      furnitureScript(),
+      project.current_revision_id,
+    );
+    expect(scriptJob.status).toBe("queued");
+
+    const finishedScriptJob = await service.waitForJob(scriptJob.id, 20);
+    if (finishedScriptJob.status !== "succeeded") {
+      throw new Error(
+        `script job did not succeed: ${finishedScriptJob.status} ${finishedScriptJob.error ?? ""}\n${finishedScriptJob.logs}`,
       );
+    }
+    expect(finishedScriptJob.status).toBe("succeeded");
+    expect(finishedScriptJob.operation).toBe("script");
+    const stateArtifact = finishedScriptJob.artifacts.find((a) => a.filename === "state.json");
+    const scriptArtifact = finishedScriptJob.artifacts.find((a) => a.filename === "script.ts");
+    expect(stateArtifact).toBeDefined();
+    expect(scriptArtifact).toBeDefined();
 
-      const scriptJob = service.submitScript(project.id, furnitureScript(), project.current_revision_id);
-      expect(scriptJob.status).toBe("queued");
+    const project2 = service.getProject(project.id);
+    expect(project2.project.current_revision_id).not.toBeNull();
+    expect(project2.revisions).toHaveLength(1);
+    const revision = project2.revisions[0];
+    expect(revision).toBeDefined();
+    expect(revision?.summary["pixel_art"]).toBeTruthy();
 
-      const finishedScriptJob = await service.waitForJob(scriptJob.id, 20);
-      if (finishedScriptJob.status !== "succeeded") {
-        throw new Error(`script job did not succeed: ${finishedScriptJob.status} ${finishedScriptJob.error ?? ""}\n${finishedScriptJob.logs}`);
-      }
-      expect(finishedScriptJob.status).toBe("succeeded");
-      expect(finishedScriptJob.operation).toBe("script");
-      const stateArtifact = finishedScriptJob.artifacts.find((a) => a.filename === "state.json");
-      const scriptArtifact = finishedScriptJob.artifacts.find((a) => a.filename === "script.ts");
-      expect(stateArtifact).toBeDefined();
-      expect(scriptArtifact).toBeDefined();
+    // get_pixel_art round-trip
+    const source = service.getPixelArt(project.id);
+    expect(source.definition.layers[0]?.name).toBe("body");
 
-      const project2 = service.getProject(project.id);
-      expect(project2.project.current_revision_id).not.toBeNull();
-      expect(project2.revisions).toHaveLength(1);
-      const revision = project2.revisions[0];
-      expect(revision).toBeDefined();
-      expect(revision?.summary["pixel_art"]).toBeTruthy();
+    const renderJob = service.renderAsset(project.id);
+    expect(renderJob.status).toBe("queued");
+    expect(renderJob.operation).toBe("sprites");
 
-      // get_pixel_art round-trip
-      const source = service.getPixelArt(project.id);
-      expect(source.definition.layers[0]?.name).toBe("body");
+    const finishedRenderJob = await service.waitForJob(renderJob.id, 30);
+    if (finishedRenderJob.status !== "succeeded") {
+      throw new Error(
+        `render job did not succeed: ${finishedRenderJob.status} ${finishedRenderJob.error ?? ""}\n${finishedRenderJob.logs}`,
+      );
+    }
+    expect(finishedRenderJob.status).toBe("succeeded");
+    expect(finishedRenderJob.artifacts.length).toBeGreaterThan(0);
 
-      const renderJob = service.renderAsset(project.id);
-      expect(renderJob.status).toBe("queued");
-      expect(renderJob.operation).toBe("sprites");
+    const spritesZip = finishedRenderJob.artifacts.find((a) => a.filename === "sprites.zip");
+    if (!spritesZip) throw new Error("expected a sprites.zip artifact");
+    const zipPath = service.artifactPath(spritesZip.id);
+    expect(existsSync(zipPath)).toBe(true);
 
-      const finishedRenderJob = await service.waitForJob(renderJob.id, 30);
-      if (finishedRenderJob.status !== "succeeded") {
-        throw new Error(`render job did not succeed: ${finishedRenderJob.status} ${finishedRenderJob.error ?? ""}\n${finishedRenderJob.logs}`);
-      }
-      expect(finishedRenderJob.status).toBe("succeeded");
-      expect(finishedRenderJob.artifacts.length).toBeGreaterThan(0);
+    const frameArtifact = finishedRenderJob.artifacts.find((a) => a.kind === "frame");
+    expect(frameArtifact).toBeDefined();
+    expect(frameArtifact?.width).toBeGreaterThan(0);
+    expect(frameArtifact?.height).toBeGreaterThan(0);
 
-      const spritesZip = finishedRenderJob.artifacts.find((a) => a.filename === "sprites.zip");
-      if (!spritesZip) throw new Error("expected a sprites.zip artifact");
-      const zipPath = service.artifactPath(spritesZip.id);
-      expect(existsSync(zipPath)).toBe(true);
-
-      const frameArtifact = finishedRenderJob.artifacts.find((a) => a.kind === "frame");
-      expect(frameArtifact).toBeDefined();
-      expect(frameArtifact?.width).toBeGreaterThan(0);
-      expect(frameArtifact?.height).toBeGreaterThan(0);
-
-      // inspect_asset round-trip against the real asset-report.json exportAsset wrote.
-      const report = service.inspectAsset(renderJob.id);
-      expect(report["job_id"]).toBe(renderJob.id);
-    },
-    30_000,
-  );
+    // inspect_asset round-trip against the real asset-report.json exportAsset wrote.
+    const report = service.inspectAsset(renderJob.id);
+    expect(report["job_id"]).toBe(renderJob.id);
+  }, 30_000);
 
   it("surfaces a script compile error as a failed job, not a crash", async () => {
     const project = service.createProject("Broken");

@@ -26,7 +26,11 @@ import {
 } from "./pixels.js";
 import type { Rgb } from "./quantize.js";
 
-function fillImage(width: number, height: number, color: readonly [number, number, number, number]): RGBAImage {
+function fillImage(
+  width: number,
+  height: number,
+  color: readonly [number, number, number, number],
+): RGBAImage {
   const image = createImage(width, height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) setPixel(image, x, y, color);
@@ -44,7 +48,8 @@ function fillRectInclusive(
   color: readonly [number, number, number, number],
 ): void {
   for (let y = Math.max(0, y0); y <= Math.min(image.height - 1, y1); y++) {
-    for (let x = Math.max(0, x0); x <= Math.min(image.width - 1, x1); x++) setPixel(image, x, y, color);
+    for (let x = Math.max(0, x0); x <= Math.min(image.width - 1, x1); x++)
+      setPixel(image, x, y, color);
   }
 }
 
@@ -79,7 +84,12 @@ function flatten(image: RGBAImage): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
   for (let i = 0; i < image.width * image.height; i++) {
     const offset = i * 4;
-    out.push([at(image.data, offset), at(image.data, offset + 1), at(image.data, offset + 2), at(image.data, offset + 3)]);
+    out.push([
+      at(image.data, offset),
+      at(image.data, offset + 1),
+      at(image.data, offset + 2),
+      at(image.data, offset + 3),
+    ]);
   }
   return out;
 }
@@ -117,7 +127,11 @@ describe("pixelate", () => {
   });
 
   it("honors a fixed palette (nearest match) and leaves fully transparent frames empty", () => {
-    const options = RenderOptionsSchema.parse({ width: 8, height: 8, palette: ["#000000", "#ffffff"] });
+    const options = RenderOptionsSchema.parse({
+      width: 8,
+      height: 8,
+      palette: ["#000000", "#ffffff"],
+    });
     const [images, palette] = pixelate([fillImage(8, 8, [240, 240, 240, 255])], options);
     const firstImage = at(images, 0);
     expect([
@@ -128,7 +142,10 @@ describe("pixelate", () => {
     ]).toEqual([255, 255, 255, 255]);
     expect(palette).toEqual(["#000000", "#ffffff"]);
 
-    const [transparentResult] = pixelate([createImage(8, 8)], RenderOptionsSchema.parse({ width: 8, height: 8 }));
+    const [transparentResult] = pixelate(
+      [createImage(8, 8)],
+      RenderOptionsSchema.parse({ width: 8, height: 8 }),
+    );
     expect(bbox(at(transparentResult, 0))).toBeNull();
   });
 
@@ -142,7 +159,12 @@ describe("pixelate", () => {
       fillRectInclusive(image, 8 + offset * 4, 4, 14 + offset * 4, 12, [70, 220, 250, 255]);
       frames.push(image);
     }
-    const options = RenderOptionsSchema.parse({ width: 16, height: 32, supersampling: 4, colors: 6 });
+    const options = RenderOptionsSchema.parse({
+      width: 16,
+      height: 32,
+      supersampling: 4,
+      colors: 6,
+    });
     const [images] = pixelate(frames, options);
 
     function cropBytes(im: RGBAImage, x0: number, y0: number, x1: number, y1: number): string {
@@ -167,7 +189,13 @@ describe("pixelate", () => {
     for (let x = 1; x < 16; x += 2) {
       for (let y = 0; y < 16; y++) setPixel(source, x, y, [0, 0, 255, 255]);
     }
-    const options = RenderOptionsSchema.parse({ width: 8, height: 8, angles: [0], supersampling: 2, colors: 2 });
+    const options = RenderOptionsSchema.parse({
+      width: 8,
+      height: 8,
+      angles: [0],
+      supersampling: 2,
+      colors: 2,
+    });
     const [crisp, crispPalette] = pixelate([source], options);
     expect(new Set(crispPalette)).toEqual(new Set(["#ff0000", "#0000ff"]));
     for (const [r, g, b] of flatten(at(crisp, 0))) {
@@ -265,7 +293,10 @@ describe("packSprites", () => {
     const options = RenderOptionsSchema.parse({ width: 8, height: 8, angles: [0] });
     const sprite = fillImage(8, 8, [100, 100, 100, 255]);
     setPixel(sprite, 0, 0, [101, 101, 101, 255]);
-    const manifest: RenderManifestLike = { frames: [{ filename: "", angle: 0, frame: 1, pivot: [4, 7] }], camera: {} };
+    const manifest: RenderManifestLike = {
+      frames: [{ filename: "", angle: 0, frame: 1, pivot: [4, 7] }],
+      camera: {},
+    };
     const out = path.join(dir, "out");
     packSprites([sprite], ["#646464", "#656565"], out, manifest, options, "p", "r");
     const packed = readPng(path.join(out, "spritesheet.png"));
@@ -302,7 +333,8 @@ describe("exportSheet", () => {
       frame_end: 2,
       fps: 10,
     });
-    const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] = [];
+    const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] =
+      [];
     const angleFramePairs: [number, number][] = [
       [0, 1],
       [0, 2],
@@ -314,13 +346,20 @@ describe("exportSheet", () => {
       writePng(path.join(raw, name), fillImage(8, 8, [index * 60, 0, 0, 255]));
       entries.push({ filename: name, angle, frame, pivot: [4, 7] });
     });
-    const manifest: RenderManifestLike = { frames: entries, camera: { projection: "orthographic" } };
+    const manifest: RenderManifestLike = {
+      frames: entries,
+      camera: { projection: "orthographic" },
+    };
     const out = path.join(dir, "export");
     exportSheet(raw, out, manifest, options, "project", "revision");
 
     const metadata = JSON.parse(readFileSync(path.join(out, "spritesheet.json"), "utf-8")) as {
       size: [number, number];
-      frames: { rect: [number, number, number, number]; pivot: [number, number]; duration_ms: number }[];
+      frames: {
+        rect: [number, number, number, number];
+        pivot: [number, number];
+        duration_ms: number;
+      }[];
     };
     expect(metadata.size).toEqual([16, 16]);
     expect(metadata.frames.map((f) => f.rect)).toEqual([
@@ -342,7 +381,14 @@ describe("exportSheet", () => {
     expect(names.filter((n) => n.endsWith(".apng"))).toHaveLength(2);
 
     expect(() => {
-      exportSheet(raw, path.join(dir, "bad"), { ...manifest, frames: entries.slice(0, 1) }, options, "p", "r");
+      exportSheet(
+        raw,
+        path.join(dir, "bad"),
+        { ...manifest, frames: entries.slice(0, 1) },
+        options,
+        "p",
+        "r",
+      );
     }).toThrow(/incomplete/);
   });
 
@@ -363,7 +409,8 @@ describe("exportSheet", () => {
         palette: ["#ff0000", "#00ff00"],
       });
       const frames = renderOptionsFrames(options);
-      const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] = [];
+      const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] =
+        [];
       options.angles.forEach((angle, row) => {
         frames.forEach((frame, column) => {
           const name = `${String(row)}_${String(frame)}.png`;
@@ -387,7 +434,12 @@ describe("exportSheet", () => {
       exportSheet(raw, out, manifest, options, "p", "r");
 
       const metadata = JSON.parse(readFileSync(path.join(out, "spritesheet.json"), "utf-8")) as {
-        directions: { angle: number; row: number; frame_indices: number[]; animation: string | null }[];
+        directions: {
+          angle: number;
+          row: number;
+          frame_indices: number[];
+          animation: string | null;
+        }[];
         frames: { filename: string; angle: number; frame: number }[];
         player: string;
       };
@@ -429,7 +481,9 @@ describe("exportSheet", () => {
         width: number;
         height: number;
       };
-      expect(Buffer.from(embedded.image, "base64")).toEqual(readFileSync(path.join(out, "spritesheet.png")));
+      expect(Buffer.from(embedded.image, "base64")).toEqual(
+        readFileSync(path.join(out, "spritesheet.png")),
+      );
       expect(embedded.angles).toEqual([90, 0]);
       expect(embedded.frames).toEqual(frames);
       expect(embedded.width).toBe(16);

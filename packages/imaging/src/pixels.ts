@@ -56,7 +56,11 @@ export function sampleSourceColors(
     const offset = pixelIndex * 4;
     const alpha = at(image.data, offset + 3);
     if (alpha >= alphaThreshold) {
-      samples.push([at(image.data, offset), at(image.data, offset + 1), at(image.data, offset + 2)]);
+      samples.push([
+        at(image.data, offset),
+        at(image.data, offset + 1),
+        at(image.data, offset + 2),
+      ]);
     }
   }
   return samples;
@@ -224,7 +228,14 @@ export function exportSheet(
     // The generic `RenderManifestLike` frame shape omits `pixel_layers`/`pixel_art` -- present at
     // runtime whenever `options.asset` is set (the engine's own render-manifest builder attaches
     // them), just not part of the shared type every `exportSheet` caller uses.
-    exportAsset(rawDir, outputDir, manifest as unknown as AssetExportManifest, options, projectId, revisionId);
+    exportAsset(
+      rawDir,
+      outputDir,
+      manifest as unknown as AssetExportManifest,
+      options,
+      projectId,
+      revisionId,
+    );
     return;
   }
   if (options.pet) {
@@ -236,7 +247,14 @@ export function exportSheet(
     return;
   }
   if (options.states) {
-    exportStates(rawDir, outputDir, manifest as StatesExportManifest, options, projectId, revisionId);
+    exportStates(
+      rawDir,
+      outputDir,
+      manifest as StatesExportManifest,
+      options,
+      projectId,
+      revisionId,
+    );
     return;
   }
 
@@ -289,7 +307,8 @@ export function exportSheet(
   const [rendered, palette] = pixelate(sources, options);
   const indices: number[] = [];
   for (let row = 0; row < rows; row++) {
-    for (let column = 0; column < columns; column++) indices.push(row * renderedFrames.length + column);
+    for (let column = 0; column < columns; column++)
+      indices.push(row * renderedFrames.length + column);
   }
   const frames = indices.map((i) => at(rendered, i));
   const offFrames =
@@ -425,14 +444,18 @@ export function packSprites(
         pasteFull(composite, at(frames, row * columns + column), 0, row * options.height);
       }
       composite = resizeNearest(composite, composite.width * gifScale, composite.height * gifScale);
-      if (Math.max(composite.width, composite.height) > 1024) composite = thumbnailNearest(composite, 1024);
+      if (Math.max(composite.width, composite.height) > 1024)
+        composite = thumbnailNearest(composite, 1024);
       gifFrames.push(composite);
     }
     saveAnimatedGif(gifFrames, palette, options.fps, path.join(outputDir, "preview.gif"));
   }
 
   const directions: DirectionEntry[] = options.angles.map((angle, row) => {
-    const frameIndices = Array.from({ length: columns }, (_unused, column) => row * columns + column);
+    const frameIndices = Array.from(
+      { length: columns },
+      (_unused, column) => row * columns + column,
+    );
     let animation: string | null = null;
     if (columns > 1) {
       animation = `animations/direction_${pad(row, 2)}.apng`;

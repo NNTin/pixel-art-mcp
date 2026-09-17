@@ -4,13 +4,20 @@
  * that file's top comment, and `pixel-authoring.ts`'s own).
  */
 
-import { PixelDefinitionSchema, resolveAsset, AssetSpecSchema, type AssetLayout } from "@pixel-art-mcp/schema";
+import {
+  PixelDefinitionSchema,
+  resolveAsset,
+  AssetSpecSchema,
+  type AssetLayout,
+} from "@pixel-art-mcp/schema";
 import { describe, expect, it } from "vitest";
 
 import { buildSaveScript, definitionToArt, validateAuthoredArt } from "./pixel-authoring.js";
 
 function furnitureLayouts(): readonly AssetLayout[] {
-  const options = resolveAsset(AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR" }));
+  const options = resolveAsset(
+    AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR" }),
+  );
   return options.asset_layouts as unknown as AssetLayout[];
 }
 
@@ -97,7 +104,9 @@ describe("definitionToArt", () => {
 
 describe("validateAuthoredArt", () => {
   it("passes for a definition matching the configured canvases with visible ink", () => {
-    const options = resolveAsset(AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR" }));
+    const options = resolveAsset(
+      AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR" }),
+    );
     const layouts = options.asset_layouts as unknown as AssetLayout[];
     const definition = PixelDefinitionSchema.parse({
       palette: { D: "#293039", G: "#f3cf65" },
@@ -112,11 +121,15 @@ describe("validateAuthoredArt", () => {
       ],
     });
     const art = definitionToArt(definition, layouts);
-    expect(() => validateAuthoredArt(art.toDict() as unknown as Record<string, unknown>, options)).not.toThrow();
+    expect(() =>
+      validateAuthoredArt(art.toDict() as unknown as Record<string, unknown>, options),
+    ).not.toThrow();
   });
 
   it("wraps a mismatched definition in a DomainError with the Python-verbatim message prefix", () => {
-    const options = resolveAsset(AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR" }));
+    const options = resolveAsset(
+      AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR" }),
+    );
     expect(() =>
       validateAuthoredArt({ version: 1, palette: {}, views: {}, layers: [] }, options),
     ).toThrow(/^Invalid pixel-art definition: /);
@@ -137,7 +150,7 @@ describe("buildSaveScript", () => {
     expect(script).toContain("art.save(scene)");
     // The embedded literal really is valid JSON when unwrapped once.
     const match = /JSON\.parse\((".*")\)/.exec(script);
-    if (!match?.[1]) throw new Error("expected script to embed a JSON.parse(\"...\") literal");
+    if (!match?.[1]) throw new Error('expected script to embed a JSON.parse("...") literal');
     const inner = JSON.parse(match[1]) as string;
     expect(JSON.parse(inner)).toEqual(data);
   });

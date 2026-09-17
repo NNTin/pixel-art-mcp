@@ -51,7 +51,12 @@ afterEach(() => {
 });
 
 function furnitureSpec(overrides: Record<string, unknown> = {}) {
-  return AssetSpecSchema.parse({ kind: "furniture", name: "Chair", asset_id: "CHAIR", ...overrides });
+  return AssetSpecSchema.parse({
+    kind: "furniture",
+    name: "Chair",
+    asset_id: "CHAIR",
+    ...overrides,
+  });
 }
 
 describe("capabilities", () => {
@@ -68,7 +73,9 @@ describe("capabilities", () => {
   });
 
   it("reflects worker_ready off when no worker is attached", () => {
-    const bare = new Service({ data_dir: mkdtempSync(path.join(tmpdir(), "pixel-art-service-bare-")) });
+    const bare = new Service({
+      data_dir: mkdtempSync(path.join(tmpdir(), "pixel-art-service-bare-")),
+    });
     expect(bare.capabilities()["worker_ready"]).toBe(false);
     bare.store.close();
   });
@@ -183,7 +190,11 @@ describe("_submit gating via submitScript/submitRender", () => {
   it("rejects a stale expected_revision_id", () => {
     const project = service.createProject("Chair");
     expect(() =>
-      service.submitScript(project.id, "export default function main(){}", "00000000-0000-4000-8000-000000000000"),
+      service.submitScript(
+        project.id,
+        "export default function main(){}",
+        "00000000-0000-4000-8000-000000000000",
+      ),
     ).toThrow(DomainError);
   });
 
@@ -253,7 +264,9 @@ describe("waitForJob", () => {
 
 describe("reference ingestion", () => {
   async function pngBuffer(): Promise<Buffer> {
-    return sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } } })
+    return sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
       .png()
       .toBuffer();
   }
@@ -272,25 +285,37 @@ describe("reference ingestion", () => {
 
   it("addReferenceInput requires exactly one of data_base64/file", async () => {
     const project = service.createProject("Chair");
-    await expect(service.addReferenceInput(project.id, null, null, "x.png")).rejects.toThrow(DomainError);
-    const file = { download_url: "https://example.invalid/x.png", file_id: "f1", mime_type: "", file_name: "" };
-    await expect(
-      service.addReferenceInput(project.id, "aGVsbG8=", file, "x.png"),
-    ).rejects.toThrow(DomainError);
+    await expect(service.addReferenceInput(project.id, null, null, "x.png")).rejects.toThrow(
+      DomainError,
+    );
+    const file = {
+      download_url: "https://example.invalid/x.png",
+      file_id: "f1",
+      mime_type: "",
+      file_name: "",
+    };
+    await expect(service.addReferenceInput(project.id, "aGVsbG8=", file, "x.png")).rejects.toThrow(
+      DomainError,
+    );
   });
 
   it("addReferenceInput decodes a valid base64 upload", async () => {
     const project = service.createProject("Chair");
     const png = await pngBuffer();
-    const reference = await service.addReferenceInput(project.id, png.toString("base64"), null, "photo.png");
+    const reference = await service.addReferenceInput(
+      project.id,
+      png.toString("base64"),
+      null,
+      "photo.png",
+    );
     expect(reference.width).toBe(8);
   });
 
   it("addReferenceInput rejects invalid base64", async () => {
     const project = service.createProject("Chair");
-    await expect(service.addReferenceInput(project.id, "not-base64!!!", null, "x.png")).rejects.toThrow(
-      DomainError,
-    );
+    await expect(
+      service.addReferenceInput(project.id, "not-base64!!!", null, "x.png"),
+    ).rejects.toThrow(DomainError);
   });
 });
 

@@ -128,7 +128,11 @@ describe("nativeRender", () => {
 
   it("produces no frames and an empty camera when there are no declared views", () => {
     const art = makeArt();
-    const options: NativeRenderOptions = { asset_layouts: [], frame_sequence: [1], supersampling: 1 };
+    const options: NativeRenderOptions = {
+      asset_layouts: [],
+      frame_sequence: [1],
+      supersampling: 1,
+    };
     const manifest = nativeRender(options, dir, art, () => {
       /* never called */
     });

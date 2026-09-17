@@ -73,7 +73,14 @@ describe("isGlobalAddress", () => {
   });
 
   it("carves out documented AMT/well-known IPv6 exceptions", () => {
-    for (const ip of ["2001:1::1", "2001:1::2", "2001:3::1", "2001:4:112::1", "2001:20::1", "2001:30::1"]) {
+    for (const ip of [
+      "2001:1::1",
+      "2001:1::2",
+      "2001:3::1",
+      "2001:4:112::1",
+      "2001:20::1",
+      "2001:30::1",
+    ]) {
       expect(isGlobalAddress(ip)).toBe(true);
     }
   });

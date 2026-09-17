@@ -42,7 +42,8 @@ describe("exportSheet with options.pixel_agents", () => {
       });
       const raw = path.join(dir, "raw");
       const out = path.join(dir, "out");
-      const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] = [];
+      const entries: { filename: string; angle: number; frame: number; pivot: [number, number] }[] =
+        [];
       const originals: ReturnType<typeof createImage>[] = [];
       // `options.render_frames()`: frame_sequence-order frames (2, 4) then any off_frame not
       // already present appended at the end (0) -- matches `renderOptionsRenderFrames`.
@@ -51,7 +52,8 @@ describe("exportSheet with options.pixel_agents", () => {
         for (const frame of renderFrames) {
           const image = createImage(32, 96);
           for (let y = 55; y <= 90; y++) {
-            for (let x = 8 + frame; x <= 24; x++) setPixel(image, x, y, [150, (80 + row * 50) % 256, 20, 255]);
+            for (let x = 8 + frame; x <= 24; x++)
+              setPixel(image, x, y, [150, (80 + row * 50) % 256, 20, 255]);
           }
           if (frame) {
             // Isolated pixels survive here, but not in nearest-upscaled low-res.
@@ -113,7 +115,11 @@ describe("exportSheet with options.pixel_agents", () => {
           const off = groupMembers[0];
           expect(off).toBeDefined();
           if (!off) return;
-          const on = groupMembers[1] as { groupType: string; state: string; members: Record<string, unknown>[] };
+          const on = groupMembers[1] as {
+            groupType: string;
+            state: string;
+            members: Record<string, unknown>[];
+          };
           expect(off["state"]).toBe("off");
           expect(on.groupType).toBe("animation");
           expect(on.state).toBe("on");
