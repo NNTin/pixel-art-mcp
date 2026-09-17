@@ -238,6 +238,15 @@ importers:
         specifier: ^8.17.1
         version: 8.20.0
 
+  tools/generate-examples:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.30.0
+        version: 1.30.0(supports-color@7.2.0)(zod@4.6.5)
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+
 packages:
 
   '@codemirror/autocomplete@6.20.3':

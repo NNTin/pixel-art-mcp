@@ -9,6 +9,7 @@
     { "path": "packages/engine" },
     { "path": "packages/service" },
     { "path": "apps/server" },
-    { "path": "tools/contracts-pixel-index" }
+    { "path": "tools/contracts-pixel-index" },
+    { "path": "tools/generate-examples" }
   ]
 }

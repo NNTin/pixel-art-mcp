@@ -1,0 +1,24 @@
+{
+  "name": "@pixel-art-mcp/generate-examples",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Port of scripts/generate_examples.py: drives a real running apps/server over MCP Streamable HTTP through the full example-generation pipeline and writes a static HTML gallery. Standalone, like tools/contracts-pixel-index -- not part of the main app's dependency graph.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "generate": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "fflate": "^0.8.3"
+  }
+}
