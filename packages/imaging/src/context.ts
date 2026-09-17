@@ -1,18 +1,25 @@
 /**
  * Offline, approximate webview context. No browser is required by the production server. Port
  * of `src/pixel_art_mcp/imaging/context.py` (132 lines).
- *
- * `exportContext` (writes `context.png`, `preview.html`, etc.) depends on the not-yet-ported
- * asset-packaging shapes (`metadata["asset"]`/`metadata["layouts"]` from `asset_export.py`) --
- * stubbed below, Phase 5b-ii's job. Everything else (`BACKGROUND_COLOR`/`luma`/`referenceAgent`/
- * `contextGeometry`/`contextImage`) is ported fully, since `asset_export.py`'s `asset_report`
- * (also Phase 5b-ii) needs `BACKGROUND_COLOR`/`luma` for its contrast checks, and this is their
- * natural home.
  */
+
+import fs from "node:fs";
+import path from "node:path";
 
 import type { AssetSpec } from "@pixel-art-mcp/schema";
 
-import { createImage, pasteFull, setPixel, type Rgba, type RGBAImage } from "./image.js";
+import {
+  createImage,
+  pasteFull,
+  readPng,
+  resizeNearest,
+  setPixel,
+  writePng,
+  type Rgba,
+  type RGBAImage,
+} from "./image.js";
+import { defined } from "./internal.js";
+import { ASSET_PLAYER_HTML_TEMPLATE } from "./templates.js";
 
 /** The webview's actual floor tile is close to this; used both to paint the approximate preview
  * stage and to judge whether a sprite blends into it. */
@@ -182,16 +189,71 @@ export function contextImage(
   return stage;
 }
 
-/**
- * TODO(Phase 5b-ii): port `export_context` once `asset_export.py`'s output shape
- * (`metadata.asset`/`metadata.layouts`/`metadata.frames`/`metadata.package`) exists -- it reads
- * that shape directly (`spec, layouts = metadata["asset"], metadata["layouts"]`, etc.) and writes
- * `context.png`/`comparison/reference-agent.png`/`preview.html` against `asset_player.html`,
- * none of which this phase has a producer for yet.
- */
-export function exportContext(_outputDir: string, _metadata: Record<string, unknown>): never {
-  throw new Error(
-    "exportContext is not implemented yet (Phase 5b-ii: depends on asset_export.py's output " +
-      "shape -- see docs/typescript-rewrite.md and this package's final report).",
+/** One `asset-export.ts::exportAsset`-produced `spritesheet.json` frame entry -- the subset
+ * `exportContext` reads (the low-res exported PNG plus its high-resolution comparison source). */
+export interface ContextFrameEntry {
+  angle: number;
+  frame: number;
+  filename: string;
+  source: string;
+  [key: string]: unknown;
+}
+
+/** The subset of `asset-export.ts::exportAsset`'s written `spritesheet.json` shape
+ * `exportContext` reads. */
+export interface ExportContextMetadata {
+  asset: AssetSpec;
+  layouts: readonly ContextLayout[];
+  frames: readonly ContextFrameEntry[];
+  playback: Record<string, unknown>;
+  package: { archive: string; [key: string]: unknown };
+}
+
+/** Port of `export_context`: the offline approximate placement-context preview
+ * (`context.png`, `comparison/reference-agent.png`, `preview.html`). */
+export function exportContext(outputDir: string, metadata: ExportContextMetadata): void {
+  function encode(filePath: string): string {
+    return `data:image/png;base64,${fs.readFileSync(filePath).toString("base64")}`;
+  }
+
+  const spec = metadata.asset;
+  const layouts = metadata.layouts;
+  const byKey = new Map<string, ContextFrameEntry>();
+  for (const entry of metadata.frames) byKey.set(`${String(entry.angle)}:${String(entry.frame)}`, entry);
+  const firstClip = defined(Object.values(spec.clips)[0], "first clip");
+  // Show the actual default pose for animated furniture, including extinguished lamps.
+  const firstFrame = firstClip.off_frame ?? defined(firstClip.frames[0], "first clip frame");
+  const firstLayout = defined(layouts[0], "first layout");
+  const entry = defined(
+    byKey.get(`${String(firstLayout.angle)}:${String(firstFrame)}`),
+    "context preview frame entry",
+  );
+  const image = readPng(path.join(outputDir, entry.filename));
+  const stage = contextImage(image, spec, firstLayout);
+  writePng(path.join(outputDir, "context.png"), resizeNearest(stage, stage.width * 4, stage.height * 4));
+
+  const agentPath = path.join(outputDir, "comparison", "reference-agent.png");
+  writePng(agentPath, referenceAgent());
+
+  const data = {
+    spec,
+    playback: metadata.playback,
+    layouts,
+    reference: encode(agentPath),
+    package: metadata.package.archive,
+    geometry: Object.fromEntries(
+      layouts.map((row) => [String(row.angle), contextGeometry(spec.kind, row, spec.category, row.angle)]),
+    ),
+    cells: metadata.frames.map((e) => ({
+      ...e,
+      image: encode(path.join(outputDir, e.filename)),
+      high: encode(path.join(outputDir, e.source)),
+    })),
+  };
+  const json = JSON.stringify(data).replace(/</g, "\\u003c");
+  fs.writeFileSync(
+    path.join(outputDir, "preview.html"),
+    ASSET_PLAYER_HTML_TEMPLATE.replace("__ASSET_DATA__", json),
+    "utf-8",
   );
 }

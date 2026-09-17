@@ -1,6 +1,6 @@
 /**
  * The shared downscale/quantize/pack pipeline. Port of `src/pixel_art_mcp/imaging/pixels.py`
- * (340 lines) -- see this package's final report for exactly what's real vs. stubbed below.
+ * (340 lines).
  */
 
 import fs from "node:fs";
@@ -10,6 +10,8 @@ import { DomainError, renderOptionsFrames, renderOptionsRenderFrames } from "@pi
 import type { RenderOptions } from "@pixel-art-mcp/schema";
 
 import { encodeApng } from "./apng.js";
+import { exportAsset, type AssetExportManifest } from "./asset-export.js";
+import { exportCharacter } from "./character.js";
 import { saveAnimatedGif } from "./gif.js";
 import {
   boxDownscaleAlpha,
@@ -24,7 +26,11 @@ import {
 } from "./image.js";
 import { at } from "./internal.js";
 import { writeSpritesZip } from "./pack-zip.js";
+import { exportPixelAgents } from "./pixel-agents.js";
+import { exportPetSheet } from "./pet.js";
+import { exportPlayer } from "./player.js";
 import { hexToRgb, medianCutPalette, nearestPaletteIndex, rgbToHex, type Rgb } from "./quantize.js";
+import { exportStates, type StatesExportManifest } from "./states.js";
 
 // ---------------------------------------------------------------------------------------------
 // palette_from_samples / sample_source_colors
@@ -199,18 +205,12 @@ export interface RenderManifestLike {
   camera: Record<string, unknown>;
 }
 
-function notImplemented(what: string): never {
-  throw new Error(
-    `${what} is not implemented yet (Phase 5b-ii: asset/pet/states-specific packaging -- ` +
-      "see docs/typescript-rewrite.md and this package's final report).",
-  );
-}
-
 /**
- * Dispatches to the asset/pet/states-specific export functions (`export_asset.py`/`pet.py`/
- * `states.py`) -- none of which exist yet (Phase 5b-ii's job). Everything below the three
- * `notImplemented` branches is the **generic fallback path** ("else" branch in the Python
- * source), implemented fully here since it doesn't depend on any of that packaging-layer code.
+ * Dispatches to the asset/pet/states-specific export functions (`asset-export.ts::exportAsset`/
+ * `pet.ts::exportPetSheet`/`states.ts::exportStates`). Everything below those three branches is
+ * the **generic fallback path** ("else" branch in the Python source): the shape every one of
+ * those specific exports eventually calls back into (directly, or -- for `exportStates` -- via a
+ * recursive `exportSheet` call per named state).
  */
 export function exportSheet(
   rawDir: string,
@@ -221,17 +221,23 @@ export function exportSheet(
   revisionId: string,
 ): void {
   if (options.asset) {
-    // TODO(Phase 5b-ii): port `asset_export.py::export_asset` (asset-kind-specific packaging:
-    // clips, off-frames-per-clip, pixel-feature auditing via `compositeFeatures`, manifest.json).
-    notImplemented("export_asset");
+    // The generic `RenderManifestLike` frame shape omits `pixel_layers`/`pixel_art` -- present at
+    // runtime whenever `options.asset` is set (the engine's own render-manifest builder attaches
+    // them), just not part of the shared type every `exportSheet` caller uses.
+    exportAsset(rawDir, outputDir, manifest as unknown as AssetExportManifest, options, projectId, revisionId);
+    return;
   }
   if (options.pet) {
-    // TODO(Phase 5b-ii): port `pet.py::export_pet_sheet` (asymmetric-grid pet PNG + manifest.json).
-    notImplemented("export_pet_sheet");
+    // Checked before options.states: pet also configures its walk/idle frame roles through
+    // options.states, but its packaging (a single asymmetric-grid PNG, no per-state
+    // player/variants) has nothing in common with the general multi-state furniture machinery
+    // below.
+    exportPetSheet(rawDir, outputDir, manifest, options, projectId, revisionId);
+    return;
   }
   if (options.states) {
-    // TODO(Phase 5b-ii): port `states.py::export_states` (named fill/appearance state packaging).
-    notImplemented("export_states");
+    exportStates(rawDir, outputDir, manifest as StatesExportManifest, options, projectId, revisionId);
+    return;
   }
 
   const entries = manifest.frames;
@@ -346,97 +352,6 @@ export interface PackSpritesExtras {
 
 function pad(value: number, width: number): string {
   return String(value).padStart(width, "0");
-}
-
-/**
- * `exportPixelAgents`/`exportCharacter`/`exportPlayer` below are the pixel-agents-furniture,
- * pixel-index-character, and offline-sprite-player exports (`pixel_agents.py`, `character.py`,
- * `player.py`) -- Phase 5b-ii's territory per this package's brief. Each null-checks its own
- * "not requested" case for real (a plain passthrough requiring no packaging-specific code, and
- * needed so the generic fallback path above -- which never sets `options.pixel_agents`/
- * `options.character` -- can complete), and throws loudly the moment it would actually have to
- * do asset-specific work.
- *
- * `exportPlayer` is the one deliberate exception, flagged prominently in this package's final
- * report: Python's `export_player` has no such "not requested" branch -- it runs unconditionally
- * on every `packSprites` call, and it's what writes `spritesheet.json`'s `player` file. Stubbing
- * it to always throw would mean `packSprites` could never complete for *any* input, which would
- * silently break the generic fallback path this phase is explicitly supposed to implement "for
- * real" (and, transitively, block `inspection.ts`'s own fidelity-bar tests, which construct their
- * fixture sprite exports via `packSprites`). So this port implements `exportPlayer`'s actual data
- * contract (the base64-embedded `data` JSON block `spritesheet.json`'s `player` field points at,
- * and that `test_pixels.py::test_animation_pixels_timing_transparency_and_offline_player` asserts
- * against field-by-field) for real, and stubs only the full interactive canvas/zoom/playback HTML
- * UI (`player.html`'s ~130 lines of markup/CSS/JS) behind a minimal static shell -- a narrower
- * scope than the file-level brief called for, called out explicitly rather than guessed silently.
- */
-function exportPixelAgents(
-  outputDir: string,
-  options: RenderOptions,
-  _frames: readonly RGBAImage[],
-  _offFrames: readonly RGBAImage[] | null,
-): Record<string, unknown> | null {
-  if (!options.pixel_agents) return null;
-  // TODO(Phase 5b-ii): port `pixel_agents.py::export_pixel_agents`'s real packaging body.
-  notImplemented("export_pixel_agents");
-}
-
-function exportCharacter(
-  outputDir: string,
-  options: RenderOptions,
-  _frames: readonly RGBAImage[],
-): Record<string, unknown> | null {
-  if (!options.character) return null;
-  // TODO(Phase 5b-ii): port `character.py::export_character`'s real packaging body.
-  notImplemented("export_character");
-}
-
-function encodeBase64(filePath: string): string {
-  return fs.readFileSync(filePath).toString("base64");
-}
-
-/**
- * TODO(Phase 5b-ii): replace this minimal static shell with a full port of `player.html`'s
- * interactive canvas/zoom/playback UI (~130 lines of markup/CSS/JS -- genuine "packaging/UI"
- * scope, not core imaging). The `data` block embedded below is the real, tested wire contract
- * (see this function's doc comment on the exported group above); only its visual presentation is
- * stubbed.
- */
-function exportPlayer(
-  outputDir: string,
-  options: RenderOptions,
-  extras: {
-    comparison: Record<string, unknown> | null;
-    target: Record<string, unknown> | null;
-    offImage: string | null;
-  },
-): void {
-  const comparison = extras.comparison
-    ? {
-        ...extras.comparison,
-        image: encodeBase64(path.join(outputDir, extras.comparison["image"] as string)),
-        offImage: extras.comparison["off_image"]
-          ? encodeBase64(path.join(outputDir, extras.comparison["off_image"] as string))
-          : null,
-      }
-    : null;
-  const data = {
-    width: options.width,
-    height: options.height,
-    angles: options.angles,
-    frames: renderOptionsFrames(options),
-    fps: options.fps,
-    image: encodeBase64(path.join(outputDir, "spritesheet.png")),
-    offImage: extras.offImage ? encodeBase64(path.join(outputDir, extras.offImage)) : null,
-    target: extras.target,
-    comparison,
-  };
-  const json = JSON.stringify(data).replace(/</g, "\\u003c");
-  const html =
-    "<!doctype html>\n<title>Sprite export comparison</title>\n" +
-    "<!-- TODO(Phase 5b-ii): port player.html's full interactive UI. -->\n" +
-    `<script>\nconst data = ${json};\n</script>\n`;
-  fs.writeFileSync(path.join(outputDir, "preview.html"), html, "utf-8");
 }
 
 /** Package already converted sprites without changing their colors or placement. */

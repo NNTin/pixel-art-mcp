@@ -193,7 +193,15 @@ interface Selection {
   state: SelectionState | null;
 }
 
-function selection(
+/**
+ * Resolves a `(state/clip id, angle, frame)` request against a `spritesheet.json` export root --
+ * dispatching on whether it's an asset export (`raw.asset.clips`), a named-states export
+ * (`raw.states`), or a plain generic export -- to the exact `spritesheet.json` (root's own, or a
+ * nested `states/<id>/spritesheet.json`/asset clip subset) and PNG file path the request selects.
+ * Exported for `preview.ts::assetPreview` (this module's own `inspectSprite` needs it too, below)
+ * -- the direct TS equivalent of Python's `_selection` helper in `inspection.py`.
+ */
+export function selectSpriteFrame(
   root: string,
   stateId: string | null,
   angle: number | null,
@@ -344,7 +352,7 @@ export function inspectSprite(
   angle: number | null = null,
   frame: number | null = null,
 ): InspectionResult {
-  const { metadata, entry, filePath, state } = selection(root, stateId, angle, frame);
+  const { metadata, entry, filePath, state } = selectSpriteFrame(root, stateId, angle, frame);
   let image;
   try {
     image = readPng(filePath);

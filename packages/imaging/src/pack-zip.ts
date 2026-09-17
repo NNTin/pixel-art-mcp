@@ -23,17 +23,30 @@ function listFiles(dir: string, out: string[]): void {
   }
 }
 
-export function writeSpritesZip(outputDir: string): void {
+/**
+ * General-purpose `zipfile.ZipFile(...); for path in sorted(root.rglob("*")): ...` port: zips
+ * every file recursively under `root` (paths inside the archive relative to `root`) into
+ * `destination`, skipping `destination` itself if it happens to live inside `root`. Shared by
+ * every module that writes an installable/diagnostic archive (`pixels.ts`'s `writeSpritesZip`
+ * below, `pixel-agents.ts`, `character.ts`, `pet.ts`, `asset-export.ts`, `states.ts`).
+ */
+export function zipDirectory(root: string, destination: string): void {
   const files: string[] = [];
-  listFiles(outputDir, files);
+  listFiles(root, files);
   files.sort();
 
+  const resolvedDestination = path.resolve(destination);
   const entries: Record<string, Uint8Array> = {};
   for (const file of files) {
-    if (path.basename(file) === "sprites.zip") continue;
-    const relative = path.relative(outputDir, file).split(path.sep).join("/");
+    if (path.resolve(file) === resolvedDestination) continue;
+    const relative = path.relative(root, file).split(path.sep).join("/");
     entries[relative] = fs.readFileSync(file);
   }
 
-  fs.writeFileSync(path.join(outputDir, "sprites.zip"), zipSync(entries, { level: 6 }));
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.writeFileSync(destination, zipSync(entries, { level: 6 }));
+}
+
+export function writeSpritesZip(outputDir: string): void {
+  zipDirectory(outputDir, path.join(outputDir, "sprites.zip"));
 }

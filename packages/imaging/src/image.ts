@@ -79,6 +79,39 @@ export function pasteFull(dst: RGBAImage, src: RGBAImage, x: number, y: number):
   }
 }
 
+/**
+ * `dst.paste(src.crop((sx, sy, sx + sw, sy + sh)), (dx, dy))`: copies a rectangular region of
+ * `src` into `dst` at `(dx, dy)`, no blending (same last-writer-wins semantics as `pasteFull`),
+ * clipped to both images' bounds on both the source-read and destination-write side.
+ */
+export function pasteCrop(
+  dst: RGBAImage,
+  src: RGBAImage,
+  sx: number,
+  sy: number,
+  sw: number,
+  sh: number,
+  dx: number,
+  dy: number,
+): void {
+  for (let y = 0; y < sh; y++) {
+    const srcY = sy + y;
+    const dstY = dy + y;
+    if (srcY < 0 || srcY >= src.height || dstY < 0 || dstY >= dst.height) continue;
+    for (let x = 0; x < sw; x++) {
+      const srcX = sx + x;
+      const dstX = dx + x;
+      if (srcX < 0 || srcX >= src.width || dstX < 0 || dstX >= dst.width) continue;
+      const srcOffset = (srcY * src.width + srcX) * 4;
+      const dstOffset = (dstY * dst.width + dstX) * 4;
+      dst.data[dstOffset] = at(src.data, srcOffset);
+      dst.data[dstOffset + 1] = at(src.data, srcOffset + 1);
+      dst.data[dstOffset + 2] = at(src.data, srcOffset + 2);
+      dst.data[dstOffset + 3] = at(src.data, srcOffset + 3);
+    }
+  }
+}
+
 /** `image.resize((w, h), Image.Resampling.NEAREST)`. */
 export function resizeNearest(image: RGBAImage, newWidth: number, newHeight: number): RGBAImage {
   const output = createImage(newWidth, newHeight);
