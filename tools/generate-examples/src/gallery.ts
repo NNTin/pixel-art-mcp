@@ -45,13 +45,16 @@ export function clipLinksHtml(
   );
 }
 
-/** One gallery card for an example that produced a `preview.html` (i.e. actually finished). */
+/** One gallery card for an example that produced a `preview.html` (i.e. actually finished).
+ * Thumbnails `spritesheet.png` (transparent background, present for every example kind) rather
+ * than `context.png` (a placement-context render with a deliberately opaque room/floor
+ * backdrop) -- the gallery is meant to show the actual exported sprite, not its staged context. */
 export function exampleCardHtml(name: string, clipLinks: string): string {
   const n = escapeHtml(name);
   return (
     `<article><h2><a href="${n}/preview.html">${n}</a></h2>` +
     `<a href="${n}/preview.html">` +
-    `<img src="${n}/context.png" alt="${n} in approximate placement context"></a>` +
+    `<img src="${n}/spritesheet.png" alt="${n} exported sprites"></a>` +
     `<p><a href="${n}/sprites.zip">Download all outputs</a> · ` +
     `<a href="${n}/asset-report.json">Diagnostics</a></p>` +
     clipLinks +
@@ -69,7 +72,12 @@ export function galleryIndexHtml(cardsHtml: string, hasWebview: boolean): string
     '<!doctype html><meta charset="utf-8"><title>Game assets</title>' +
     "<style>body{font:16px system-ui;background:#182027;color:#e6eef4;margin:24px}" +
     "a{color:#a4cefb}main{display:flex;flex-wrap:wrap;gap:24px}" +
-    "img{width:320px;image-rendering:pixelated}h2{font-size:20px}</style>" +
+    // Spritesheets vary widely in aspect ratio (a tall single-direction strip vs. a wide
+    // multi-direction sheet) -- a fixed box + object-fit:contain keeps every card the same size
+    // regardless, rather than letting a tall/narrow sheet blow out the grid at width:320px auto
+    // height.
+    "img{width:320px;height:320px;object-fit:contain;image-rendering:pixelated}" +
+    "h2{font-size:20px}</style>" +
     "<h1>Pixel Agents asset previews</h1><p>Generated through MCP. " +
     "Open an example for animation, placement controls, and source comparison.</p>" +
     webview +

@@ -39,7 +39,7 @@ describe("exampleCardHtml", () => {
   it("renders a card linking to the example's preview, sprites.zip, and diagnostics", () => {
     const html = exampleCardHtml("chair", "");
     expect(html).toContain('<a href="chair/preview.html">chair</a>');
-    expect(html).toContain('<img src="chair/context.png"');
+    expect(html).toContain('<img src="chair/spritesheet.png"');
     expect(html).toContain('<a href="chair/sprites.zip">Download all outputs</a>');
     expect(html).toContain('<a href="chair/asset-report.json">Diagnostics</a>');
     expect(html.endsWith("</article>")).toBe(true);
