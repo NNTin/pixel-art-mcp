@@ -140,4 +140,78 @@ describe("createJobExecutor + Worker + engine subprocess + imaging (real end-to-
     // The worker loop itself must have survived -- prove it by submitting a good job right after.
     expect(service.workerReady).toBe(true);
   }, 30_000);
+
+  /**
+   * Regression test for the safety property `docs/typescript-rewrite.md`'s "Core design
+   * decisions" -> "Script sandboxing" section exists to guarantee: `packages/pixel-core` freezes
+   * `Canvas`/`PixelArt` and their prototypes at module init (Phase 3, `Object.freeze(Canvas)` /
+   * `Object.freeze(Canvas.prototype)` in `canvas.ts`), so an attempted runtime mutation like
+   * `Canvas.prototype.rect = ...` throws immediately under ESM's implicit strict mode instead of
+   * silently succeeding -- and *even if it somehow didn't throw*, `createJobExecutor` spawns a
+   * real, fresh `node` subprocess per job (`runProcess` in `job-executor.ts`, calling
+   * `packages/engine`'s compiled `dist/runner.js`), so any in-memory mutation of a job's own
+   * process dies with that process regardless.
+   *
+   * This submits a real script through the real `Service.submitScript` -> real `Worker` -> real
+   * engine subprocess path (the exact same path `execute_pixel_script` itself calls into, see
+   * `apps/server/src/mcp/server.ts`), attempting exactly that mutation, and asserts:
+   * 1. that job fails with a clear error (proving the freeze throws, not silently no-ops), and
+   * 2. a subsequent, unrelated, legitimate script job submitted to the *same running service
+   *    process* afterwards still succeeds normally -- proving the attempted mutation didn't
+   *    leak into (or otherwise corrupt) any other job, real proof rather than an assertion
+   *    resting only on "different subprocess" reasoning in a comment.
+   */
+  it("a script that tries to mutate Canvas.prototype fails cleanly, and a later unrelated job still succeeds", async () => {
+    const project = service.createProject("Attacker");
+    service.configureAsset(
+      project.id,
+      AssetSpecSchema.parse({ kind: "furniture", name: "Attacker", asset_id: "ATTACKER" }),
+    );
+    const maliciousScript = [
+      'import { Canvas, PixelArt } from "@pixel-art-mcp/pixel-core";',
+      "",
+      "export default function main(scene: Scene): void {",
+      '  (Canvas as any).prototype.rect = () => { throw new Error("pwned"); };',
+      '  const art = new PixelArt({ D: "#293039", G: "#f3cf65" }, { 0: [16, 16] });',
+      '  art.layer("body", 0, Canvas.fromRows(["DGDGDGDGDGDGDGDG"].concat(Array(15).fill("DGDGDGDGDGDGDGDG"))));',
+      "  art.save(scene);",
+      "}",
+      "",
+    ].join("\n");
+
+    const attackJob = service.submitScript(
+      project.id,
+      maliciousScript,
+      project.current_revision_id,
+    );
+    const finishedAttack = await service.waitForJob(attackJob.id, 20);
+    expect(finishedAttack.status).toBe("failed");
+    expect(finishedAttack.error).toBeTruthy();
+
+    // The worker loop survived the failed job.
+    expect(service.workerReady).toBe(true);
+
+    // A subsequent, unrelated, legitimate job in the same server process must still succeed
+    // normally -- proving the attempted `Canvas.prototype.rect` mutation left no trace, exactly
+    // as the fresh-subprocess-per-job design guarantees.
+    const laterJob = service.submitScript(
+      project.id,
+      furnitureScript(),
+      finishedAttack.result_revision_id ?? project.current_revision_id,
+    );
+    const finishedLater = await service.waitForJob(laterJob.id, 20);
+    if (finishedLater.status !== "succeeded") {
+      throw new Error(
+        `follow-up job did not succeed: ${finishedLater.status} ${finishedLater.error ?? ""}\n${finishedLater.logs}`,
+      );
+    }
+    expect(finishedLater.status).toBe("succeeded");
+    // The follow-up job's own art must have used the real, still-intact Canvas.rect-derived
+    // fromRows path (this test's furnitureScript doesn't call .rect() directly, but Canvas.rows/
+    // fromRows go through the same frozen prototype) -- a real saved revision with real layers
+    // is the concrete proof the class still behaves normally for later jobs.
+    const project2 = service.getProject(project.id);
+    const revision = project2.revisions.find((r) => r.id === finishedLater.result_revision_id);
+    expect(revision?.summary["pixel_art"]).toBeTruthy();
+  }, 30_000);
 });

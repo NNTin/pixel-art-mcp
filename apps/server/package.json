@@ -29,5 +29,8 @@
     "fastify-type-provider-zod": "^7.0.0",
     "@fastify/multipart": "^10.1.1",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@pixel-art-mcp/engine": "workspace:*"
   }
 }

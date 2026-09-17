@@ -68,6 +68,10 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+    devDependencies:
+      '@pixel-art-mcp/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
 
   apps/web: {}
 

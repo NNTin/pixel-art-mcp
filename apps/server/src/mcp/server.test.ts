@@ -41,10 +41,11 @@ afterEach(async () => {
 });
 
 describe("MCP Streamable HTTP transport", () => {
-  it("advertises verbatim instructions, all 22 tools, and their exact annotations/schemas", async () => {
+  it("advertises verbatim instructions, all 23 tools, and their exact annotations/schemas", async () => {
     const client = new McpTestClient(baseUrl);
     const initialized = await client.initialize();
     expect(initialized["instructions"]).toContain("execute_pixel_script");
+    expect(initialized["instructions"]).toContain("get_pixel_engine_reference");
 
     const listing = await client.request("tools/list", {});
     const tools = listing["tools"] as { name: string; annotations?: Record<string, unknown> }[];
@@ -52,6 +53,7 @@ describe("MCP Streamable HTTP transport", () => {
 
     const expectedNames = [
       "get_capabilities",
+      "get_pixel_engine_reference",
       "get_asset_profile",
       "configure_asset",
       "write_pixel_art",
@@ -79,6 +81,9 @@ describe("MCP Streamable HTTP transport", () => {
     expect(byName.get("execute_pixel_script")?.annotations?.["readOnlyHint"]).toBe(false);
     expect(byName.get("execute_pixel_script")?.annotations?.["destructiveHint"]).toBe(true);
     expect(byName.get("execute_pixel_script")?.annotations?.["openWorldHint"]).toBe(true);
+    expect(byName.get("get_pixel_engine_reference")?.annotations?.["readOnlyHint"]).toBe(true);
+    expect(byName.get("get_pixel_engine_reference")?.annotations?.["destructiveHint"]).toBe(false);
+    expect(byName.get("get_pixel_engine_reference")?.annotations?.["openWorldHint"]).toBe(false);
     expect(byName.get("inspect_scene")?.annotations?.["readOnlyHint"]).toBe(true);
     expect(byName.get("wait_for_job")?.annotations?.["readOnlyHint"]).toBe(true);
     expect(byName.get("write_pixel_art")?.annotations?.["destructiveHint"]).toBe(true);
@@ -113,6 +118,17 @@ describe("MCP Streamable HTTP transport", () => {
       inputSchema: { properties: Record<string, { maximum?: number }> };
     };
     expect(chunkTool.inputSchema.properties["length"]?.maximum).toBe(262_144);
+  });
+
+  it("get_pixel_engine_reference returns the real compiled pixel-core API over real JSON-RPC", async () => {
+    const client = new McpTestClient(baseUrl);
+    await client.initialize();
+    const reference = await client.data("get_pixel_engine_reference", {});
+    expect(reference["type_declarations"]).toContain("export declare class Canvas");
+    expect(reference["type_declarations"]).toContain("export declare class PixelArt");
+    expect(Array.isArray(reference["examples"])).toBe(true);
+    expect((reference["examples"] as unknown[]).length).toBeGreaterThan(0);
+    expect(typeof reference["guidance"]).toBe("string");
   });
 
   it("rejects a malformed tool call with isError instead of a transport-level failure", async () => {

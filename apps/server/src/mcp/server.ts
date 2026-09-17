@@ -74,8 +74,27 @@ import { assetPreview, compareInspections, inspectSprite } from "@pixel-art-mcp/
 import { z } from "zod";
 
 import { ArtifactChunkOutputSchema } from "./artifact-chunk-schema.js";
+import { buildEngineReference } from "./engine-reference.js";
 import { INSTRUCTIONS, TOOL_DESCRIPTIONS } from "./instructions.js";
 import { boundedInt, nullableUuidParam, uuidParam } from "./params.js";
+
+/**
+ * `get_pixel_engine_reference`'s advertised description. Unlike every other tool's description
+ * (`./instructions.ts`'s `TOOL_DESCRIPTIONS`, a byte-for-byte port of the Python source's
+ * docstrings), this tool has no Python counterpart to port from -- it's new functionality this
+ * phase adds (see `docs/typescript-rewrite.md`, "New tools") -- so its description is hand-written
+ * here, in the same terse-directive-then-prose style the ported ones use, rather than living in
+ * `TOOL_DESCRIPTIONS`'s "verbatim probe dump, do not hand-edit" constant.
+ */
+const GET_PIXEL_ENGINE_REFERENCE_DESCRIPTION = `Read first before execute_pixel_script: the real Canvas/PixelArt API plus worked examples.
+
+Returns type_declarations extracted directly from @pixel-art-mcp/pixel-core's own compiled
+.d.ts output (never hand-transcribed prose that can drift out of sync with the real classes), a
+set of complete, directly submittable execute_pixel_script example bodies, and hand-written
+guidance covering palette/view/layer rules plus the frozen-prototype safety property: mutating
+Canvas/PixelArt at runtime throws immediately and, even if it didn't, would affect only that one
+job's own OS process. Takes no arguments -- this is a static API reference, not per-project
+state.`;
 
 const READ: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
 const WRITE: ToolAnnotations = {
@@ -128,6 +147,12 @@ export function createMcpServer(service: Service): McpServer {
     "get_capabilities",
     { description: TOOL_DESCRIPTIONS.get_capabilities, annotations: READ },
     () => jsonResult(service.capabilities()),
+  );
+
+  server.registerTool(
+    "get_pixel_engine_reference",
+    { description: GET_PIXEL_ENGINE_REFERENCE_DESCRIPTION, annotations: READ },
+    () => jsonResult(buildEngineReference()),
   );
 
   server.registerTool(
