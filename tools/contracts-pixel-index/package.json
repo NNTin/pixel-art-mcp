@@ -14,6 +14,13 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify": "node dist/verify.js",
+    "generate-status-site": "node dist/generate-status-site.js"
+  },
+  "dependencies": {
+    "@pixel-art-mcp/imaging": "workspace:*",
+    "@pixel-art-mcp/schema": "workspace:*",
+    "ajv": "^8.17.1"
   }
 }

@@ -226,7 +226,17 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
-  tools/contracts-pixel-index: {}
+  tools/contracts-pixel-index:
+    dependencies:
+      '@pixel-art-mcp/imaging':
+        specifier: workspace:*
+        version: link:../../packages/imaging
+      '@pixel-art-mcp/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      ajv:
+        specifier: ^8.17.1
+        version: 8.20.0
 
 packages:
 
