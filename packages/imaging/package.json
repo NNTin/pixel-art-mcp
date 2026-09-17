@@ -18,6 +18,12 @@
   },
   "dependencies": {
     "@pixel-art-mcp/schema": "workspace:*",
-    "@pixel-art-mcp/pixel-core": "workspace:*"
+    "@pixel-art-mcp/pixel-core": "workspace:*",
+    "fflate": "^0.8.3",
+    "gifenc": "^1.0.3",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5"
   }
 }
