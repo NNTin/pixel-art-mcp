@@ -1,0 +1,43 @@
+{
+  "cases": [
+    {
+      "name": "valid clip",
+      "status": "valid",
+      "input": {
+        "frames": [
+          1,
+          2,
+          3
+        ]
+      },
+      "output": {
+        "schema_version": 1,
+        "frames": [
+          1,
+          2,
+          3
+        ],
+        "name": null,
+        "off_frame": null
+      }
+    },
+    {
+      "name": "frame out of range",
+      "status": "invalid",
+      "input": {
+        "frames": [
+          100001
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Source frames must be between 0 and 100000",
+          "loc": [
+            "frames"
+          ],
+          "type": "value_error"
+        }
+      ]
+    }
+  ]
+}

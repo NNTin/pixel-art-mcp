@@ -1,0 +1,908 @@
+{
+  "cases": [
+    {
+      "name": "valid defaults",
+      "status": "valid",
+      "input": {},
+      "output": {
+        "schema_version": 1,
+        "asset": null,
+        "asset_configuration_id": null,
+        "frame_sequence": null,
+        "asset_layouts": null,
+        "states": null,
+        "tile_width": 1,
+        "tile_height": 1,
+        "width": 16,
+        "height": 16,
+        "angles": [
+          0.0,
+          90.0,
+          180.0,
+          270.0
+        ],
+        "frame_start": 1,
+        "frame_end": 1,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 32,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.1,
+        "meters_per_tile": 1.0,
+        "pixel_agents": null,
+        "character": null,
+        "pet": null
+      }
+    },
+    {
+      "name": "tile_width derives width",
+      "status": "valid",
+      "input": {
+        "tile_width": 2
+      },
+      "output": {
+        "schema_version": 1,
+        "asset": null,
+        "asset_configuration_id": null,
+        "frame_sequence": null,
+        "asset_layouts": null,
+        "states": null,
+        "tile_width": 2,
+        "tile_height": 1,
+        "width": 32,
+        "height": 16,
+        "angles": [
+          0.0,
+          90.0,
+          180.0,
+          270.0
+        ],
+        "frame_start": 1,
+        "frame_end": 1,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 32,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.1,
+        "meters_per_tile": 1.0,
+        "pixel_agents": null,
+        "character": null,
+        "pet": null
+      }
+    },
+    {
+      "name": "explicit width wins over tile_width",
+      "status": "valid",
+      "input": {
+        "tile_width": 2,
+        "width": 48
+      },
+      "output": {
+        "schema_version": 1,
+        "asset": null,
+        "asset_configuration_id": null,
+        "frame_sequence": null,
+        "asset_layouts": null,
+        "states": null,
+        "tile_width": 2,
+        "tile_height": 1,
+        "width": 48,
+        "height": 16,
+        "angles": [
+          0.0,
+          90.0,
+          180.0,
+          270.0
+        ],
+        "frame_start": 1,
+        "frame_end": 1,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 32,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.1,
+        "meters_per_tile": 1.0,
+        "pixel_agents": null,
+        "character": null,
+        "pet": null
+      }
+    },
+    {
+      "name": "angles distinct modulo 360",
+      "status": "invalid",
+      "input": {
+        "angles": [
+          10,
+          370
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Angles must be distinct modulo 360",
+          "loc": [
+            "angles"
+          ],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "palette invalid hex",
+      "status": "invalid",
+      "input": {
+        "palette": [
+          "#zzzzzz",
+          "#ffffff"
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Palette colors must be #RRGGBB",
+          "loc": [
+            "palette"
+          ],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "palette duplicate",
+      "status": "invalid",
+      "input": {
+        "palette": [
+          "#ffffff",
+          "#FFFFFF"
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Palette colors must be distinct",
+          "loc": [
+            "palette"
+          ],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "frame_end before frame_start",
+      "status": "invalid",
+      "input": {
+        "frame_start": 5,
+        "frame_end": 1
+      },
+      "errors": [
+        {
+          "msg": "Value error, frame_end must be >= frame_start",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "duplicate state ids",
+      "status": "invalid",
+      "input": {
+        "states": [
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 3
+          },
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 4,
+            "frame_end": 6
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, State IDs must be distinct",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "more than one export target",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "X"
+        },
+        "character": {
+          "asset_id": "Y",
+          "name": "Y"
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, Only one of pixel_agents/character/pet may be set per render",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "character export forbids states",
+      "status": "invalid",
+      "input": {
+        "character": {
+          "asset_id": "K",
+          "name": "Knight"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 16,
+        "height": 32,
+        "frame_start": 1,
+        "frame_end": 7,
+        "states": [
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 3
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, character export does not support named states",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "character export requires cardinal angles",
+      "status": "invalid",
+      "input": {
+        "character": {
+          "asset_id": "K",
+          "name": "Knight"
+        },
+        "angles": [
+          0,
+          90
+        ],
+        "width": 16,
+        "height": 32,
+        "frame_start": 1,
+        "frame_end": 7
+      },
+      "errors": [
+        {
+          "msg": "Value error, character export requires angles={0,90,180} (down/up/right)",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "character export requires 16x32",
+      "status": "invalid",
+      "input": {
+        "character": {
+          "asset_id": "K",
+          "name": "Knight"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 32,
+        "height": 32,
+        "frame_start": 1,
+        "frame_end": 7
+      },
+      "errors": [
+        {
+          "msg": "Value error, character export requires width=16, height=32",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "character export requires exactly 7 frames",
+      "status": "invalid",
+      "input": {
+        "character": {
+          "asset_id": "K",
+          "name": "Knight"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 16,
+        "height": 32,
+        "frame_start": 1,
+        "frame_end": 6
+      },
+      "errors": [
+        {
+          "msg": "Value error, character export requires exactly 7 frames",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "valid character export",
+      "status": "valid",
+      "input": {
+        "character": {
+          "asset_id": "K",
+          "name": "Knight"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 16,
+        "height": 32,
+        "frame_start": 1,
+        "frame_end": 7
+      },
+      "output": {
+        "schema_version": 1,
+        "asset": null,
+        "asset_configuration_id": null,
+        "frame_sequence": null,
+        "asset_layouts": null,
+        "states": null,
+        "tile_width": 1,
+        "tile_height": 1,
+        "width": 16,
+        "height": 32,
+        "angles": [
+          0.0,
+          90.0,
+          180.0
+        ],
+        "frame_start": 1,
+        "frame_end": 7,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 32,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.1,
+        "meters_per_tile": 1.0,
+        "pixel_agents": null,
+        "character": {
+          "schema_version": 1,
+          "asset_id": "K",
+          "name": "Knight"
+        },
+        "pet": null
+      }
+    },
+    {
+      "name": "pet export requires cardinal angles",
+      "status": "invalid",
+      "input": {
+        "pet": {
+          "asset_id": "P",
+          "name": "Pet"
+        },
+        "angles": [
+          0,
+          90
+        ],
+        "width": 16,
+        "height": 32,
+        "states": [
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 3
+          },
+          {
+            "id": "idle",
+            "name": "idle",
+            "frame_start": 4,
+            "frame_end": 6
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, pet export requires angles={0,90,180} (down/up/right)",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pet export requires 16x32",
+      "status": "invalid",
+      "input": {
+        "pet": {
+          "asset_id": "P",
+          "name": "Pet"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 32,
+        "height": 32,
+        "states": [
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 3
+          },
+          {
+            "id": "idle",
+            "name": "idle",
+            "frame_start": 4,
+            "frame_end": 6
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, pet export requires width=16, height=32 (the down/up canvas; right is doubled automatically)",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pet export requires walk+idle states",
+      "status": "invalid",
+      "input": {
+        "pet": {
+          "asset_id": "P",
+          "name": "Pet"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 16,
+        "height": 32,
+        "states": [
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 3
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, pet export requires exactly two states: 'walk' and 'idle'",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pet state requires exactly 3 frames",
+      "status": "invalid",
+      "input": {
+        "pet": {
+          "asset_id": "P",
+          "name": "Pet"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 16,
+        "height": 32,
+        "states": [
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 2
+          },
+          {
+            "id": "idle",
+            "name": "idle",
+            "frame_start": 4,
+            "frame_end": 6
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, pet 'walk' state requires exactly 3 frames",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pet states forbid off_frame",
+      "status": "invalid",
+      "input": {
+        "pet": {
+          "asset_id": "P",
+          "name": "Pet"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 16,
+        "height": 32,
+        "states": [
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 3,
+            "off_frame": 9
+          },
+          {
+            "id": "idle",
+            "name": "idle",
+            "frame_start": 4,
+            "frame_end": 6
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, pet states do not use off_frame",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "valid pet export",
+      "status": "valid",
+      "input": {
+        "pet": {
+          "asset_id": "P",
+          "name": "Pet"
+        },
+        "angles": [
+          0,
+          90,
+          180
+        ],
+        "width": 16,
+        "height": 32,
+        "states": [
+          {
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 3
+          },
+          {
+            "id": "idle",
+            "name": "idle",
+            "frame_start": 4,
+            "frame_end": 6
+          }
+        ]
+      },
+      "output": {
+        "schema_version": 1,
+        "asset": null,
+        "asset_configuration_id": null,
+        "frame_sequence": null,
+        "asset_layouts": null,
+        "states": [
+          {
+            "schema_version": 1,
+            "id": "walk",
+            "name": "walk",
+            "frame_start": 1,
+            "frame_end": 3,
+            "frame_step": 1,
+            "off_frame": null
+          },
+          {
+            "schema_version": 1,
+            "id": "idle",
+            "name": "idle",
+            "frame_start": 4,
+            "frame_end": 6,
+            "frame_step": 1,
+            "off_frame": null
+          }
+        ],
+        "tile_width": 1,
+        "tile_height": 1,
+        "width": 16,
+        "height": 32,
+        "angles": [
+          0.0,
+          90.0,
+          180.0
+        ],
+        "frame_start": 1,
+        "frame_end": 1,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 32,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.1,
+        "meters_per_tile": 1.0,
+        "pixel_agents": null,
+        "character": null,
+        "pet": {
+          "schema_version": 1,
+          "asset_id": "P",
+          "name": "Pet"
+        }
+      }
+    },
+    {
+      "name": "pixel_agents requires 5 fps",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "X"
+        },
+        "fps": 10
+      },
+      "errors": [
+        {
+          "msg": "Value error, pixel-agents furniture playback is fixed at 5 fps",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pixel_agents requires cardinal angles",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "X"
+        },
+        "angles": [
+          0,
+          45
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, pixel-agents supports only 0/front, 90/right, 180/back, 270/left",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pixel_agents named states forbid options.off_frame",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "X",
+          "off_frame": 1
+        },
+        "states": [
+          {
+            "id": "empty",
+            "name": "empty",
+            "frame_start": 1,
+            "frame_end": 1
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Use each state's off_frame for named-state exports",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pixel_agents animated state requires off_frame",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "X"
+        },
+        "states": [
+          {
+            "id": "fill",
+            "name": "fill",
+            "frame_start": 1,
+            "frame_end": 3
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Each animated pixel-agents state requires off_frame",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pixel_agents combined asset/state id too long",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "name": "X"
+        },
+        "states": [
+          {
+            "id": "ssssssssssssssssssss",
+            "name": "ssssssssssssssssssss",
+            "frame_start": 1,
+            "frame_end": 1
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Combined pixel-agents asset and state ID exceeds 64 chars",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pixel_agents combined asset/state name too long",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+        },
+        "states": [
+          {
+            "id": "s",
+            "name": "SSSSSSSSSS",
+            "frame_start": 1,
+            "frame_end": 1
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Combined pixel-agents asset and state name exceeds 60 chars",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pixel_agents animation requires off_frame",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "X"
+        },
+        "frame_start": 1,
+        "frame_end": 3
+      },
+      "errors": [
+        {
+          "msg": "Value error, pixel-agents animation requires off_frame for the idle/off state",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "pixel_agents background_tiles vs footprint height",
+      "status": "invalid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "X",
+          "background_tiles": 1
+        },
+        "height": 16
+      },
+      "errors": [
+        {
+          "msg": "Value error, background_tiles must be smaller than the furniture footprint height",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "valid pixel_agents furniture",
+      "status": "valid",
+      "input": {
+        "pixel_agents": {
+          "asset_id": "X",
+          "name": "X",
+          "off_frame": 1
+        },
+        "frame_start": 1,
+        "frame_end": 3
+      },
+      "output": {
+        "schema_version": 1,
+        "asset": null,
+        "asset_configuration_id": null,
+        "frame_sequence": null,
+        "asset_layouts": null,
+        "states": null,
+        "tile_width": 1,
+        "tile_height": 1,
+        "width": 16,
+        "height": 16,
+        "angles": [
+          0.0,
+          90.0,
+          180.0,
+          270.0
+        ],
+        "frame_start": 1,
+        "frame_end": 3,
+        "frame_step": 1,
+        "fps": 5,
+        "colors": 32,
+        "palette": null,
+        "downscale_mode": "crisp",
+        "supersampling": 4,
+        "alpha_threshold": 128,
+        "padding": 0.1,
+        "meters_per_tile": 1.0,
+        "pixel_agents": {
+          "schema_version": 1,
+          "asset_id": "X",
+          "name": "X",
+          "category": "decor",
+          "footprint_w": null,
+          "footprint_h": null,
+          "can_place_on_surfaces": false,
+          "can_place_on_walls": false,
+          "background_tiles": 0,
+          "off_frame": 1
+        },
+        "character": null,
+        "pet": null
+      }
+    }
+  ]
+}

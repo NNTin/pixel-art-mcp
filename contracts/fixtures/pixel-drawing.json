@@ -1,0 +1,181 @@
+{
+  "cases": [
+    {
+      "name": "valid drawing",
+      "status": "valid",
+      "input": {
+        "width": 6,
+        "height": 6,
+        "commands": [
+          {
+            "op": "rect",
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "color": "D"
+          },
+          {
+            "op": "rect",
+            "x": 1,
+            "y": 1,
+            "width": 4,
+            "height": 4,
+            "color": "G"
+          }
+        ]
+      },
+      "output": {
+        "width": 6,
+        "height": 6,
+        "commands": [
+          {
+            "repeat": 1,
+            "dx": 0,
+            "dy": 0,
+            "op": "rect",
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "color": "D"
+          },
+          {
+            "repeat": 1,
+            "dx": 0,
+            "dy": 0,
+            "op": "rect",
+            "x": 1,
+            "y": 1,
+            "width": 4,
+            "height": 4,
+            "color": "G"
+          }
+        ],
+        "mirror_x": false
+      }
+    },
+    {
+      "name": "empty commands",
+      "status": "invalid",
+      "input": {
+        "width": 2,
+        "height": 2,
+        "commands": []
+      },
+      "errors": [
+        {
+          "msg": "List should have at least 1 item after validation, not 0",
+          "loc": [
+            "commands"
+          ],
+          "type": "too_short"
+        }
+      ]
+    },
+    {
+      "name": "unknown discriminator tag",
+      "status": "invalid",
+      "input": {
+        "width": 2,
+        "height": 2,
+        "commands": [
+          {
+            "op": "bogus"
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Input tag 'bogus' found using 'op' does not match any of the expected tags: 'rect', 'line', 'stamp'",
+          "loc": [
+            "commands",
+            0
+          ],
+          "type": "union_tag_invalid"
+        }
+      ]
+    },
+    {
+      "name": "command exceeds patch bounds",
+      "status": "invalid",
+      "input": {
+        "width": 4,
+        "height": 4,
+        "commands": [
+          {
+            "op": "rect",
+            "x": 2,
+            "y": 2,
+            "width": 4,
+            "height": 4,
+            "color": "A"
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, commands[0] rect (including repeats) exceeds 4x4 patch; use smaller coordinates/dimensions",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "drawing exceeds paint-operation budget",
+      "status": "invalid",
+      "input": {
+        "width": 512,
+        "height": 512,
+        "commands": [
+          {
+            "op": "rect",
+            "x": 0,
+            "y": 0,
+            "width": 512,
+            "height": 512,
+            "color": "A",
+            "repeat": 5
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Drawing exceeds 1048576 paint operations; reduce repetition",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "stamp with mismatched row widths",
+      "status": "invalid",
+      "input": {
+        "width": 4,
+        "height": 4,
+        "commands": [
+          {
+            "op": "stamp",
+            "x": 0,
+            "y": 0,
+            "rows": [
+              "AB",
+              "A"
+            ]
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Pixel rows must form a nonempty rectangle. row 1: expected 2, actual 1. Row indices are zero-based; use numeric drawing commands for long shapes.",
+          "loc": [
+            "commands",
+            0,
+            "stamp"
+          ],
+          "type": "value_error"
+        }
+      ]
+    }
+  ]
+}

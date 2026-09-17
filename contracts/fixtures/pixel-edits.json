@@ -1,0 +1,89 @@
+{
+  "cases": [
+    {
+      "name": "valid move_pose",
+      "status": "valid",
+      "input": {
+        "op": "move_pose",
+        "layer": "body",
+        "angle": 0,
+        "frame": null,
+        "x": 1,
+        "y": 2
+      },
+      "output": {
+        "layer": "body",
+        "angle": 0,
+        "frame": null,
+        "op": "move_pose",
+        "x": 1,
+        "y": 2
+      }
+    },
+    {
+      "name": "valid set_palette",
+      "status": "valid",
+      "input": {
+        "op": "set_palette",
+        "palette": {
+          "A": "#000000",
+          "B": "#ffffff"
+        }
+      },
+      "output": {
+        "op": "set_palette",
+        "palette": {
+          "A": "#000000",
+          "B": "#ffffff"
+        }
+      }
+    },
+    {
+      "name": "unknown op discriminator",
+      "status": "invalid",
+      "input": {
+        "op": "bogus",
+        "layer": "body",
+        "angle": 0,
+        "frame": null,
+        "x": 0,
+        "y": 0
+      },
+      "errors": [
+        {
+          "msg": "Input tag 'bogus' found using 'op' does not match any of the expected tags: 'move_pose', 'set_pose', 'delete_pose', 'set_layer', 'delete_layer', 'set_palette'",
+          "loc": [],
+          "type": "union_tag_invalid"
+        }
+      ]
+    },
+    {
+      "name": "valid edits list",
+      "status": "valid",
+      "input": [
+        {
+          "op": "delete_layer",
+          "name": "body"
+        }
+      ],
+      "output": [
+        {
+          "op": "delete_layer",
+          "name": "body"
+        }
+      ]
+    },
+    {
+      "name": "empty edits list",
+      "status": "invalid",
+      "input": [],
+      "errors": [
+        {
+          "msg": "List should have at least 1 item after validation, not 0",
+          "loc": [],
+          "type": "too_short"
+        }
+      ]
+    }
+  ]
+}

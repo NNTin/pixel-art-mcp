@@ -1,0 +1,32 @@
+{
+  "name": "@pixel-art-mcp/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CodeMirror6 + render-pane web IDE (Phase 9): Vite + React, served by apps/server.",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.7.2",
+    "codemirror": "^6.0.2",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lint": "^6.9.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.0"
+  }
+}

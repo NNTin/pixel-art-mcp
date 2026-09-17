@@ -1,0 +1,77 @@
+name: TS Checks
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - run: pnpm lint
+      - run: pnpm format
+      - run: pnpm test
+
+  # Moved from the retired ci.yaml (Phase 11a): already Node-only (no Python involved -- see
+  # scripts/check_mermaid.mjs's own top comment), so nothing here needed porting.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node scripts/check_mermaid.mjs
+
+  # Folded in from the retired ci.yaml's `docker` job (Phase 11a): was `uv sync` + `docker compose
+  # up` + `pytest -m e2e` against the old Python image. Now builds and exercises the pure-Node
+  # image (Dockerfile, also rewritten this phase) instead. All 9 examples in
+  # examples/asset-specs.json (including the 7 that drive `execute_pixel_script`, now with
+  # TypeScript source in examples/*.ts) run through the same tools/generate-examples this phase
+  # ported from scripts/generate_examples.py, covering create_project/configure_asset/
+  # write_pixel_art/edit_pixel_art/render_asset/inspect_asset/inspect_sprite/get_asset_preview/
+  # get_artifact, the multi-clip zip-splitting path, and a real engine-subprocess render, plus a
+  # raw MCP `tools/list` check that all 23 tools are advertised.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pixel-art-mcp/generate-examples build
+      - run: docker compose up --build --wait --wait-timeout 120
+      - name: Generate every example through the real MCP pipeline
+        run: |
+          node tools/generate-examples/dist/index.js \
+            --base-url http://localhost:8000 \
+            --output "${{ runner.temp }}/docker-e2e"
+      - name: Confirm a real MCP tools/list advertises all 23 tools
+        run: |
+          count=$(curl -sS -X POST http://localhost:8000/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -H 'MCP-Protocol-Version: 2025-11-25' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+            | node -e 'let d="";process.stdin.on("data",(c)=>{d+=c});process.stdin.on("end",()=>{console.log(JSON.parse(d).result.tools.length)})')
+          echo "tool count: $count"
+          test "$count" -eq 23
+      - if: always()
+        run: docker compose logs --no-color
+      - if: always()
+        run: docker compose down

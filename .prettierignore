@@ -1,0 +1,22 @@
+# Pre-existing Python-era tree -- out of scope for the new TS monorepo's format gate.
+# NOTE: these must be root-anchored (leading `/`) -- an unanchored `src/` matches every
+# package's own `src/` directory too (e.g. packages/schema/src/), not just this one, which
+# silently made `pnpm format`/`format:write` a no-op for all TypeScript source from Phase 1
+# through Phase 6b before this was caught. See docs/typescript-rewrite.md's phase history.
+docs/*.md
+!docs/typescript-rewrite.md
+docs/investigations/
+/examples/
+/scripts/
+/src/
+/tests/
+/vendor/
+contracts/pixel_index/
+pnpm-lock.yaml
+
+# Build output.
+dist/
+
+# Golden fixture corpus: an exact, byte-for-byte capture of the real Pydantic models' output
+# (see contracts/fixtures/generate_fixtures.py) -- not hand-formatted source.
+contracts/fixtures/*.json

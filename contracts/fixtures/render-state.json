@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "name": "valid state",
+      "status": "valid",
+      "input": {
+        "id": "walk",
+        "name": "walk",
+        "frame_start": 1,
+        "frame_end": 3
+      },
+      "output": {
+        "schema_version": 1,
+        "id": "walk",
+        "name": "walk",
+        "frame_start": 1,
+        "frame_end": 3,
+        "frame_step": 1,
+        "off_frame": null
+      }
+    },
+    {
+      "name": "frame_end before frame_start",
+      "status": "invalid",
+      "input": {
+        "id": "walk",
+        "name": "walk",
+        "frame_start": 5,
+        "frame_end": 1
+      },
+      "errors": [
+        {
+          "msg": "Value error, State frame_end must be >= frame_start",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    }
+  ]
+}
