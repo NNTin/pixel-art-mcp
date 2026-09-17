@@ -14,6 +14,13 @@ name: Update vendored pixel-index
 # additionally judge -- a green publish check here already means "every
 # example still publishes under the new pin", the whole thing this repo's
 # side of the contract cares about.
+#
+# Phase 11a: ported the same way as pixel-index-publish-check.yml (uv/Python ->
+# pnpm + tools/generate-examples's TS port) -- see that workflow's own doc
+# comment for the known gap (7 of 9 examples can't run through
+# execute_pixel_script yet) and the unverified-without-live-infra caveat on
+# publish.ts, both of which apply identically here since this workflow reuses
+# the exact same two commands.
 
 on:
   schedule:
@@ -89,19 +96,32 @@ jobs:
       # ── Everything below only runs when the pin actually moved, so a day
       # with no upstream activity costs one cheap run and opens nothing. ────
 
-      - uses: astral-sh/setup-uv@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         if: steps.candidate.outputs.moved == 'true'
         with:
-          version: "0.9.18"
-          python-version: "3.12"
-      - run: uv sync --frozen
+          version: 11.21.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         if: steps.candidate.outputs.moved == 'true'
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install pixel-art-mcp workspace dependencies
+        if: steps.candidate.outputs.moved == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build tools/generate-examples
+        if: steps.candidate.outputs.moved == 'true'
+        run: pnpm --filter @pixel-art-mcp/generate-examples build
 
       - name: Generate every example through the real MCP pipeline
         if: steps.candidate.outputs.moved == 'true'
         run: |
           docker compose up --build --wait --wait-timeout 120
-          uv run --frozen python scripts/generate_examples.py \
+          node tools/generate-examples/dist/index.js \
             --base-url http://localhost:8000 \
             --output "${{ runner.temp }}/examples-gallery"
       - name: pixel-art-mcp logs
@@ -110,11 +130,6 @@ jobs:
       - name: Stop pixel-art-mcp
         if: always() && steps.candidate.outputs.moved == 'true'
         run: docker compose down
-
-      - uses: actions/setup-node@v4
-        if: steps.candidate.outputs.moved == 'true'
-        with:
-          node-version: "22"
 
       - name: Install pixel-index workspace dependencies (candidate pin)
         if: steps.candidate.outputs.moved == 'true'
@@ -156,7 +171,7 @@ jobs:
         if: steps.candidate.outputs.moved == 'true'
         continue-on-error: true
         run: |
-          uv run --frozen python scripts/publish_examples_to_pixel_index.py \
+          node tools/generate-examples/dist/publish.js \
             --pixel-index-url http://localhost:18080 \
             --examples-dir "${{ runner.temp }}/examples-gallery" \
             --token "${{ steps.token.outputs.token }}" \

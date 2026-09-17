@@ -15,7 +15,8 @@
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run",
-    "generate": "node dist/index.js"
+    "generate": "node dist/index.js",
+    "publish": "node dist/publish.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
