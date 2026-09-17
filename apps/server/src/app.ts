@@ -22,9 +22,23 @@
  * the body ahead of any parser) is Fastify's own `bodyLimit` constructor option, computed with
  * the exact formula `app.py` uses. **Validation-error mapping** (Pydantic's automatic `422`,
  * `DomainError`'s own `status`) is one shared `setErrorHandler` below.
+ *
+ * **`apps/web` static hosting** (Phase 9). `registerWebApiRoutes` (`web-api/routes.ts`) adds the
+ * small, new `/api/*` surface the web IDE needs (script read/submit, job poll/SSE, the engine
+ * reference), and `@fastify/static` serves `apps/web`'s Vite build output from the same origin as
+ * `/mcp` and the REST API -- per the plan doc's "Web UI" section, this avoids CORS entirely rather
+ * than running a second dev server/origin. Registered *after* every API route so Fastify's radix
+ * router prefers an exact API match over the static plugin's wildcard fallback; if the build
+ * output doesn't exist (e.g. `apps/web` hasn't been built yet in this checkout), registration is
+ * skipped with a log warning instead of throwing, so the MCP/REST surfaces still work standalone.
  */
 
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import fastifyMultipart from "@fastify/multipart";
+import fastifyStatic from "@fastify/static";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { DomainError } from "@pixel-art-mcp/schema";
@@ -42,6 +56,16 @@ import { createMcpServer } from "./mcp/server.js";
 import { registerRestRoutes } from "./rest/routes.js";
 import { registerSecurityHooks } from "./security.js";
 import type { Settings } from "./settings.js";
+import { registerWebApiRoutes } from "./web-api/routes.js";
+
+/** `apps/web`'s Vite build output directory, located relative to this module's own directory
+ * (`apps/server/src` under vitest, `apps/server/dist` in a real build -- both are direct children
+ * of `apps/server`, so the relative hop up to `apps/web/dist` is identical either way, the same
+ * technique `mcp/engine-reference.ts` and `service/src/job-executor.ts` use for their own
+ * cross-package filesystem lookups). */
+function webDistDir(): string {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+}
 
 /** Verbatim port of `app.py`'s `max_bytes` formula for `RequestBoundary`'s pre-parse body cap:
  * base64-inflated upload bound (`4 * ceil(max_upload_bytes / 3)`) plus the script size limit
@@ -97,6 +121,14 @@ export function buildApp(service: Service, settings: Settings): FastifyInstance 
   });
 
   registerRestRoutes(app, service);
+  registerWebApiRoutes(app, service);
+
+  const distDir = webDistDir();
+  if (fs.existsSync(distDir)) {
+    void app.register(fastifyStatic, { root: distDir, prefix: "/", index: ["index.html"] });
+  } else {
+    app.log.warn(`apps/web build output not found at ${distDir}; static hosting disabled`);
+  }
 
   app.all("/mcp", async (request, reply) => {
     reply.hijack();

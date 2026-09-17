@@ -1,8 +1,27 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist"
+    // Deliberate departure from `tsconfig.base.json`'s `module`/`moduleResolution`/`lib` (per
+    // the phase brief: "tsconfig.base.json's settings apply to apps/web's own source; Vite/React
+    // tooling may need its own bundler-facing tsconfig -- that's normal and fine, just keep the
+    // app code itself strict"). Every other strict flag (`strict`, `noUncheckedIndexedAccess`,
+    // `noImplicitOverride`, `noPropertyAccessFromIndexSignature`, ...) is inherited unchanged.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "allowImportingTsExtensions": false
+    // This project isn't built through `tsc -b` (Vite/esbuild does the real emit; see
+    // `package.json`'s `build`/`typecheck` scripts) so it's deliberately left out of the root
+    // `tsconfig.json`'s project-reference graph -- `composite: false` here matches that. No
+    // `rootDir`: with `noEmit: true` it isn't needed, and this program spans `src/` plus a few
+    // top-level tooling configs (`vite.config.ts`, `playwright.config.ts`, `e2e/`).
   },
-  "include": ["src"]
+  "include": ["src", "e2e", "vite.config.ts", "playwright.config.ts"]
 }

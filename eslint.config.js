@@ -12,7 +12,14 @@ export default defineConfig([
     ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", "scripts/**"],
   },
   {
-    files: ["packages/**/*.ts", "apps/**/*.ts", "tools/**/*.ts", "*.config.js", "*.config.ts"],
+    files: [
+      "packages/**/*.ts",
+      "apps/**/*.ts",
+      "apps/**/*.tsx",
+      "tools/**/*.ts",
+      "*.config.js",
+      "*.config.ts",
+    ],
     extends: [
       js.configs.recommended,
       tseslint.configs.strictTypeChecked,
