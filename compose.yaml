@@ -25,6 +25,15 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=512m,mode=1777
+      # `packages/engine/src/script-runtime.ts`'s TS-compile sandbox deliberately writes each
+      # submitted script's scratch `.mts`/compiled `.mjs` files *inside this package's own
+      # directory tree* (not /tmp), specifically so Node's ordinary node_modules walk-up finds
+      # `@pixel-art-mcp/pixel-core` without a custom module resolver -- see that file's own top
+      # comment. `read_only: true` makes the rest of /app read-only, so this one path needs its
+      # own writable tmpfs mount (same mode as /tmp above) or every execute_pixel_script job
+      # fails with `mkdir ENOENT`/EROFS the instant it tries to write its scratch files. Found by
+      # a real CI Docker e2e run failing on every script-based example.
+      - /app/packages/engine/.script-scratch:size=256m,mode=1777
     cap_drop:
       - ALL
     security_opt:
