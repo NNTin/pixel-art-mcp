@@ -8,3 +8,31 @@ __pycache__
 data
 dist
 build
+node_modules
+# `tsc -b`'s own incremental-build cache. Left uncopied for the same reason `dist` is: a stale
+# `*.tsbuildinfo` from the host (this repo's own `.gitignore` already keeps it untracked, but
+# .dockerignore is a separate allowlist) makes `tsc -b` trust old build-completeness bookkeeping
+# and skip emitting `dist/` entirely even though none exists in the build context -- caught by
+# actually running this exact `pnpm install && pnpm -r build` sequence against a copy of the real
+# build context during this phase's verification: every package's `dist/` came up missing.
+*.tsbuildinfo
+
+# Node-only image (Phase 11a): everything below is the pre-cutover Python source tree, its own
+# tooling, or docs/fixtures the running apps/server never reads at build- or run-time. Excluded
+# from the build context entirely -- not deleted from the repo (that's a separate, later, gated
+# step) -- so this Dockerfile can never accidentally package Python into the image. Every
+# pnpm-workspace member (packages/*, apps/*, tools/*) is deliberately left out of this list: the
+# lockfile is workspace-aware, so pruning an actual workspace package out of the build context
+# would break `pnpm install --frozen-lockfile`. Packages not needed at runtime (tools/*) are
+# instead removed from the build stage's own filesystem *after* `pnpm -r build`, in the Dockerfile
+# itself -- see its comments.
+/src
+/tests
+/examples
+/contracts/pixel_index
+/vendor
+/docs
+/scripts
+/.github
+pyproject.toml
+uv.lock
