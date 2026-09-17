@@ -4,3 +4,5 @@ packages:
   - "tools/*"
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - fastify@5.12.5
