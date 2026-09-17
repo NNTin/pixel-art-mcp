@@ -49,8 +49,15 @@ FROM node:22.23.1-bookworm-slim
 # ca-certificates: outbound HTTPS reference-image fetches (`packages/service/src/references.ts`'s
 # SSRF-safe fetch) need a real CA trust store to validate the remote server's certificate, same as
 # the Python image's own `ca-certificates` install (undici, like httpx, doesn't bundle one).
+#
+# procps: `packages/jobs/src/process.ts`'s `stopProcess` (the `tree-kill`-based port of Python's
+# `os.killpg`) shells out to the `ps` binary on Linux to walk a job's process tree, even after
+# the child has already exited normally -- `os.killpg` needed no external binary since it's a
+# syscall, but `tree-kill` does. Without this, every job (including ones that succeed) crashes
+# the whole server with an unhandled `spawn ps ENOENT` error the moment its cleanup runs,
+# discovered via a real CI Docker e2e run failing on the very first example.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates procps \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
