@@ -20,6 +20,9 @@
     },
     {
       "path": "../../packages/pixel-core"
+    },
+    {
+      "path": "../../packages/engine"
     }
   ]
 }

@@ -126,6 +126,9 @@ importers:
 
   packages/service:
     dependencies:
+      '@pixel-art-mcp/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@pixel-art-mcp/imaging':
         specifier: workspace:*
         version: link:../imaging

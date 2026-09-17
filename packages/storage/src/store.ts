@@ -118,6 +118,18 @@ export class Store {
   }
 
   /**
+   * Public transaction wrapper (Phase 6b integration-boundary addition): `packages/service`'s
+   * `addReference` needs to atomically write multiple records (three artifacts plus one
+   * reference) together, exactly like Python's `Store.transaction()` context manager does when
+   * `projects/service.py` calls it directly. The private `transaction()` above already has all
+   * the reentrancy-guard behavior this needs -- this just gives an outside caller a way to reach
+   * it via a callback instead of a context manager, without exposing the raw `DatabaseSync`.
+   */
+  runInTransaction<T>(fn: () => T): T {
+    return this.transaction(() => fn());
+  }
+
+  /**
    * Resolves `relative` against `root` and rejects anything that would escape it (traversal, or
    * a symlink whose target resolves outside `root`) with the same `DomainError` Python raises.
    */

@@ -22,6 +22,7 @@
     "@pixel-art-mcp/jobs": "workspace:*",
     "@pixel-art-mcp/imaging": "workspace:*",
     "@pixel-art-mcp/pixel-core": "workspace:*",
+    "@pixel-art-mcp/engine": "workspace:*",
     "ipaddr.js": "^2.5.0",
     "sharp": "^0.35.4",
     "undici": "^8.10.2"
