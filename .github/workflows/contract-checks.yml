@@ -38,10 +38,6 @@ on:
       - "tools/contracts-pixel-index/**"
       - "tools/generate-examples/**"
       - "examples/**"
-      - "src/pixel_art_mcp/models.py"
-      - "src/pixel_art_mcp/imaging/pixel_agents.py"
-      - "src/pixel_art_mcp/imaging/character.py"
-      - "src/pixel_art_mcp/imaging/pet.py"
       - "packages/schema/src/models.ts"
       - "packages/imaging/src/pixel-agents.ts"
       - "packages/imaging/src/character.ts"
@@ -142,17 +138,10 @@ jobs:
     # authors/renders/downloads every one of them through the Dockerized service, the same
     # pipeline docs/game-assets.md documents for local development.
     #
-    # Phase 11a: ported from `uv run python scripts/generate_examples.py` to
-    # `node tools/generate-examples/dist/index.js` (see that package's own top comment for the
-    # full port). **Known, currently-unresolved gap**: 7 of the 9 entries in
-    # examples/asset-specs.json drive `execute_pixel_script` with *Python* source
-    # (examples/*.py); the TS rewrite's `execute_pixel_script` compiles submitted source as
-    # strict TypeScript and cannot run Python, so this step is expected to fail on the first such
-    # example (`candle`) until examples/*.py gets a TypeScript port -- out of scope for the phase
-    # that ported this workflow. This is a real, pre-existing gap from the `execute_pixel_script`
-    # tool's own TS redesign (an earlier phase), not something introduced by this port -- left
-    # here, unmasked, rather than quietly narrowed to only the examples that currently work, so
-    # it stays visible until it's actually fixed.
+    # Ported from `uv run python scripts/generate_examples.py` to
+    # `node tools/generate-examples/dist/index.js` (Phase 11a); every entry in
+    # examples/asset-specs.json now drives `execute_pixel_script` with TypeScript source
+    # (examples/*.ts), so all 9 examples run through this step.
     if: ${{ github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true || github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45

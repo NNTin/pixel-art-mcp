@@ -34,20 +34,13 @@ jobs:
 
   # Folded in from the retired ci.yaml's `docker` job (Phase 11a): was `uv sync` + `docker compose
   # up` + `pytest -m e2e` against the old Python image. Now builds and exercises the pure-Node
-  # image (Dockerfile, also rewritten this phase) instead. The old `pytest -m e2e` suite
-  # (tests/e2e/*.py) drove most of examples/asset-specs.json's entries via `execute_pixel_script`
-  # with the *Python* source in examples/*.py -- the TS rewrite's `execute_pixel_script` compiles
-  # submitted source as strict TypeScript and cannot run that Python, so that suite can't be
-  # ported as-is (see tools/generate-examples/src/index.ts's own top comment for the full
-  # breakdown: 7 of 9 examples are blocked on this). This job's e2e coverage is therefore real but
-  # narrower than the old one: it drives the two examples that don't need `execute_pixel_script`
-  # (thermometer, cat-tree -- covering create_project/configure_asset/write_pixel_art/
-  # edit_pixel_art/render_asset/inspect_asset/inspect_sprite/get_asset_preview/get_artifact, the
-  # multi-clip zip-splitting path, and a real engine-subprocess render) through the same
-  # tools/generate-examples this phase ported from scripts/generate_examples.py, plus a raw MCP
-  # `tools/list` check that all 23 tools are advertised. Full example-gallery parity depends on
-  # porting examples/*.py to TypeScript, which is out of scope for this phase (flagged in this
-  # phase's report for the orchestrating session, ahead of any Python source deletion).
+  # image (Dockerfile, also rewritten this phase) instead. All 9 examples in
+  # examples/asset-specs.json (including the 7 that drive `execute_pixel_script`, now with
+  # TypeScript source in examples/*.ts) run through the same tools/generate-examples this phase
+  # ported from scripts/generate_examples.py, covering create_project/configure_asset/
+  # write_pixel_art/edit_pixel_art/render_asset/inspect_asset/inspect_sprite/get_asset_preview/
+  # get_artifact, the multi-clip zip-splitting path, and a real engine-subprocess render, plus a
+  # raw MCP `tools/list` check that all 23 tools are advertised.
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -63,12 +56,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @pixel-art-mcp/generate-examples build
       - run: docker compose up --build --wait --wait-timeout 120
-      - name: Generate the two examples that don't need execute_pixel_script
+      - name: Generate every example through the real MCP pipeline
         run: |
           node tools/generate-examples/dist/index.js \
             --base-url http://localhost:8000 \
-            --output "${{ runner.temp }}/docker-e2e" \
-            --only thermometer cat-tree
+            --output "${{ runner.temp }}/docker-e2e"
       - name: Confirm a real MCP tools/list advertises all 23 tools
         run: |
           count=$(curl -sS -X POST http://localhost:8000/mcp \

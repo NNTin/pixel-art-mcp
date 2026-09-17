@@ -46,18 +46,14 @@ name: Pixel Index Publish Check
 # Phase 11a: the "generate every example through MCP" and "publish every
 # example" steps below were ported from
 # `uv run python scripts/generate_examples.py` / `scripts/publish_examples_to_pixel_index.py`
-# to `node tools/generate-examples/dist/{index,publish}.js`. Same known gap as
-# contract-checks.yml's `generate-examples-gallery` job: 7 of 9 examples in
-# examples/asset-specs.json drive `execute_pixel_script` with Python source
-# that the TS rewrite's `execute_pixel_script` cannot compile, so the
-# "generate every example" step is expected to fail on the first such example
-# until examples/*.py gets a TypeScript port (out of scope for the phase that
-# ported this workflow -- see tools/generate-examples/src/index.ts's top
-# comment). The publish.ts port itself was NOT verified against a real
-# pixel-index instance (none was available outside this workflow's own CI
-# run) -- it's a small, faithful, line-for-line transliteration of the
-# Python original's HTTP POST loop, not new behavior, but that specific
-# claim is unverified locally; see publish.ts's own doc comment.
+# to `node tools/generate-examples/dist/{index,publish}.js`. Every entry in
+# examples/asset-specs.json now drives `execute_pixel_script` with TypeScript
+# source (examples/*.ts), so all 9 examples run through the "generate every
+# example" step. The publish.ts port itself was NOT verified against a real
+# pixel-index instance outside this workflow's own CI run -- it's a small,
+# faithful, line-for-line transliteration of the Python original's HTTP POST
+# loop, not new behavior, but that specific claim is unverified locally; see
+# publish.ts's own doc comment.
 
 on:
   push:
@@ -68,10 +64,10 @@ on:
       - "examples/**"
       - "tools/generate-examples/**"
       - "scripts/ci/mint_pixel_index_token.ts"
-      - "src/pixel_art_mcp/imaging/asset_export.py"
-      - "src/pixel_art_mcp/imaging/pixel_agents.py"
-      - "src/pixel_art_mcp/imaging/character.py"
-      - "src/pixel_art_mcp/imaging/pet.py"
+      - "packages/imaging/src/asset-export.ts"
+      - "packages/imaging/src/pixel-agents.ts"
+      - "packages/imaging/src/character.ts"
+      - "packages/imaging/src/pet.ts"
       - ".github/workflows/pixel-index-publish-check.yml"
   workflow_dispatch:
 

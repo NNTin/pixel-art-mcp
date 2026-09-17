@@ -17,22 +17,16 @@ node_modules
 # build context during this phase's verification: every package's `dist/` came up missing.
 *.tsbuildinfo
 
-# Node-only image (Phase 11a): everything below is the pre-cutover Python source tree, its own
-# tooling, or docs/fixtures the running apps/server never reads at build- or run-time. Excluded
-# from the build context entirely -- not deleted from the repo (that's a separate, later, gated
-# step) -- so this Dockerfile can never accidentally package Python into the image. Every
-# pnpm-workspace member (packages/*, apps/*, tools/*) is deliberately left out of this list: the
-# lockfile is workspace-aware, so pruning an actual workspace package out of the build context
-# would break `pnpm install --frozen-lockfile`. Packages not needed at runtime (tools/*) are
-# instead removed from the build stage's own filesystem *after* `pnpm -r build`, in the Dockerfile
-# itself -- see its comments.
-/src
-/tests
+# Node-only image (Phase 11a; Python source tree removed in the cutover phase that followed):
+# everything below is docs/fixtures/dev tooling the running apps/server never reads at build- or
+# run-time. Excluded from the build context entirely. Every pnpm-workspace member (packages/*,
+# apps/*, tools/*) is deliberately left out of this list: the lockfile is workspace-aware, so
+# pruning an actual workspace package out of the build context would break
+# `pnpm install --frozen-lockfile`. Packages not needed at runtime (tools/*) are instead removed
+# from the build stage's own filesystem *after* `pnpm -r build`, in the Dockerfile itself -- see
+# its comments.
 /examples
-/contracts/pixel_index
 /vendor
 /docs
 /scripts
 /.github
-pyproject.toml
-uv.lock
