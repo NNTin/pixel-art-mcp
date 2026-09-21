@@ -312,7 +312,8 @@ function writeGalleryIndex(output: string): void {
     .map((name) => {
       const exampleDir = path.join(output, name);
       const zipNames = readdirSync(exampleDir).filter((f) => f.endsWith(".zip"));
-      return exampleCardHtml(name, clipLinksHtml(name, zipNames));
+      const animated = statSyncOrNull(path.join(exampleDir, "preview.gif"))?.isFile() === true;
+      return exampleCardHtml(name, clipLinksHtml(name, zipNames), animated);
     })
     .join("");
 

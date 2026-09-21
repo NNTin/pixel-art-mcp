@@ -48,13 +48,16 @@ export function clipLinksHtml(
 /** One gallery card for an example that produced a `preview.html` (i.e. actually finished).
  * Thumbnails `spritesheet.png` (transparent background, present for every example kind) rather
  * than `context.png` (a placement-context render with a deliberately opaque room/floor
- * backdrop) -- the gallery is meant to show the actual exported sprite, not its staged context. */
-export function exampleCardHtml(name: string, clipLinks: string): string {
+ * backdrop) -- the gallery is meant to show the actual exported sprite, not its staged context.
+ * `animated` swaps in the example's transparent `preview.gif` (only written for assets with a
+ * multi-frame clip) so animated assets play in the gallery; static ones keep the spritesheet. */
+export function exampleCardHtml(name: string, clipLinks: string, animated = false): string {
   const n = escapeHtml(name);
+  const image = animated ? "preview.gif" : "spritesheet.png";
   return (
     `<article><h2><a href="${n}/preview.html">${n}</a></h2>` +
     `<a href="${n}/preview.html">` +
-    `<img src="${n}/spritesheet.png" alt="${n} exported sprites"></a>` +
+    `<img src="${n}/${image}" alt="${n} exported sprites"></a>` +
     `<p><a href="${n}/sprites.zip">Download all outputs</a> · ` +
     `<a href="${n}/asset-report.json">Diagnostics</a></p>` +
     clipLinks +

@@ -45,6 +45,12 @@ describe("exampleCardHtml", () => {
     expect(html.endsWith("</article>")).toBe(true);
   });
 
+  it("thumbnails the animated preview.gif when the example has one", () => {
+    const html = exampleCardHtml("oil-lamp", "", true);
+    expect(html).toContain('<img src="oil-lamp/preview.gif"');
+    expect(html).not.toContain("spritesheet.png");
+  });
+
   it("appends the given clip-links fragment before closing the article", () => {
     const html = exampleCardHtml("rain-barrel", "<p>extra</p>");
     expect(html).toContain("<p>extra</p></article>");
