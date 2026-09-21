@@ -4,7 +4,8 @@ name: Contract Checks
 # (issue #8): does the shape of the zips this repo generates still match what those
 # environments accept? No commit is vendored or pinned -- each run asks the live
 # environment which commit it's running and validates against that directly. See
-# docs/contract-testing.md and contracts/pixel_index/.
+# docs/contract-testing.md and tools/contracts-pixel-index/ (a Node/TS port of the checker
+# that used to live at contracts/pixel_index/ -- same CLI flags, same result-document shape).
 #
 # This workflow also owns the repo's one GitHub Pages deployment, so the example asset
 # gallery (issue #15: every example in examples/asset-specs.json goes through the real MCP
@@ -34,14 +35,13 @@ on:
   pull_request:
     paths:
       - "contracts/pixel_index/**"
+      - "tools/contracts-pixel-index/**"
+      - "tools/generate-examples/**"
       - "examples/**"
-      - "scripts/generate_examples.py"
-      - "src/pixel_art_mcp/models.py"
-      - "src/pixel_art_mcp/imaging/pixel_agents.py"
-      - "src/pixel_art_mcp/imaging/character.py"
-      - "src/pixel_art_mcp/imaging/pet.py"
-      - "scripts/generate_examples.py"
-      - "scripts/pixel_index_packaging.py"
+      - "packages/schema/src/models.ts"
+      - "packages/imaging/src/pixel-agents.ts"
+      - "packages/imaging/src/character.ts"
+      - "packages/imaging/src/pet.ts"
       - ".github/workflows/contract-checks.yml"
 
 permissions:
@@ -90,22 +90,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          python-version: "3.12"
+          version: 11.21.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: pip install -r contracts/pixel_index/requirements.txt
+        run: pnpm install --frozen-lockfile
+
+      # tools/contracts-pixel-index is a real workspace package (its own package.json/deps,
+      # not part of the main app's dependency graph -- see docs/typescript-rewrite.md's
+      # "Contract preservation strategy"), so it needs the same `pnpm -r build` the rest of the
+      # monorepo's CI (ts-ci.yaml) uses to produce every package's dist/ via tsc project
+      # references, including the @pixel-art-mcp/imaging and @pixel-art-mcp/schema fixtures
+      # this checker imports directly.
+      - name: Build workspace packages
+        run: pnpm -r build
 
       - name: Run contract check
-        # checks.py imports pixel_art_mcp.imaging.{pixel_agents,pet} to build fixtures
-        # the same way the real exporters do -- see contracts/pixel_index/requirements.txt
-        # for why that's importable from just pillow+pydantic, no full app install needed.
-        env:
-          PYTHONPATH: src
+        # checks.ts imports @pixel-art-mcp/imaging's exportPixelAgents/exportCharacter/
+        # exportPetSheet to build fixtures the same way the real exporters do -- see
+        # tools/contracts-pixel-index/package.json for its (small, standalone) dependency set.
         run: |
-          python -m contracts.pixel_index.verify \
+          node tools/contracts-pixel-index/dist/verify.js \
             --base-url "${{ matrix.base_url }}" \
             --env-name "${{ matrix.name }}" \
             --output-json "${{ runner.temp }}/pixel-index-contract-results/${{ matrix.name }}.json"
@@ -124,6 +137,11 @@ jobs:
     # All examples in examples/asset-specs.json (NNTin/pixel-art-mcp#15): a real MCP client
     # authors/renders/downloads every one of them through the Dockerized service, the same
     # pipeline docs/game-assets.md documents for local development.
+    #
+    # Ported from `uv run python scripts/generate_examples.py` to
+    # `node tools/generate-examples/dist/index.js` (Phase 11a); every entry in
+    # examples/asset-specs.json now drives `execute_pixel_script` with TypeScript source
+    # (examples/*.ts), so all 9 examples run through this step.
     if: ${{ github.ref_name == github.event.repository.default_branch || inputs.bypass_default_branch_check == true || github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -132,18 +150,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: "0.9.18"
-          python-version: "3.12"
+          version: 11.21.0
 
-      - run: uv sync --frozen
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build tools/generate-examples
+        run: pnpm --filter @pixel-art-mcp/generate-examples build
 
       - run: docker compose up --build --wait --wait-timeout 120
 
       - name: Generate every example through MCP
         run: |
-          uv run --frozen python scripts/generate_examples.py \
+          node tools/generate-examples/dist/index.js \
             --base-url http://localhost:8000 \
             --output "${{ runner.temp }}/examples-gallery"
 
@@ -171,10 +199,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          python-version: "3.12"
+          version: 11.21.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm -r build
 
       - name: Download contract results
         uses: actions/download-artifact@v5
@@ -186,7 +226,7 @@ jobs:
       # A failed gallery generation still lets the contract dashboard deploy, just without
       # an updated `examples/` section, rather than resurrecting a stale one or blocking
       # the whole site on it -- the failure is itself visible in the Actions run. Downloaded
-      # before generate_status_site.py runs so it can link to examples/index.html when present.
+      # before generate-status-site.js runs so it can link to examples/index.html when present.
       - name: Download example gallery
         if: ${{ needs.generate-examples-gallery.result == 'success' }}
         uses: actions/download-artifact@v5
@@ -201,7 +241,7 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          python -m contracts.pixel_index.generate_status_site \
+          node tools/contracts-pixel-index/dist/generate-status-site.js \
             --results-dir "$RESULTS_DIR" \
             --output-dir "$OUTPUT_DIR" \
             --repository "${{ github.repository }}" \

@@ -1,0 +1,284 @@
+{
+  "cases": [
+    {
+      "name": "furniture small default",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X"
+      },
+      "status": "ok",
+      "output": [
+        {
+          "angle": 0,
+          "width": 16,
+          "height": 16,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 15,
+          "content_height": 14
+        },
+        {
+          "angle": 90,
+          "width": 16,
+          "height": 16,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 15,
+          "content_height": 14
+        },
+        {
+          "angle": 180,
+          "width": 16,
+          "height": 16,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 15,
+          "content_height": 14
+        },
+        {
+          "angle": 270,
+          "width": 16,
+          "height": 16,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 15,
+          "content_height": 14
+        }
+      ]
+    },
+    {
+      "name": "furniture custom ground tiles",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "prop",
+        "ground_width": 3,
+        "ground_depth": 4,
+        "background_tiles": 1
+      },
+      "status": "ok",
+      "output": [
+        {
+          "angle": 0,
+          "width": 48,
+          "height": 80,
+          "footprint_w": 3,
+          "footprint_h": 5,
+          "ground_width": 3,
+          "ground_depth": 4,
+          "background_tiles": 1,
+          "margin": 1,
+          "bottom": 79,
+          "content_height": 78
+        },
+        {
+          "angle": 90,
+          "width": 64,
+          "height": 64,
+          "footprint_w": 4,
+          "footprint_h": 4,
+          "ground_width": 4,
+          "ground_depth": 3,
+          "background_tiles": 1,
+          "margin": 1,
+          "bottom": 63,
+          "content_height": 62
+        },
+        {
+          "angle": 180,
+          "width": 48,
+          "height": 80,
+          "footprint_w": 3,
+          "footprint_h": 5,
+          "ground_width": 3,
+          "ground_depth": 4,
+          "background_tiles": 1,
+          "margin": 1,
+          "bottom": 79,
+          "content_height": 78
+        },
+        {
+          "angle": 270,
+          "width": 64,
+          "height": 64,
+          "footprint_w": 4,
+          "footprint_h": 4,
+          "ground_width": 4,
+          "ground_depth": 3,
+          "background_tiles": 1,
+          "margin": 1,
+          "bottom": 63,
+          "content_height": 62
+        }
+      ]
+    },
+    {
+      "name": "character default",
+      "input": {
+        "kind": "character",
+        "name": "x"
+      },
+      "status": "ok",
+      "output": [
+        {
+          "angle": 0,
+          "width": 16,
+          "height": 32,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 31,
+          "content_height": 29
+        },
+        {
+          "angle": 180,
+          "width": 16,
+          "height": 32,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 31,
+          "content_height": 29
+        },
+        {
+          "angle": 90,
+          "width": 16,
+          "height": 32,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 31,
+          "content_height": 29
+        }
+      ]
+    },
+    {
+      "name": "pet default",
+      "input": {
+        "kind": "pet",
+        "name": "x",
+        "asset_id": "X"
+      },
+      "status": "ok",
+      "output": [
+        {
+          "angle": 0,
+          "width": 16,
+          "height": 32,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 31,
+          "content_height": 22
+        },
+        {
+          "angle": 180,
+          "width": 16,
+          "height": 32,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 31,
+          "content_height": 22
+        },
+        {
+          "angle": 90,
+          "width": 32,
+          "height": 32,
+          "footprint_w": 1,
+          "footprint_h": 1,
+          "ground_width": 1,
+          "ground_depth": 1,
+          "background_tiles": 0,
+          "margin": 1,
+          "bottom": 31,
+          "content_height": 22
+        }
+      ]
+    },
+    {
+      "name": "width must equal ground_width*16",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "width": 17,
+        "ground_width": 1
+      },
+      "status": "domain_error",
+      "error": "Furniture width must equal ground_width * 16 = 16px; height must be a multiple of 16. Prefer ground_width/ground_depth/background_tiles."
+    },
+    {
+      "name": "height smaller than ground_depth",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "ground_depth": 4,
+        "height": 32
+      },
+      "status": "domain_error",
+      "error": "height=32px cannot include ground_depth=4 tiles; minimum height is 64px. Omit height and set background_tiles for automatic sizing."
+    },
+    {
+      "name": "height conflicts with background_tiles",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "ground_depth": 1,
+        "background_tiles": 1,
+        "height": 48
+      },
+      "status": "domain_error",
+      "error": "height conflicts with background_tiles: expected 32px. Supply tile fields or matching pixel dimensions."
+    },
+    {
+      "name": "rotated canvas exceeds 512px",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "tall",
+        "ground_width": 1,
+        "ground_depth": 16,
+        "background_tiles": 31
+      },
+      "status": "domain_error",
+      "error": "Rotated furniture canvas exceeds 512 pixels"
+    }
+  ]
+}

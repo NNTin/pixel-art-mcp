@@ -1,0 +1,37 @@
+{
+  "name": "@pixel-art-mcp/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fastify app: MCP Streamable HTTP + REST + serves apps/web.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@pixel-art-mcp/schema": "workspace:*",
+    "@pixel-art-mcp/storage": "workspace:*",
+    "@pixel-art-mcp/jobs": "workspace:*",
+    "@pixel-art-mcp/service": "workspace:*",
+    "@pixel-art-mcp/imaging": "workspace:*",
+    "@pixel-art-mcp/pixel-core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "fastify": "^5.12.5",
+    "fastify-type-provider-zod": "^7.0.0",
+    "@fastify/multipart": "^10.1.1",
+    "@fastify/static": "^10.1.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@pixel-art-mcp/engine": "workspace:*"
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "cases": [
+    {
+      "name": "valid rows",
+      "status": "valid",
+      "input": {
+        "angle": 0,
+        "rows": [
+          "DDDDDD",
+          "DGGGGD",
+          "DGDDGD",
+          "DGDDGD",
+          "DGGGGD",
+          "DDDDDD"
+        ],
+        "x": 0,
+        "y": 0
+      },
+      "output": {
+        "angle": 0,
+        "rows": [
+          "DDDDDD",
+          "DGGGGD",
+          "DGDDGD",
+          "DGDDGD",
+          "DGGGGD",
+          "DDDDDD"
+        ],
+        "drawing": null,
+        "frame": null,
+        "x": 0,
+        "y": 0,
+        "min_pixels": 0,
+        "connected": false
+      }
+    },
+    {
+      "name": "valid drawing",
+      "status": "valid",
+      "input": {
+        "angle": 90,
+        "drawing": {
+          "width": 6,
+          "height": 6,
+          "commands": [
+            {
+              "op": "rect",
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "color": "D"
+            },
+            {
+              "op": "rect",
+              "x": 1,
+              "y": 1,
+              "width": 4,
+              "height": 4,
+              "color": "G"
+            }
+          ]
+        }
+      },
+      "output": {
+        "angle": 90,
+        "rows": null,
+        "drawing": {
+          "width": 6,
+          "height": 6,
+          "commands": [
+            {
+              "repeat": 1,
+              "dx": 0,
+              "dy": 0,
+              "op": "rect",
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "color": "D"
+            },
+            {
+              "repeat": 1,
+              "dx": 0,
+              "dy": 0,
+              "op": "rect",
+              "x": 1,
+              "y": 1,
+              "width": 4,
+              "height": 4,
+              "color": "G"
+            }
+          ],
+          "mirror_x": false
+        },
+        "frame": null,
+        "x": 0,
+        "y": 0,
+        "min_pixels": 0,
+        "connected": false
+      }
+    },
+    {
+      "name": "both rows and drawing",
+      "status": "invalid",
+      "input": {
+        "angle": 0,
+        "rows": [
+          "DDDDDD",
+          "DGGGGD",
+          "DGDDGD",
+          "DGDDGD",
+          "DGGGGD",
+          "DDDDDD"
+        ],
+        "drawing": {
+          "width": 6,
+          "height": 6,
+          "commands": [
+            {
+              "op": "rect",
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "color": "D"
+            },
+            {
+              "op": "rect",
+              "x": 1,
+              "y": 1,
+              "width": 4,
+              "height": 4,
+              "color": "G"
+            }
+          ]
+        }
+      },
+      "errors": [
+        {
+          "msg": "Value error, Supply exactly one of rows or drawing",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "neither rows nor drawing",
+      "status": "invalid",
+      "input": {
+        "angle": 0
+      },
+      "errors": [
+        {
+          "msg": "Value error, Supply exactly one of rows or drawing",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "mismatched row widths",
+      "status": "invalid",
+      "input": {
+        "angle": 0,
+        "rows": [
+          "AB",
+          "A",
+          "ABCD"
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Pixel rows must form a nonempty rectangle. row 1: expected 2, actual 1; row 2: expected 2, actual 4. Row indices are zero-based; use numeric drawing commands for long shapes.",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "invalid angle",
+      "status": "invalid",
+      "input": {
+        "angle": 45,
+        "rows": [
+          "A"
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Input should be 0, 90, 180 or 270",
+          "loc": [
+            "angle"
+          ],
+          "type": "literal_error"
+        }
+      ]
+    }
+  ]
+}

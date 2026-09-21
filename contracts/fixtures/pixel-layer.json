@@ -1,0 +1,99 @@
+{
+  "cases": [
+    {
+      "name": "valid distinct poses",
+      "status": "valid",
+      "input": {
+        "name": "body",
+        "poses": [
+          {
+            "angle": 0,
+            "rows": [
+              "A"
+            ]
+          },
+          {
+            "angle": 90,
+            "rows": [
+              "A"
+            ]
+          }
+        ]
+      },
+      "output": {
+        "name": "body",
+        "poses": [
+          {
+            "angle": 0,
+            "rows": [
+              "A"
+            ],
+            "drawing": null,
+            "frame": null,
+            "x": 0,
+            "y": 0,
+            "min_pixels": 0,
+            "connected": false
+          },
+          {
+            "angle": 90,
+            "rows": [
+              "A"
+            ],
+            "drawing": null,
+            "frame": null,
+            "x": 0,
+            "y": 0,
+            "min_pixels": 0,
+            "connected": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate angle/frame poses",
+      "status": "invalid",
+      "input": {
+        "name": "body",
+        "poses": [
+          {
+            "angle": 0,
+            "rows": [
+              "A"
+            ]
+          },
+          {
+            "angle": 0,
+            "rows": [
+              "A"
+            ]
+          }
+        ]
+      },
+      "errors": [
+        {
+          "msg": "Value error, Duplicate (angle, frame) poses in layer body",
+          "loc": [],
+          "type": "value_error"
+        }
+      ]
+    },
+    {
+      "name": "empty poses list",
+      "status": "invalid",
+      "input": {
+        "name": "body",
+        "poses": []
+      },
+      "errors": [
+        {
+          "msg": "List should have at least 1 item after validation, not 0",
+          "loc": [
+            "poses"
+          ],
+          "type": "too_short"
+        }
+      ]
+    }
+  ]
+}

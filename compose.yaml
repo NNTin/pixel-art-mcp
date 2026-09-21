@@ -5,6 +5,11 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
+      # Names and defaults verified against `apps/server/src/settings.ts`'s `Settings` interface
+      # and `DEFAULT_SETTINGS` (Phase 11a) -- the TS port is a 1:1 field-for-field match of the
+      # Python `Settings` fields this file already curated for override (no Blender-era fields
+      # ever existed here to drop; no new HTTP-only field needs a compose override since
+      # `PIXEL_LISTEN_HOST` is baked into the image itself, same as before -- see `Dockerfile`).
       PIXEL_DATA_DIR: /data
       PIXEL_BASE_URL: ${PIXEL_BASE_URL:-http://localhost:8000}
       PIXEL_SCRIPT_TIMEOUT: ${PIXEL_SCRIPT_TIMEOUT:-120}
@@ -20,6 +25,15 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=512m,mode=1777
+      # `packages/engine/src/script-runtime.ts`'s TS-compile sandbox deliberately writes each
+      # submitted script's scratch `.mts`/compiled `.mjs` files *inside this package's own
+      # directory tree* (not /tmp), specifically so Node's ordinary node_modules walk-up finds
+      # `@pixel-art-mcp/pixel-core` without a custom module resolver -- see that file's own top
+      # comment. `read_only: true` makes the rest of /app read-only, so this one path needs its
+      # own writable tmpfs mount (same mode as /tmp above) or every execute_pixel_script job
+      # fails with `mkdir ENOENT`/EROFS the instant it tries to write its scratch files. Found by
+      # a real CI Docker e2e run failing on every script-based example.
+      - /app/packages/engine/.script-scratch:size=256m,mode=1777
     cap_drop:
       - ALL
     security_opt:

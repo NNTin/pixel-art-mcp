@@ -1,0 +1,22 @@
+{
+  "name": "@pixel-art-mcp/schema",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zod port of the authoring/model/asset contract (Pydantic -> Zod).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

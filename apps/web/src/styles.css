@@ -1,0 +1,240 @@
+:root {
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --bg: #1e1f22;
+  --bg-pane: #26282b;
+  --fg: #e6e6e6;
+  --border: #3a3c40;
+  --accent: #4c8bf5;
+  --error: #e5484d;
+  --warning: #f5a623;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-pane);
+}
+
+.app-header h1 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.project-id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #999;
+  flex: 1;
+}
+
+.app-header button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.app-header button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.two-pane {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pane-editor {
+  border-right: 1px solid var(--border);
+}
+
+.editor-container {
+  flex: 1;
+  min-height: 0;
+}
+
+.render-pane {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-row {
+  background: var(--bg-pane);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.status-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.status-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #444;
+}
+
+.status-succeeded {
+  background: #2f6b3a;
+}
+
+.status-failed,
+.status-cancelled {
+  background: var(--error);
+}
+
+.status-running,
+.status-queued {
+  background: var(--warning);
+  color: #222;
+}
+
+.progress-track {
+  margin-top: 6px;
+  height: 4px;
+  background: #3a3c40;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.status-stage {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #aaa;
+}
+
+.job-logs {
+  margin-top: 6px;
+  max-height: 120px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  background: #17181a;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.job-error {
+  margin-top: 6px;
+  color: var(--error);
+  font-size: 12px;
+}
+
+.image-frame {
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-conic-gradient(#2a2b2d 0% 25%, #232426 0% 50%) 50% / 20px 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.rendered-image {
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: pixelated;
+}
+
+.image-placeholder {
+  color: #888;
+  font-size: 13px;
+}
+
+.info-banner {
+  background: #234;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.error-banner {
+  background: #3a1f20;
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.conflict-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #4a3410;
+  border-bottom: 1px solid var(--warning);
+  padding: 6px 16px;
+  font-size: 13px;
+}
+
+.conflict-banner button {
+  background: var(--warning);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.load-error {
+  margin: auto;
+  color: #ccc;
+  font-size: 14px;
+}

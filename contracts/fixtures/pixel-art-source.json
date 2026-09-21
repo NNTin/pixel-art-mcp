@@ -1,0 +1,125 @@
+{
+  "cases": [
+    {
+      "name": "valid source",
+      "status": "valid",
+      "input": {
+        "contract_version": 1,
+        "project_id": "12345678-1234-4123-8123-123456789abc",
+        "revision_id": "12345678-1234-4123-8123-123456789abd",
+        "definition": {
+          "version": 1,
+          "palette": {
+            "D": "#293039",
+            "G": "#f3cf65"
+          },
+          "layers": [
+            {
+              "name": "marker",
+              "poses": [
+                {
+                  "angle": 0,
+                  "rows": [
+                    "D"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "authored_views": {
+          "0": [
+            16,
+            16
+          ]
+        },
+        "configuration_id": null
+      },
+      "output": {
+        "schema_version": 1,
+        "contract_version": 1,
+        "project_id": "12345678-1234-4123-8123-123456789abc",
+        "revision_id": "12345678-1234-4123-8123-123456789abd",
+        "definition": {
+          "version": 1,
+          "palette": {
+            "D": "#293039",
+            "G": "#f3cf65"
+          },
+          "layers": [
+            {
+              "name": "marker",
+              "poses": [
+                {
+                  "angle": 0,
+                  "rows": [
+                    "D"
+                  ],
+                  "drawing": null,
+                  "frame": null,
+                  "x": 0,
+                  "y": 0,
+                  "min_pixels": 0,
+                  "connected": false
+                }
+              ]
+            }
+          ]
+        },
+        "authored_views": {
+          "0": [
+            16,
+            16
+          ]
+        },
+        "configuration_id": null
+      }
+    },
+    {
+      "name": "extra field forbidden",
+      "status": "invalid",
+      "input": {
+        "contract_version": 1,
+        "project_id": "12345678-1234-4123-8123-123456789abc",
+        "revision_id": "12345678-1234-4123-8123-123456789abd",
+        "definition": {
+          "version": 1,
+          "palette": {
+            "D": "#293039",
+            "G": "#f3cf65"
+          },
+          "layers": [
+            {
+              "name": "marker",
+              "poses": [
+                {
+                  "angle": 0,
+                  "rows": [
+                    "D"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "authored_views": {
+          "0": [
+            16,
+            16
+          ]
+        },
+        "configuration_id": null,
+        "bogus": "nope"
+      },
+      "errors": [
+        {
+          "msg": "Extra inputs are not permitted",
+          "loc": [
+            "bogus"
+          ],
+          "type": "extra_forbidden"
+        }
+      ]
+    }
+  ]
+}

@@ -33,14 +33,27 @@ name: Pixel Index Publish Check
 # viable path in (no X-Api-Key issued to this project, and POST /api/v1/assets
 # requires either that or a Bearer session).
 #
-# scripts/publish_examples_to_pixel_index.py does the actual uploading, and
+# tools/generate-examples/src/publish.ts (Phase 11a port of
+# scripts/publish_examples_to_pixel_index.py) does the actual uploading, and
 # also explains and handles the one real, structural mismatch this check
 # found: pixel-art-mcp's multi-clip furniture examples (rain-barrel,
 # thermometer) package every clip's own manifest.json into one zip, but
-# pixel-index accepts at most one manifest.json per upload. See that script's
-# module docstring for the reasoning; short version: each clip becomes its own
+# pixel-index accepts at most one manifest.json per upload. See that module's
+# doc comment for the reasoning; short version: each clip becomes its own
 # separate pixel-index catalog entry, which is the correct shape until/unless
 # pixel-index grows a grouped-variant concept.
+#
+# Phase 11a: the "generate every example through MCP" and "publish every
+# example" steps below were ported from
+# `uv run python scripts/generate_examples.py` / `scripts/publish_examples_to_pixel_index.py`
+# to `node tools/generate-examples/dist/{index,publish}.js`. Every entry in
+# examples/asset-specs.json now drives `execute_pixel_script` with TypeScript
+# source (examples/*.ts), so all 9 examples run through the "generate every
+# example" step. The publish.ts port itself was NOT verified against a real
+# pixel-index instance outside this workflow's own CI run -- it's a small,
+# faithful, line-for-line transliteration of the Python original's HTTP POST
+# loop, not new behavior, but that specific claim is unverified locally; see
+# publish.ts's own doc comment.
 
 on:
   push:
@@ -49,14 +62,12 @@ on:
     paths:
       - "vendor/pixel-index"
       - "examples/**"
-      - "scripts/generate_examples.py"
-      - "scripts/publish_examples_to_pixel_index.py"
-      - "scripts/pixel_index_packaging.py"
+      - "tools/generate-examples/**"
       - "scripts/ci/mint_pixel_index_token.ts"
-      - "src/pixel_art_mcp/imaging/asset_export.py"
-      - "src/pixel_art_mcp/imaging/pixel_agents.py"
-      - "src/pixel_art_mcp/imaging/character.py"
-      - "src/pixel_art_mcp/imaging/pet.py"
+      - "packages/imaging/src/asset-export.ts"
+      - "packages/imaging/src/pixel-agents.ts"
+      - "packages/imaging/src/character.ts"
+      - "packages/imaging/src/pet.ts"
       - ".github/workflows/pixel-index-publish-check.yml"
   workflow_dispatch:
 
@@ -78,16 +89,27 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: astral-sh/setup-uv@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: "0.9.18"
-          python-version: "3.12"
-      - run: uv sync --frozen
+          version: 11.21.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install pixel-art-mcp workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build tools/generate-examples
+        run: pnpm --filter @pixel-art-mcp/generate-examples build
 
       - name: Generate every example through the real MCP pipeline
         run: |
           docker compose up --build --wait --wait-timeout 120
-          uv run --frozen python scripts/generate_examples.py \
+          node tools/generate-examples/dist/index.js \
             --base-url http://localhost:8000 \
             --output "${{ runner.temp }}/examples-gallery"
       - name: pixel-art-mcp logs
@@ -96,10 +118,6 @@ jobs:
       - name: Stop pixel-art-mcp
         if: always()
         run: docker compose down
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
 
       - name: Install pixel-index workspace dependencies
         working-directory: vendor/pixel-index
@@ -130,7 +148,7 @@ jobs:
 
       - name: Publish every example to the running pixel-index
         run: |
-          uv run --frozen python scripts/publish_examples_to_pixel_index.py \
+          node tools/generate-examples/dist/publish.js \
             --pixel-index-url http://localhost:18080 \
             --examples-dir "${{ runner.temp }}/examples-gallery" \
             --token "${{ steps.token.outputs.token }}"

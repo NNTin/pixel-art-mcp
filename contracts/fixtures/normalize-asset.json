@@ -1,0 +1,212 @@
+{
+  "cases": [
+    {
+      "name": "furniture default clips filled in",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X"
+      },
+      "status": "ok",
+      "output": {
+        "schema_version": 1,
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "small",
+        "placement": "floor",
+        "category": "decor",
+        "ground_width": null,
+        "ground_depth": 1,
+        "background_tiles": null,
+        "width": null,
+        "height": null,
+        "clips": {
+          "default": {
+            "schema_version": 1,
+            "frames": [
+              1
+            ],
+            "name": null,
+            "off_frame": null
+          }
+        },
+        "colors": 16,
+        "palette": null,
+        "outline": false,
+        "supersampling": 4
+      }
+    },
+    {
+      "name": "character default clips filled in",
+      "input": {
+        "kind": "character",
+        "name": "x"
+      },
+      "status": "ok",
+      "output": {
+        "schema_version": 1,
+        "kind": "character",
+        "name": "x",
+        "asset_id": null,
+        "preset": "character",
+        "placement": "floor",
+        "category": "decor",
+        "ground_width": null,
+        "ground_depth": 1,
+        "background_tiles": null,
+        "width": null,
+        "height": null,
+        "clips": {
+          "walk": {
+            "schema_version": 1,
+            "frames": [
+              1,
+              2,
+              3
+            ],
+            "name": null,
+            "off_frame": null
+          },
+          "typing": {
+            "schema_version": 1,
+            "frames": [
+              4,
+              5
+            ],
+            "name": null,
+            "off_frame": null
+          },
+          "reading": {
+            "schema_version": 1,
+            "frames": [
+              6,
+              7
+            ],
+            "name": null,
+            "off_frame": null
+          }
+        },
+        "colors": 16,
+        "palette": null,
+        "outline": false,
+        "supersampling": 4
+      }
+    },
+    {
+      "name": "chair preset derives chairs category",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "chair"
+      },
+      "status": "ok",
+      "output": {
+        "schema_version": 1,
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "chair",
+        "placement": "floor",
+        "category": "chairs",
+        "ground_width": null,
+        "ground_depth": 1,
+        "background_tiles": null,
+        "width": null,
+        "height": null,
+        "clips": {
+          "default": {
+            "schema_version": 1,
+            "frames": [
+              1
+            ],
+            "name": null,
+            "off_frame": null
+          }
+        },
+        "colors": 16,
+        "palette": null,
+        "outline": false,
+        "supersampling": 4
+      }
+    },
+    {
+      "name": "desk preset derives desks category",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "desk"
+      },
+      "status": "ok",
+      "output": {
+        "schema_version": 1,
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "desk",
+        "placement": "floor",
+        "category": "desks",
+        "ground_width": null,
+        "ground_depth": 1,
+        "background_tiles": null,
+        "width": null,
+        "height": null,
+        "clips": {
+          "default": {
+            "schema_version": 1,
+            "frames": [
+              1
+            ],
+            "name": null,
+            "off_frame": null
+          }
+        },
+        "colors": 16,
+        "palette": null,
+        "outline": false,
+        "supersampling": 4
+      }
+    },
+    {
+      "name": "explicit category preserved over preset",
+      "input": {
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "chair",
+        "category": "electronics"
+      },
+      "status": "ok",
+      "output": {
+        "schema_version": 1,
+        "kind": "furniture",
+        "name": "x",
+        "asset_id": "X",
+        "preset": "chair",
+        "placement": "floor",
+        "category": "electronics",
+        "ground_width": null,
+        "ground_depth": 1,
+        "background_tiles": null,
+        "width": null,
+        "height": null,
+        "clips": {
+          "default": {
+            "schema_version": 1,
+            "frames": [
+              1
+            ],
+            "name": null,
+            "off_frame": null
+          }
+        },
+        "colors": 16,
+        "palette": null,
+        "outline": false,
+        "supersampling": 4
+      }
+    }
+  ]
+}
